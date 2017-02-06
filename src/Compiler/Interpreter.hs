@@ -7,8 +7,8 @@ import qualified Data.Map      as M
 import           Compiler.Data
 
 execute :: ExecState -> Exec
-execute (ExecState is os vars (var := expr)) = do
-    value <- eval vars expr
+execute (ExecState is os vars stmt@(var := expr)) = do
+    value <- withStmt stmt $ eval vars expr
     return $ ExecState is os (M.insert var value vars) SkipS
 
 execute (ExecState (i:is) os vars (ReadS var)) =
@@ -16,12 +16,12 @@ execute (ExecState (i:is) os vars (ReadS var)) =
 execute (ExecState [] _ _ stmt@(ReadS _)) =
     Left (stmt, "Input unavailable")
 
-execute (ExecState is os vars (WriteS expr)) = do
-    value <- eval vars expr
+execute (ExecState is os vars stmt@(WriteS expr)) = do
+    value <- withStmt stmt $ eval vars expr
     return $ ExecState is (value : os) vars SkipS
 
-execute (ExecState is os vars (IfS cond stmt0 stmt1)) = do
-    cond' <- eval vars cond
+execute (ExecState is os vars stmt@(IfS cond stmt0 stmt1)) = do
+    cond' <- withStmt stmt $ eval vars cond
     -- TODO: scope?
     execute . ExecState is os vars $
         if cond' /= 0 then stmt0 else stmt1

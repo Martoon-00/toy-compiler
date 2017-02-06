@@ -29,7 +29,11 @@ data ExecState = ExecState [Value] [Value] LocalVars Stmt
 type Error = (Stmt, String)
 
 type Exec = Either Error ExecState
-type Calc = Either Error Value
+type Calc = Either String Value
+
+withStmt :: Stmt -> Either String a -> Either Error a
+withStmt stmt (Left e)  = Left (stmt, e)
+withStmt _    (Right r) = Right r
 
 eval :: LocalVars -> Exp -> Calc
 eval _ (ValueE v) = Right v
