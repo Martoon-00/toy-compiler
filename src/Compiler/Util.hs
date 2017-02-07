@@ -20,6 +20,8 @@ asToBool f a b = f (a ^. bool) (b ^. bool) ^. from bool
 binResToBool :: (Int -> Int -> Bool) -> Int -> Int -> Int
 binResToBool f a b = f a b ^. from bool
 
+-- | Like `teaspoon`, but for `ArithException` only and reports details
+-- in case of error
 arithspoon :: a -> Either String a
 arithspoon = fromJust . teaspoonWithHandles [Handler handler] . Right
   where

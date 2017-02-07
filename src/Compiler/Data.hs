@@ -6,13 +6,17 @@ module Compiler.Data where
 import qualified Data.Map    as M
 import           Data.String (IsString (..))
 
+-- | Variable name
 newtype Var = Var String
     deriving (Eq, Ord, Show, IsString)
 
+-- | Expression type
 type Value = Int
 
+-- | Current state of local variables
 type LocalVars = M.Map Var Value
 
+-- | Expression
 data Exp
     = ValueE Value
 
@@ -51,6 +55,7 @@ instance Num Exp where
 instance IsString Exp where
     fromString = VarE . fromString
 
+-- | Statement of a program.
 data Stmt
     = Var := Exp
     | ReadS Var
@@ -62,20 +67,37 @@ data Stmt
     | IntS Int Stmt  -- interrupt, with interrupt code - for debug purposes
     deriving (Eq, Show)
 
-data ExecState = ExecState [Value] [Value] LocalVars Stmt
-    deriving (Eq, Show)
+-- | State of execution
+data ExecState = ExecState
+    { esInputStream  :: [Value]
+      -- ^ represents stdin, extractable by `Read`
+    , esOutputStream :: [Value]
+      -- ^ represents stdout, modifiable by `Write`
+      -- (list header corresponds to current end of output)
+    , esLocalVars    :: LocalVars
+      -- ^ local variables values
+    , esStatement    :: Stmt
+      -- ^ remaining commands to execute
+    } deriving (Eq, Show)
 
+-- | Execution error
 type Error = (Stmt, String)
 
+-- | Result of execution
 type Exec = Either Error ExecState
+
+-- | Result of expression evaluation
 type Calc = Either String Value
 
+-- | Adds current statement info to probable evaluation error
 withStmt :: Stmt -> Either String a -> Either Error a
 withStmt stmt (Left e)  = Left (stmt, e)
 withStmt _    (Right r) = Right r
 
+-- | Execution state at beginning of program and with empty input
 simpleExecState :: Stmt -> ExecState
 simpleExecState = ExecState [] [] M.empty
 
+-- | Interrupt with no continuation
 int :: Int -> Stmt
 int code = IntS code SkipS

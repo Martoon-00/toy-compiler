@@ -18,6 +18,7 @@ import           Compiler.Util (arithspoon, asToBool, binResToBool, bool)
 applyBin :: Exp -> Exp -> (Value -> Value -> Value) -> LocalVars -> Calc
 applyBin a b f = liftM2 f <$> eval a <*> eval b
 
+-- | Evaluate expression in given variables context
 eval :: Exp -> LocalVars -> Calc
 eval (ValueE v) = const $ Right v
 eval (VarE v)   = maybe (Left $ "No variable " ++ show v ++ " defined") Right
@@ -42,6 +43,7 @@ eval (a :<= b)  = applyBin a b $ binResToBool (<=)
 eval (a :== b)  = applyBin a b $ binResToBool (==)
 eval (a :!= b)  = applyBin a b $ binResToBool (/=)
 
+-- | Proceed in given program state, halting at `SkipS` or `IntS` operation.
 executeDebug :: ExecState -> Exec
 executeDebug (ExecState is os vars stmt@(var := expr)) = do
     value <- withStmt stmt $ eval expr vars
@@ -79,6 +81,7 @@ executeDebug exec@(ExecState _ _ _ SkipS) =
 executeDebug exec@(ExecState _ _ _ (IntS _ _)) =
     return exec
 
+-- | Proceed in given program state, halting at `SkipS` operation.
 execute :: ExecState -> Exec
 execute initExecState = do
     exec@(ExecState is os vars stmt) <- executeDebug initExecState
