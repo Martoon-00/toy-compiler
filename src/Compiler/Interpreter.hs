@@ -3,6 +3,7 @@
 module Compiler.Interpreter
     ( eval
     , execute
+    , executeDebug
     ) where
 
 import           Control.Lens  ((%~))
@@ -41,32 +42,46 @@ eval (a :<= b)  = applyBin a b $ binResToBool (<=)
 eval (a :== b)  = applyBin a b $ binResToBool (==)
 eval (a :!= b)  = applyBin a b $ binResToBool (/=)
 
-execute :: ExecState -> Exec
-execute (ExecState is os vars stmt@(var := expr)) = do
+executeDebug :: ExecState -> Exec
+executeDebug (ExecState is os vars stmt@(var := expr)) = do
     value <- withStmt stmt $ eval expr vars
     return $ ExecState is os (M.insert var value vars) SkipS
 
-execute (ExecState (i:is) os vars (ReadS var)) =
+executeDebug (ExecState (i:is) os vars (ReadS var)) =
     Right $ ExecState is os (M.insert var i vars) SkipS
-execute (ExecState [] _ _ stmt@(ReadS _)) =
+executeDebug (ExecState [] _ _ stmt@(ReadS _)) =
     Left (stmt, "Input unavailable")
 
-execute (ExecState is os vars stmt@(WriteS expr)) = do
+executeDebug (ExecState is os vars stmt@(WriteS expr)) = do
     value <- withStmt stmt $ eval expr vars
     return $ ExecState is (value : os) vars SkipS
 
-execute (ExecState is os vars stmt@(IfS cond stmt0 stmt1)) = do
+executeDebug (ExecState is os vars stmt@(IfS cond stmt0 stmt1)) = do
     cond' <- withStmt stmt $ eval cond vars
     -- TODO: scope?
-    execute . ExecState is os vars $
+    executeDebug . ExecState is os vars $
         if cond' /= 0 then stmt0 else stmt1
 
-execute (ExecState is os vars while@(WhileS cond body)) =
-    execute $ ExecState is os vars (IfS cond (SequenceS body while) SkipS)
+executeDebug (ExecState is os vars while@(WhileS cond body)) =
+    executeDebug $ ExecState is os vars (IfS cond (SequenceS body while) SkipS)
 
-execute (ExecState is os vars (SequenceS stmt0 stmt1)) = do
-    ExecState is' os' vars' SkipS <- execute (ExecState is os vars stmt0)
-    execute (ExecState is' os' vars' stmt1)
+executeDebug (ExecState is os vars (SequenceS stmt0 stmt1)) = do
+    ExecState is' os' vars' end <- executeDebug (ExecState is os vars stmt0)
+    case end of
+        SkipS          -> executeDebug (ExecState is' os' vars' stmt1)
+        IntS code cont -> Right $ ExecState is' os' vars' $
+            IntS code $ SequenceS cont stmt1
+        _              -> error "executeDebug: unexpected end operation"
 
-execute exec@(ExecState _ _ _ SkipS) =
+executeDebug exec@(ExecState _ _ _ SkipS) =
     return exec
+
+executeDebug exec@(ExecState _ _ _ (IntS _ _)) =
+    return exec
+
+execute :: ExecState -> Exec
+execute initExecState = do
+    exec@(ExecState is os vars stmt) <- executeDebug initExecState
+    case stmt of
+        IntS _ cont -> execute (ExecState is os vars cont)
+        _           -> Right exec

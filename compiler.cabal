@@ -12,11 +12,27 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Compiler.Interpreter
-  other-modules:       Compiler.Data
-                       Compiler.Util
+                       Compiler.Data
+  other-modules:       Compiler.Util
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , lens
                      , spoon
   ghc-options:         -Wall
   default-language:    Haskell2010
+
+test-suite tests
+  main-is:             Test.hs
+  other-modules:       Spec
+                       Test.Arbitrary
+                       Test.InterpreterSpec
+  type:                exitcode-stdio-1.0
+  build-depends:       base >= 4.7 && < 5
+                     , containers
+                     , compiler
+                     , hspec
+                     , QuickCheck
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  ghc-options:         -threaded -Wall -fno-warn-orphans
+  default-extensions:  OverloadedStrings

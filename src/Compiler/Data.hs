@@ -1,8 +1,13 @@
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Compiler.Data where
 
-import qualified Data.Map as M
+import qualified Data.Map    as M
+import           Data.String (IsString (..))
 
-type Var = String
+newtype Var = Var String
+    deriving (Eq, Ord, Show, IsString)
 
 type Value = Int
 
@@ -33,7 +38,18 @@ data Exp
     | Exp :== Exp
     | Exp :!= Exp
 
-    deriving (Show)
+    deriving (Eq, Show)
+
+instance Num Exp where
+    a + b = a :+ b
+    a - b = a :- b
+    a * b = a :* b
+    abs = undefined
+    signum = undefined
+    fromInteger = ValueE . fromInteger
+
+instance IsString Exp where
+    fromString = VarE . fromString
 
 data Stmt
     = Var := Exp
@@ -43,10 +59,11 @@ data Stmt
     | WhileS Exp Stmt
     | SequenceS Stmt Stmt
     | SkipS
-    deriving (Show)
+    | IntS Int Stmt  -- interrupt, with interrupt code - for debug purposes
+    deriving (Eq, Show)
 
 data ExecState = ExecState [Value] [Value] LocalVars Stmt
-    deriving (Show)
+    deriving (Eq, Show)
 
 type Error = (Stmt, String)
 
@@ -56,3 +73,9 @@ type Calc = Either String Value
 withStmt :: Stmt -> Either String a -> Either Error a
 withStmt stmt (Left e)  = Left (stmt, e)
 withStmt _    (Right r) = Right r
+
+simpleExecState :: Stmt -> ExecState
+simpleExecState = ExecState [] [] M.empty
+
+int :: Int -> Stmt
+int code = IntS code SkipS
