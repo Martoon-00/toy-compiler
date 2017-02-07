@@ -10,7 +10,8 @@ import           Control.Monad (liftM2)
 import           Data.Bits     (xor, (.&.), (.|.))
 import qualified Data.Map      as M
 
-import           Compiler.Data
+import           Compiler.Data (Calc, Exec, ExecState (..), Exp (..), LocalVars,
+                                Stmt (..), Value, withStmt)
 import           Compiler.Util (arithspoon, asToBool, binResToBool, bool)
 
 applyBin :: Exp -> Exp -> (Value -> Value -> Value) -> LocalVars -> Calc
