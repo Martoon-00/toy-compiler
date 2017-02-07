@@ -5,25 +5,16 @@ module Compiler.Interpreter
     , execute
     ) where
 
-import           Control.Lens  (Iso', from, iso, (%~), (^.))
+import           Control.Lens  ((%~))
 import           Control.Monad (liftM2)
-import           Control.Spoon (teaspoon)
 import           Data.Bits     (xor, (.&.), (.|.))
 import qualified Data.Map      as M
 
 import           Compiler.Data
+import           Compiler.Util (arithspoon, asToBool, binResToBool, bool)
 
 applyBin :: Exp -> Exp -> (Value -> Value -> Value) -> LocalVars -> Calc
 applyBin a b f = liftM2 f <$> eval a <*> eval b
-
-bool :: Iso' Int Bool
-bool = iso (/= 0) fromEnum
-
-asToBool :: (Bool -> Bool -> Bool) -> Int -> Int -> Int
-asToBool f a b = f (a ^. bool) (b ^. bool) ^. from bool
-
-binResToBool :: (Int -> Int -> Bool) -> Int -> Int -> Int
-binResToBool f a b = f a b ^. from bool
 
 eval :: Exp -> LocalVars -> Calc
 eval (ValueE v) = const $ Right v
@@ -32,8 +23,8 @@ eval (VarE v)   = maybe (Left $ "No variable " ++ show v ++ " defined") Right
 eval (a :+ b)   = applyBin a b (+)
 eval (a :- b)   = applyBin a b (-)
 eval (a :* b)   = applyBin a b (*)
-eval (a :/ b)   = (maybe (Left "div error") Right . teaspoon =<<) <$> applyBin a b div
-eval (a :% b)   = (maybe (Left "mod error") Right . teaspoon =<<) <$> applyBin a b mod
+eval (a :/ b)   = (arithspoon =<<) <$> applyBin a b div
+eval (a :% b)   = (arithspoon =<<) <$> applyBin a b mod
 
 eval (NotE a)   = fmap (bool %~ not) <$> eval a
 eval (a :&& b)  = applyBin a b $ asToBool (&&)
