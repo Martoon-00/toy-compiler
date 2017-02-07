@@ -5,9 +5,10 @@ module Compiler.Util
     , binResToBool
     ) where
 
+import           Control.DeepSeq   (NFData)
 import           Control.Exception (ArithException, Handler (..))
 import           Control.Lens      (Iso', from, iso, (^.))
-import           Control.Spoon     (teaspoonWithHandles)
+import           Control.Spoon     (spoonWithHandles)
 import           Data.Maybe        (fromJust)
 
 
@@ -22,7 +23,7 @@ binResToBool f a b = f a b ^. from bool
 
 -- | Like `teaspoon`, but for `ArithException` only and reports details
 -- in case of error
-arithspoon :: a -> Either String a
-arithspoon = fromJust . teaspoonWithHandles [Handler handler] . Right
+arithspoon :: NFData a => a -> Either String a
+arithspoon = fromJust . spoonWithHandles [Handler handler] . Right
   where
     handler = return . Just . Left . (show :: ArithException -> String)

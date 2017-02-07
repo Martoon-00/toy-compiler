@@ -67,6 +67,12 @@ data Stmt
     | IntS Int Stmt  -- interrupt, with interrupt code - for debug purposes
     deriving (Eq, Show)
 
+infix 0 :=
+
+instance Monoid Stmt where
+    mempty = SkipS
+    mappend = SequenceS
+
 -- | State of execution
 data ExecState = ExecState
     { esInputStream  :: [Value]
