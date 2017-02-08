@@ -1,10 +1,12 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TupleSections              #-}
 
 module Compiler.Data where
 
-import qualified Data.Map    as M
-import           Data.String (IsString (..))
+import           Control.Lens ((%~), _Left)
+import qualified Data.Map     as M
+import           Data.String  (IsString (..))
 
 -- | Variable name
 newtype Var = Var String
@@ -97,8 +99,7 @@ type Calc = Either String Value
 
 -- | Adds current statement info to probable evaluation error
 withStmt :: Stmt -> Either String a -> Either Error a
-withStmt stmt (Left e)  = Left (stmt, e)
-withStmt _    (Right r) = Right r
+withStmt stmt = _Left %~ (stmt, )
 
 -- | Execution state at beginning of program and with empty input
 simpleExecState :: Stmt -> ExecState
