@@ -108,3 +108,8 @@ simpleExecState = ExecState [] [] M.empty
 -- | Interrupt with no continuation
 int :: Int -> Stmt
 int code = IntS code SkipS
+
+-- | Get input and output streams.
+-- Output stream is in FIFO order
+getIO :: ExecState -> ([Value], [Value])
+getIO (ExecState is os _ _) = (is, os)
