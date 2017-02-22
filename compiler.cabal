@@ -11,9 +11,10 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Compiler.Interpreter
-                       Compiler.Data
-  other-modules:       Compiler.Util
+  exposed-modules:     Toy.Data
+                       Toy.Lang.Data
+                       Toy.Lang.Interpreter
+  other-modules:       Toy.Lang.Util
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , deepseq

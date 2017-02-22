@@ -3,10 +3,10 @@ module Test.Arbitrary where
 import           Control.Monad   (liftM2)
 import qualified Data.Map        as M
 import           Data.String     (fromString)
-import           Test.QuickCheck (Arbitrary (..), choose, frequency, getSmall,
-                                  vector)
+import           Test.QuickCheck (Arbitrary (..), choose, frequency, getSmall, vector)
 
-import           Compiler.Data   (ExecState (..), Exp (..), Stmt (..), Var)
+import           Toy.Data        (Exp (..), Var)
+import           Toy.Lang.Data   (ExecState (..), Stmt (..))
 
 instance Arbitrary Var where
     arbitrary = fromString . pure <$> choose ('a', 'z')
@@ -39,13 +39,13 @@ instance Arbitrary Exp where
 instance Arbitrary Stmt where
     arbitrary = frequency
         [ (3, liftM2 (:=) arbitrary arbitrary)
-        , (2, ReadS <$> arbitrary)
-        , (2, WriteS <$> arbitrary)
-        , (1, IfS <$> arbitrary <*> arbitrary <*> arbitrary)
+        , (2, Read <$> arbitrary)
+        , (2, Write <$> arbitrary)
+        , (1, If <$> arbitrary <*> arbitrary <*> arbitrary)
         -- , WhileS  -- TODO
-        , (4, SequenceS <$> arbitrary <*> arbitrary)
-        , (8, pure SkipS)
-        , (2, IntS <$> arbitrary <*> arbitrary)
+        , (4, Seq <$> arbitrary <*> arbitrary)
+        , (8, pure Skip)
+        , (2, Int <$> arbitrary <*> arbitrary)
         ]
 
 instance Arbitrary ExecState where

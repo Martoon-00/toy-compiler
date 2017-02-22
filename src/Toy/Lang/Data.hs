@@ -2,87 +2,30 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TupleSections              #-}
 
-module Compiler.Data where
+module Toy.Lang.Data where
 
 import           Control.Lens ((%~), _Left)
 import qualified Data.Map     as M
-import           Data.String  (IsString (..))
 
--- | Variable name
-newtype Var = Var String
-    deriving (Eq, Ord, Show, IsString)
-
--- | Expression type
-type Value = Int
-
--- | Current state of local variables
-type LocalVars = M.Map Var Value
-
--- | Expression
-data Exp
-    = ValueE Value
-
-    | VarE Var
-
-    | Exp :+ Exp
-    | Exp :- Exp
-    | Exp :* Exp
-    | Exp :/ Exp
-    | Exp :% Exp
-
-    | NotE Exp
-    | Exp :&& Exp
-    | Exp :|| Exp
-    | Exp :^ Exp
-    | Exp :& Exp
-    | Exp :| Exp
-
-    | Exp :> Exp
-    | Exp :< Exp
-    | Exp :>= Exp
-    | Exp :<= Exp
-    | Exp :== Exp
-    | Exp :!= Exp
-
-    deriving (Eq, Show)
-
-instance Num Exp where
-    a + b = a :+ b
-    a - b = a :- b
-    a * b = a :* b
-    abs = undefined
-    signum = undefined
-    fromInteger = ValueE . fromInteger
-
-instance IsString Exp where
-    fromString = VarE . fromString
+import           Toy.Data     (Exp (..), LocalVars, Value, Var)
 
 -- | Statement of a program.
 data Stmt
     = Var := Exp
-    | ReadS Var
-    | WriteS Exp
-    | IfS Exp Stmt Stmt
-    | WhileS Exp Stmt
-    | SequenceS Stmt Stmt
-    | SkipS
-    | IntS Int Stmt  -- interrupt, with interrupt code - for debug purposes
+    | Read Var
+    | Write Exp
+    | If Exp Stmt Stmt
+    | While Exp Stmt
+    | Seq Stmt Stmt
+    | Skip
+    | Int Int Stmt  -- interrupt, with interrupt code - for debug purposes
     deriving (Eq, Show)
 
 infix 0 :=
 
 instance Monoid Stmt where
-    mempty = SkipS
-    mappend = SequenceS
-
-data Inst
-    = Read
-    | Write
-    | Load Var
-    | Store Var
-    | Push Value
-    | Bin
-    | Nop
+    mempty = Skip
+    mappend = Seq
 
 -- | State of execution
 data ExecState = ExecState
@@ -120,7 +63,7 @@ anExecState is = ExecState is [] M.empty
 
 -- | Interrupt with no continuation
 int :: Int -> Stmt
-int code = IntS code SkipS
+int code = Int code Skip
 
 -- | Get input and output streams.
 -- Output stream is in FIFO order

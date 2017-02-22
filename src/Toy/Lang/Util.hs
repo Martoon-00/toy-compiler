@@ -1,4 +1,4 @@
-module Compiler.Util
+module Toy.Lang.Util
     ( arithspoon
     , bool
     , asToBool
