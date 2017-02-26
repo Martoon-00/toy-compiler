@@ -14,12 +14,15 @@ library
   exposed-modules:     Toy.Data
                        Toy.Lang.Data
                        Toy.Lang.Interpreter
+                       Toy.SM.Data
+                       Toy.SM.Interpreter
   other-modules:       Toy.Lang.Util
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , deepseq
                      , lens
                      , spoon
+                     , vector
   ghc-options:         -Wall
   default-language:    Haskell2010
 
