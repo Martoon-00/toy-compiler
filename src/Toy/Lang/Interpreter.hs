@@ -7,42 +7,24 @@ module Toy.Lang.Interpreter
     ) where
 
 import           Control.Lens  ((%~))
-import           Control.Monad (liftM2)
+import           Control.Monad (liftM, liftM2)
 import           Data.Bits     (xor, (.&.), (.|.))
 import qualified Data.Map      as M
 
-import           Toy.Data      (Exp (..), LocalVars, Value)
+import           Toy.Data      (Exp (..), LocalVars, Value, binOp, unaryOp)
 import           Toy.Lang.Data (Calc, Exec, ExecState (..), Stmt (..), withStmt)
-import           Toy.Lang.Data ()
 import           Toy.Lang.Util (arithspoon, asToBool, binResToBool, bool)
-
-applyBin :: Exp -> Exp -> (Value -> Value -> Value) -> LocalVars -> Calc
-applyBin a b f = liftM2 f <$> eval a <*> eval b
 
 -- | Evaluate expression in given variables context
 eval :: Exp -> LocalVars -> Calc
-eval (ValueE v) = const $ Right v
-eval (VarE v)   = maybe (Left $ "No variable " ++ show v ++ " defined") Right
-                . M.lookup v
-eval (a :+ b)   = applyBin a b (+)
-eval (a :- b)   = applyBin a b (-)
-eval (a :* b)   = applyBin a b (*)
-eval (a :/ b)   = (arithspoon =<<) <$> applyBin a b div
-eval (a :% b)   = (arithspoon =<<) <$> applyBin a b mod
-
-eval (NotE a)   = fmap (bool %~ not) <$> eval a
-eval (a :&& b)  = applyBin a b $ asToBool (&&)
-eval (a :|| b)  = applyBin a b $ asToBool (||)
-eval (a :^ b)   = applyBin a b xor
-eval (a :& b)   = applyBin a b (.&.)
-eval (a :| b)   = applyBin a b (.|.)
-
-eval (a :> b)   = applyBin a b $ binResToBool (>)
-eval (a :< b)   = applyBin a b $ binResToBool (<)
-eval (a :>= b)  = applyBin a b $ binResToBool (>=)
-eval (a :<= b)  = applyBin a b $ binResToBool (<=)
-eval (a :== b)  = applyBin a b $ binResToBool (==)
-eval (a :!= b)  = applyBin a b $ binResToBool (/=)
+eval e vars = ev e
+  where
+    ev (ValueE v   ) = Right v
+    ev (VarE v     ) =
+        maybe (Left $ "No variable " ++ show v ++ " defined") Right $
+        M.lookup v vars
+    ev (UnaryE op v) = arithspoon =<< (unaryOp op <$> ev v)
+    ev (BinE op a b) = arithspoon =<< (binOp op <$> ev a <*> ev b)
 
 -- | Proceed in given program state, halting at `Skip` or `Int` operation.
 executeDebug :: ExecState -> Exec

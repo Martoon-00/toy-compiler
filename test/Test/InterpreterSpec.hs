@@ -12,7 +12,7 @@ import           Test.QuickCheck      (Discard (..), NonNegative (..), Property,
                                        property, within, (===), (==>))
 
 import           Test.Arbitrary       ()
-import           Toy.Data             (Exp (..), Value)
+import           Toy.Data
 import           Toy.Lang.Data        (ExecState (..), Stmt (..), anExecState, getIO, int,
                                        simpleExecState)
 import           Toy.Lang.Interpreter (execute, executeDebug)
@@ -66,13 +66,13 @@ initSkipTest = once $ executeDebug sample === Right expected
 ifTrueTest :: Property
 ifTrueTest = once $ executeDebug sample === Right expected
   where
-    sample   = simpleExecState $ If (1 :+ 2) (int 0) (int 1)
+    sample   = simpleExecState $ If (1 +: 2) (int 0) (int 1)
     expected = simpleExecState $ int 0
 
 ifFalseTest :: Property
 ifFalseTest = once $ executeDebug sample === Right expected
   where
-    sample   = simpleExecState $ If (1 :- 1) (int 1) (int 0)
+    sample   = simpleExecState $ If (1 -: 1) (int 1) (int 0)
     expected = simpleExecState $ int 0
 
 varsTest :: Property
@@ -82,7 +82,7 @@ varsTest = once $ executeDebug sample === Right expected
         [ "a" := 1
         , "b" := 2
         , "a" := 3
-        , While ("a" :== 0) Skip  -- test variable access
+        , While ("a" ==: 0) Skip  -- test variable access
         ]
     expected =
         let expectedVars = M.fromList
@@ -96,7 +96,7 @@ ioTest = once $ (getIO <$> executeDebug sample) === Right expected
   where
     sample   = ExecState [5] [] M.empty $ mconcat
         [ Read "a"
-        , Write ("a" :+ 2)
+        , Write ("a" +: 2)
         ]
     expected = ([], [7])
 
@@ -105,9 +105,9 @@ whileTest = once $ (getIO <$> executeDebug sample) === Right expected
   where
     sample   = simpleExecState $ mconcat
         [ "i" := 0
-        , While ("i" :< 5) $ mconcat
+        , While ("i" <: 5) $ mconcat
             [ Write "i"
-            , "i" := "i" :+ 1
+            , "i" := "i" +: 1
             ]
         ]
     expected = ([], [4, 3 .. 0])
@@ -116,12 +116,12 @@ errorTest :: Property
 errorTest = once $
     executeDebug (simpleExecState sample) ^? _Left . _1 === Just sample
   where
-    sample = Write (5 :/ 0)
+    sample = Write (5 /: 0)
 
 errorsTest :: Property
 errorsTest = once $
     all (\sample -> _Left `has` executeDebug (simpleExecState sample))
-        [ Write (5 :/ 0)
+        [ Write (5 /: 0)
         , Read "x"
         , Write "x"
         ]
@@ -134,11 +134,11 @@ fibTest (NonNegative i) =
         [ "a" := 0
         , "b" := 1
         , Read "i"
-        , While ("i" :> 0) $ mconcat
+        , While ("i" >: 0) $ mconcat
             [ "c" := "b"
-            , "b" := "a" :+ "b"
+            , "b" := "a" +: "b"
             , "a" := "c"
-            , "i" := "i" :- 1
+            , "i" := "i" -: 1
             ]
         , Write "a"
         ]
@@ -152,8 +152,8 @@ gcdTest (NonNegative a) (NonNegative b) =
     sample   = anExecState [a, b] $ mconcat
         [ Read "a"
         , Read "b"
-        , While ("b" :> 0) $ mconcat
-            [ "r" := "a" :% "b"
+        , While ("b" >: 0) $ mconcat
+            [ "r" := "a" %: "b"
             , "a" := "b"
             , "b" := "r"
             ]

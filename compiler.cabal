@@ -23,8 +23,10 @@ library
                      , lens
                      , spoon
                      , vector
+                     , text
   ghc-options:         -Wall
   default-language:    Haskell2010
+  default-extensions:  OverloadedStrings
 
 test-suite tests
   main-is:             Test.hs

@@ -4,8 +4,13 @@
 
 module Toy.Data where
 
-import qualified Data.Map    as M
-import           Data.String (IsString (..))
+import           Control.Lens  ((%~))
+import           Data.Bits     (xor, (.&.), (.|.))
+import qualified Data.Map      as M
+import           Data.String   (IsString (..))
+import           Data.Text     (Text)
+
+import           Toy.Lang.Util (asToBool, binResToBool, bool)
 
 -- | Variable name
 newtype Var = Var String
@@ -17,41 +22,84 @@ type Value = Int
 -- | Current state of local variables
 type LocalVars = M.Map Var Value
 
+-- | Unary operation
+type UnaryOp = Text
+
+-- | Binary operation
+type BinOp = Text
+
 -- | Expression
 data Exp
     = ValueE Value
-
     | VarE Var
-
-    | Exp :+ Exp
-    | Exp :- Exp
-    | Exp :* Exp
-    | Exp :/ Exp
-    | Exp :% Exp
-
-    | NotE Exp
-    | Exp :&& Exp
-    | Exp :|| Exp
-    | Exp :^ Exp
-    | Exp :& Exp
-    | Exp :| Exp
-
-    | Exp :> Exp
-    | Exp :< Exp
-    | Exp :>= Exp
-    | Exp :<= Exp
-    | Exp :== Exp
-    | Exp :!= Exp
-
+    | UnaryE UnaryOp Exp
+    | BinE BinOp Exp Exp
     deriving (Eq, Show)
 
+instance IsString Exp where
+    fromString = VarE . fromString
+
 instance Num Exp where
-    a + b = a :+ b
-    a - b = a :- b
-    a * b = a :* b
+    (+) = BinE "+"
+    (-) = BinE "-"
+    (*) = BinE "*"
     abs = undefined
     signum = undefined
     fromInteger = ValueE . fromInteger
 
-instance IsString Exp where
-    fromString = VarE . fromString
+-- * Unary operations
+
+notE :: Exp -> Exp
+notE  = UnaryE "!"
+
+unaryOp :: UnaryOp -> Value -> Value
+unaryOp "!" = bool %~ not
+unaryOp op  = error $ "Unsupported operation: " ++ show op
+
+-- * Binary operations
+
+(+:), (-:), (*:), (/:), (%:),
+    (&&:), (||:), (^:), (&:), (|:),
+    (<:), (>:), (<=:), (>=:), (==:), (!=:)
+    :: Exp -> Exp -> Exp
+
+(+:)  = BinE "+"
+(-:)  = BinE "-"
+(*:)  = BinE "*"
+(/:)  = BinE "/"
+(%:)  = BinE "%"
+
+(&&:) = BinE "&&"
+(||:) = BinE "||"
+(^:)  = BinE "^"
+(&:)  = BinE "&"
+(|:)  = BinE "|"
+
+(<:)  = BinE "<"
+(>:)  = BinE ">"
+(<=:) = BinE "<="
+(>=:) = BinE ">="
+(==:) = BinE "=="
+(!=:) = BinE "!="
+
+binOp :: BinOp -> Value -> Value -> Value
+binOp "+"  = (+)
+binOp "-"  = (-)
+binOp "*"  = (*)
+binOp "/"  = div
+binOp "%"  = mod
+
+binOp "&&" = asToBool (&&)
+binOp "||" = asToBool (||)
+binOp "^"  = asToBool xor
+binOp "&"  = asToBool (.&.)
+binOp "|"  = asToBool (.|.)
+
+binOp ">"  = binResToBool (>)
+binOp ">=" = binResToBool (>=)
+binOp "<"  = binResToBool (<)
+binOp "<=" = binResToBool (<=)
+binOp "==" = binResToBool (==)
+binOp "!=" = binResToBool (/=)
+
+binOp op   = error $ "Unsopported operation: " ++ show op

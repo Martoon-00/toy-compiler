@@ -9,12 +9,8 @@ import           Data.List    (uncons)
 import qualified Data.Map     as M
 import qualified Data.Vector  as V
 
-import           Toy.Data     (Value)
-import           Toy.SM.Data  (BinOp, Exec, ExecState (..), Inst (..))
-
-evalBinOp :: BinOp -> Value -> Value -> Value
-evalBinOp "+" = (+)
-evalBinOp _   = undefined
+import           Toy.Data     (Value, binOp)
+import           Toy.SM.Data  (Exec, ExecState (..), Inst (..))
 
 execute :: ExecState -> Exec
 execute exec@(ExecState is os vars stack insts ip)
@@ -26,7 +22,7 @@ execute exec@(ExecState is os vars stack insts ip)
         return $ ExecState is os vars (k:stack) insts (ip + 1)
 
     step (a:b:stack') (Bin op) =
-        return $ ExecState is os vars (evalBinOp op a b : stack') insts (ip + 1)
+        return $ ExecState is os vars (binOp op a b : stack') insts (ip + 1)
     step _            (Bin _ ) =
         failure "Not enough arguments on stack"
 

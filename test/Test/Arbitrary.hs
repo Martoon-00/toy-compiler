@@ -5,7 +5,7 @@ import qualified Data.Map        as M
 import           Data.String     (fromString)
 import           Test.QuickCheck (Arbitrary (..), choose, frequency, getSmall, vector)
 
-import           Toy.Data        (Exp (..), Var)
+import           Toy.Data
 import           Toy.Lang.Data   (ExecState (..), Stmt (..))
 
 instance Arbitrary Var where
@@ -15,25 +15,25 @@ instance Arbitrary Exp where
     arbitrary = frequency
         [ (50, ValueE . getSmall <$> arbitrary)
 
-        , (1, liftM2 (:+) arbitrary arbitrary)
-        , (1, liftM2 (:-) arbitrary arbitrary)
-        , (1, liftM2 (:*) arbitrary arbitrary)
-        , (1, liftM2 (:/) arbitrary arbitrary)
-        , (1, liftM2 (:%) arbitrary arbitrary)
+        , (1, liftM2 (+:) arbitrary arbitrary)
+        , (1, liftM2 (-:) arbitrary arbitrary)
+        , (1, liftM2 (*:) arbitrary arbitrary)
+        , (1, liftM2 (/:) arbitrary arbitrary)
+        , (1, liftM2 (%:) arbitrary arbitrary)
 
-        , (1, NotE <$> arbitrary)
-        , (1, liftM2 (:&&) arbitrary arbitrary)
-        , (1, liftM2 (:||) arbitrary arbitrary)
-        , (1, liftM2 (:^) arbitrary arbitrary)
-        , (1, liftM2 (:&) arbitrary arbitrary)
-        , (1, liftM2 (:|) arbitrary arbitrary)
+        , (1, notE <$> arbitrary)
+        , (1, liftM2 (&&:) arbitrary arbitrary)
+        , (1, liftM2 (||:) arbitrary arbitrary)
+        , (1, liftM2 (^:) arbitrary arbitrary)
+        , (1, liftM2 (&:) arbitrary arbitrary)
+        , (1, liftM2 (|:) arbitrary arbitrary)
 
-        , (1, liftM2 (:>) arbitrary arbitrary)
-        , (1, liftM2 (:<) arbitrary arbitrary)
-        , (1, liftM2 (:>=) arbitrary arbitrary)
-        , (1, liftM2 (:<=) arbitrary arbitrary)
-        , (1, liftM2 (:==) arbitrary arbitrary)
-        , (1, liftM2 (:!=) arbitrary arbitrary)
+        , (1, liftM2 (>:) arbitrary arbitrary)
+        , (1, liftM2 (<:) arbitrary arbitrary)
+        , (1, liftM2 (>=:) arbitrary arbitrary)
+        , (1, liftM2 (<=:) arbitrary arbitrary)
+        , (1, liftM2 (==:) arbitrary arbitrary)
+        , (1, liftM2 (!=:) arbitrary arbitrary)
         ]
 
 instance Arbitrary Stmt where

@@ -6,11 +6,9 @@ import           Control.Lens (makeLenses)
 import qualified Data.Map     as M
 import qualified Data.Vector  as V
 
-import           Toy.Data     (LocalVars, Value, Var)
+import           Toy.Data     (BinOp, LocalVars, Value, Var)
 
 type IP = Int
-
-type BinOp = String
 
 -- | Statement of a program.
 data Inst
