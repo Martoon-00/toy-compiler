@@ -6,14 +6,11 @@ module Toy.Lang.Interpreter
     , executeDebug
     ) where
 
-import           Control.Lens  ((%~))
-import           Control.Monad (liftM, liftM2)
-import           Data.Bits     (xor, (.&.), (.|.))
 import qualified Data.Map      as M
 
-import           Toy.Data      (Exp (..), LocalVars, Value, binOp, unaryOp)
+import           Toy.Data      (Exp (..), LocalVars, binOp, unaryOp)
 import           Toy.Lang.Data (Calc, Exec, ExecState (..), Stmt (..), withStmt)
-import           Toy.Lang.Util (arithspoon, asToBool, binResToBool, bool)
+import           Toy.Lang.Util (arithspoon)
 
 -- | Evaluate expression in given variables context
 eval :: Exp -> LocalVars -> Calc
