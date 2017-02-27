@@ -14,12 +14,14 @@ library
   exposed-modules:     Toy.Data
                        Toy.Lang.Data
                        Toy.Lang.Interpreter
+                       Toy.Lang.Translator
                        Toy.SM.Data
                        Toy.SM.Interpreter
   other-modules:       Toy.Lang.Util
   build-depends:       base >= 4.7 && < 5
                      , containers
                      , deepseq
+                     , dlist
                      , lens
                      , spoon
                      , vector
