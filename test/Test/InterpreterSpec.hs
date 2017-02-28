@@ -7,8 +7,8 @@ module Test.InterpreterSpec
 
 import qualified Data.Map             as M
 import           Test.Hspec           (Spec, describe, it)
-import           Test.QuickCheck      (Discard (..), Property, conjoin, once, property,
-                                       within, (===), (==>))
+import           Test.QuickCheck      (Discard (..), Property, conjoin, property, within,
+                                       (===), (==>))
 
 import           Test.Arbitrary       ()
 import           Test.Util            (TestInOut (..), running, (~~))
@@ -59,23 +59,23 @@ executeAlwaysEndsWithSkip initExecState@(ExecState _ _ _ initStmt) =
 
 
 initSkipTest :: Property
-initSkipTest = once $ execute sample === Right expected
+initSkipTest = execute sample === Right expected
   where
     sample   = simpleExecState Skip
     expected = simpleExecState Skip
 
 ifTrueTest :: Property
-ifTrueTest = once $ running sample $ [] :~~> [0]
+ifTrueTest = running sample $ [] :==> [0]
   where
     sample = If (1 +: 2) (Write 0) (Write 1)
 
 ifFalseTest :: Property
-ifFalseTest = once $ running sample $ [] :~~> [1]
+ifFalseTest = running sample $ [] :==> [1]
   where
     sample = If (1 -: 1) (Write 0) (Write 1)
 
 varsTest :: Property
-varsTest = once $ execute sample === Right expected
+varsTest = execute sample === Right expected
   where
     sample = simpleExecState $ mconcat
         [ "a" := 1
@@ -91,7 +91,7 @@ varsTest = once $ execute sample === Right expected
         in  ExecState [] [] expectedVars Skip
 
 ioTest :: Property
-ioTest = once $ (+) @Value 2 ~~ sample
+ioTest = (+) @Value 2 ~~ sample
   where
     sample = mconcat
         [ Read "a"
@@ -99,7 +99,7 @@ ioTest = once $ (+) @Value 2 ~~ sample
         ]
 
 whileTest :: Property
-whileTest = once $ running sample $ [] :~~> [4, 3 .. 0]
+whileTest = running sample $ [] :==> [4, 3 .. 0]
   where
     sample = mconcat
         [ "i" := 0
@@ -110,13 +110,13 @@ whileTest = once $ running sample $ [] :~~> [4, 3 .. 0]
         ]
 
 errorTest :: Property
-errorTest = once $ running sample $ [] :~~% ()
+errorTest = running sample $ [] :==% ()
   where
     sample = Write (5 /: 0)
 
 errorsTest :: Property
 errorsTest = property $
-    conjoin $ (\sample -> running sample $ [] :~~% ()) <$>
+    conjoin $ (\sample -> running sample $ [] :==% ()) <$>
         [ Write (5 /: 0)
         , Read "x"
         , Write "x"

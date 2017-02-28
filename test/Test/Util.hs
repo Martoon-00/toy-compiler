@@ -28,15 +28,17 @@ instance Executable Stmt where
     exec stmt is = getIO <$> execute (ExecState is [] M.empty stmt) ^? _Right
 
 data TestInOut
-    = In :~~> Out
-    | In :~~% ()
+    = In :==> Out
+    -- ^ execution produced given output for given input
+    | In :==% ()
+    -- ^ execution failed for given input
 
-infix 1 :~~>
-infix 1 :~~%
+infix 1 :==>
+infix 1 :==%
 
 running :: Executable e => e -> TestInOut -> Property
-running prog (is :~~> os) = exec prog is === Just ([], os)
-running prog (is :~~% _ ) = exec prog is === Nothing
+running prog (is :==> os) = exec prog is === Just ([], os)
+running prog (is :==% _ ) = exec prog is === Nothing
 
 
 class Equivalence f where
@@ -49,15 +51,16 @@ instance Equivalence f => Equivalence (Value -> f) where
     equivalent f f0 args =
         property $ \(NonNegative arg) -> equivalent (f arg) f0 (arg:args)
 
--- | Interprets given program in our language
--- Program's input is considered to be function's arguments, while program's
--- output should be single value which is
+-- | Interprets given program in our language as a function, and
+-- checks that it's equivalent to another function.
+-- Program have to print a single value.
 (~~) :: (Equivalence f, Executable e) => f -> e -> Property
 f ~~ prog = equivalent f (fmap getRes . exec prog) []
   where
     getRes ([] , [x]) = x
     getRes (_:_, _  ) = error "Non empty input remained!"
-    getRes _          = error "Non single value in output!"
+    getRes (_,   xs)  = error $ "Non single value in output!: "
+                                ++ show (reverse xs)
 
 usingValue :: (Value -> f) -> (Value -> f)
 usingValue = id
