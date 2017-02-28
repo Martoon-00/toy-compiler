@@ -7,11 +7,11 @@ module Test.InterpreterSpec
 
 import qualified Data.Map             as M
 import           Test.Hspec           (Spec, describe, it)
-import           Test.QuickCheck      (Discard (..), NonNegative (..), Property, conjoin,
-                                       once, property, within, (===), (==>))
+import           Test.QuickCheck      (Discard (..), Property, conjoin, once, property,
+                                       within, (===), (==>))
 
 import           Test.Arbitrary       ()
-import           Test.Util            (TestInOut (..), running)
+import           Test.Util            (TestInOut (..), running, (~~))
 import           Toy.Data
 import           Toy.Lang.Data        (ExecState (..), Stmt (..), simpleExecState)
 import           Toy.Lang.Interpreter (execute)
@@ -91,7 +91,7 @@ varsTest = once $ execute sample === Right expected
         in  ExecState [] [] expectedVars Skip
 
 ioTest :: Property
-ioTest = once $ running sample $ [5] :~~> [7]
+ioTest = once $ (+) @Value 2 ~~ sample
   where
     sample = mconcat
         [ Read "a"
@@ -122,8 +122,8 @@ errorsTest = property $
         , Write "x"
         ]
 
-fibTest :: NonNegative Value -> Property
-fibTest (NonNegative i) = running sample $ [i] :~~> [fib !! i]
+fibTest :: Property
+fibTest = (fib !!) ~~ sample
   where
     sample = mconcat
         [ "a" := 0
@@ -137,11 +137,11 @@ fibTest (NonNegative i) = running sample $ [i] :~~> [fib !! i]
             ]
         , Write "a"
         ]
+    fib :: [Value]
     fib = 0 : 1 : zipWith (+) fib (tail fib)
 
-gcdTest :: NonNegative Value -> NonNegative Value -> Property
-gcdTest (NonNegative a) (NonNegative b) =
-    running sample $ [a, b] :~~> [gcd a b]
+gcdTest :: Property
+gcdTest = gcd @Value ~~ sample
   where
     sample = mconcat
         [ Read "a"
@@ -154,9 +154,8 @@ gcdTest (NonNegative a) (NonNegative b) =
         , Write "a"
         ]
 
-minTest :: NonNegative Value -> NonNegative Value -> Property
-minTest (NonNegative a) (NonNegative b) =
-    running sample $ [a, b] :~~> [min a b]
+minTest :: Property
+minTest = min @Value ~~ sample
   where
     sample = mconcat
         [ Read "a"
