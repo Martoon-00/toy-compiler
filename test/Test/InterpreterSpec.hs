@@ -5,16 +5,15 @@ module Test.InterpreterSpec
     ( spec
     ) where
 
-import           Control.Lens         (has, (^?), _1, _Left)
 import qualified Data.Map             as M
 import           Test.Hspec           (Spec, describe, it)
-import           Test.QuickCheck      (Discard (..), NonNegative (..), Property, once,
-                                       property, within, (===), (==>))
+import           Test.QuickCheck      (Discard (..), NonNegative (..), Property, conjoin,
+                                       once, property, within, (===), (==>))
 
 import           Test.Arbitrary       ()
+import           Test.Util            (TestInOut (..), running)
 import           Toy.Data
-import           Toy.Lang.Data        (ExecState (..), Stmt (..), anExecState, getIO,
-                                       simpleExecState)
+import           Toy.Lang.Data        (ExecState (..), Stmt (..), simpleExecState)
 import           Toy.Lang.Interpreter (execute)
 
 
@@ -64,21 +63,19 @@ initSkipTest = once $ execute sample === Right expected
     expected = simpleExecState Skip
 
 ifTrueTest :: Property
-ifTrueTest = once $ execute sample === Right expected
+ifTrueTest = once $ running sample $ [] :~~> [0]
   where
-    sample   = simpleExecState $ If (1 +: 2) (Write 0) (Write 1)
-    expected = ExecState [] [0] M.empty Skip
+    sample = If (1 +: 2) (Write 0) (Write 1)
 
 ifFalseTest :: Property
-ifFalseTest = once $ execute sample === Right expected
+ifFalseTest = once $ running sample $ [] :~~> [1]
   where
-    sample   = simpleExecState $ If (1 -: 1) (Write 1) (Write 0)
-    expected = ExecState [] [0] M.empty Skip
+    sample = If (1 -: 1) (Write 0) (Write 1)
 
 varsTest :: Property
 varsTest = once $ execute sample === Right expected
   where
-    sample   = simpleExecState $ mconcat
+    sample = simpleExecState $ mconcat
         [ "a" := 1
         , "b" := 2
         , "a" := 3
@@ -92,45 +89,41 @@ varsTest = once $ execute sample === Right expected
         in  ExecState [] [] expectedVars Skip
 
 ioTest :: Property
-ioTest = once $ (getIO <$> execute sample) === Right expected
+ioTest = once $ running sample $ [5] :~~> [7]
   where
-    sample   = ExecState [5] [] M.empty $ mconcat
+    sample = mconcat
         [ Read "a"
         , Write ("a" +: 2)
         ]
-    expected = ([], [7])
 
 whileTest :: Property
-whileTest = once $ (getIO <$> execute sample) === Right expected
+whileTest = once $ running sample $ [] :~~> [4, 3 .. 0]
   where
-    sample   = simpleExecState $ mconcat
+    sample = mconcat
         [ "i" := 0
         , While ("i" <: 5) $ mconcat
             [ Write "i"
             , "i" := "i" +: 1
             ]
         ]
-    expected = ([], [4, 3 .. 0])
 
 errorTest :: Property
-errorTest = once $
-    execute (simpleExecState sample) ^? _Left . _1 === Just sample
+errorTest = once $ running sample $ [] :~~% ()
   where
     sample = Write (5 /: 0)
 
 errorsTest :: Property
 errorsTest = property $
-    all (\sample -> _Left `has` execute (simpleExecState sample))
+    conjoin $ (\sample -> running sample $ [] :~~% ()) <$>
         [ Write (5 /: 0)
         , Read "x"
         , Write "x"
         ]
 
 fibTest :: NonNegative Value -> Property
-fibTest (NonNegative i) =
-    (getIO <$> execute sample) === Right expected
+fibTest (NonNegative i) = running sample $ [i] :~~> [fib !! i]
   where
-    sample   = anExecState [i] $ mconcat
+    sample = mconcat
         [ "a" := 0
         , "b" := 1
         , Read "i"
@@ -142,14 +135,13 @@ fibTest (NonNegative i) =
             ]
         , Write "a"
         ]
-    expected = ([], [fib !! i])
     fib = 0 : 1 : zipWith (+) fib (tail fib)
 
 gcdTest :: NonNegative Value -> NonNegative Value -> Property
 gcdTest (NonNegative a) (NonNegative b) =
-    (getIO <$> execute sample) === Right expected
+    running sample $ [a, b] :~~> [gcd a b]
   where
-    sample   = anExecState [a, b] $ mconcat
+    sample = mconcat
         [ Read "a"
         , Read "b"
         , While ("b" >: 0) $ mconcat
@@ -159,4 +151,3 @@ gcdTest (NonNegative a) (NonNegative b) =
             ]
         , Write "a"
         ]
-    expected = ([], [gcd a b])

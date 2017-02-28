@@ -35,6 +35,7 @@ test-suite tests
   other-modules:       Spec
                        Test.Arbitrary
                        Test.InterpreterSpec
+                       Test.Util
   type:                exitcode-stdio-1.0
   build-depends:       base >= 4.7 && < 5
                      , containers
