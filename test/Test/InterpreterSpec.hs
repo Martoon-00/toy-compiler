@@ -13,9 +13,9 @@ import           Test.QuickCheck      (Discard (..), NonNegative (..), Property,
 
 import           Test.Arbitrary       ()
 import           Toy.Data
-import           Toy.Lang.Data        (ExecState (..), Stmt (..), anExecState, getIO, int,
+import           Toy.Lang.Data        (ExecState (..), Stmt (..), anExecState, getIO,
                                        simpleExecState)
-import           Toy.Lang.Interpreter (execute, executeDebug)
+import           Toy.Lang.Interpreter (execute)
 
 
 spec :: Spec
@@ -58,25 +58,25 @@ executeAlwaysEndsWithSkip initExecState@(ExecState _ _ _ initStmt) =
 
 
 initSkipTest :: Property
-initSkipTest = once $ executeDebug sample === Right expected
+initSkipTest = once $ execute sample === Right expected
   where
     sample   = simpleExecState Skip
     expected = simpleExecState Skip
 
 ifTrueTest :: Property
-ifTrueTest = once $ executeDebug sample === Right expected
+ifTrueTest = once $ execute sample === Right expected
   where
-    sample   = simpleExecState $ If (1 +: 2) (int 0) (int 1)
-    expected = simpleExecState $ int 0
+    sample   = simpleExecState $ If (1 +: 2) (Write 0) (Write 1)
+    expected = ExecState [] [0] M.empty Skip
 
 ifFalseTest :: Property
-ifFalseTest = once $ executeDebug sample === Right expected
+ifFalseTest = once $ execute sample === Right expected
   where
-    sample   = simpleExecState $ If (1 -: 1) (int 1) (int 0)
-    expected = simpleExecState $ int 0
+    sample   = simpleExecState $ If (1 -: 1) (Write 1) (Write 0)
+    expected = ExecState [] [0] M.empty Skip
 
 varsTest :: Property
-varsTest = once $ executeDebug sample === Right expected
+varsTest = once $ execute sample === Right expected
   where
     sample   = simpleExecState $ mconcat
         [ "a" := 1
@@ -92,7 +92,7 @@ varsTest = once $ executeDebug sample === Right expected
         in  ExecState [] [] expectedVars Skip
 
 ioTest :: Property
-ioTest = once $ (getIO <$> executeDebug sample) === Right expected
+ioTest = once $ (getIO <$> execute sample) === Right expected
   where
     sample   = ExecState [5] [] M.empty $ mconcat
         [ Read "a"
@@ -101,7 +101,7 @@ ioTest = once $ (getIO <$> executeDebug sample) === Right expected
     expected = ([], [7])
 
 whileTest :: Property
-whileTest = once $ (getIO <$> executeDebug sample) === Right expected
+whileTest = once $ (getIO <$> execute sample) === Right expected
   where
     sample   = simpleExecState $ mconcat
         [ "i" := 0
@@ -114,13 +114,13 @@ whileTest = once $ (getIO <$> executeDebug sample) === Right expected
 
 errorTest :: Property
 errorTest = once $
-    executeDebug (simpleExecState sample) ^? _Left . _1 === Just sample
+    execute (simpleExecState sample) ^? _Left . _1 === Just sample
   where
     sample = Write (5 /: 0)
 
 errorsTest :: Property
-errorsTest = once $
-    all (\sample -> _Left `has` executeDebug (simpleExecState sample))
+errorsTest = property $
+    all (\sample -> _Left `has` execute (simpleExecState sample))
         [ Write (5 /: 0)
         , Read "x"
         , Write "x"
@@ -128,7 +128,7 @@ errorsTest = once $
 
 fibTest :: NonNegative Value -> Property
 fibTest (NonNegative i) =
-    once $ (getIO <$> executeDebug sample) === Right expected
+    (getIO <$> execute sample) === Right expected
   where
     sample   = anExecState [i] $ mconcat
         [ "a" := 0
@@ -147,7 +147,7 @@ fibTest (NonNegative i) =
 
 gcdTest :: NonNegative Value -> NonNegative Value -> Property
 gcdTest (NonNegative a) (NonNegative b) =
-    once $ (getIO <$> executeDebug sample) === Right expected
+    (getIO <$> execute sample) === Right expected
   where
     sample   = anExecState [a, b] $ mconcat
         [ Read "a"

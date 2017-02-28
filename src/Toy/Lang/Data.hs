@@ -18,7 +18,6 @@ data Stmt
     | While Exp Stmt
     | Seq Stmt Stmt
     | Skip
-    | Int Int Stmt  -- interrupt, with interrupt code - for debug purposes
     deriving (Eq, Show)
 
 infix 0 :=
@@ -60,10 +59,6 @@ simpleExecState = anExecState []
 -- | Execution state at beginning of program
 anExecState :: [Value] -> Stmt -> ExecState
 anExecState is = ExecState is [] M.empty
-
--- | Interrupt with no continuation
-int :: Int -> Stmt
-int code = Int code Skip
 
 -- | Get input and output streams.
 -- Output stream is in FIFO order

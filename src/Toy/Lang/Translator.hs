@@ -19,7 +19,6 @@ convert (n L.:= e)    = pushExp e <> pure (SM.St n)
 convert (L.Read n)    = pure SM.Read <> pure (SM.St n)
 convert (L.Write e)   = pushExp e <> pure SM.Write
 convert (L.Seq s1 s2) = convert s1 <> convert s2
-convert (L.Int _ s)   = convert s
 convert (L.If _ _ _)  = error "Can't translate if :("
 convert (L.While _ _) = error "Can't translate while :("
 

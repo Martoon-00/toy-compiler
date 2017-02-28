@@ -45,7 +45,6 @@ instance Arbitrary Stmt where
         -- , WhileS  -- TODO
         , (4, Seq <$> arbitrary <*> arbitrary)
         , (8, pure Skip)
-        , (2, Int <$> arbitrary <*> arbitrary)
         ]
 
 instance Arbitrary ExecState where
