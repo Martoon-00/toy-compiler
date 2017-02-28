@@ -23,21 +23,21 @@ spec =
     describe "interpreter" $ do
         describe "examples" $ do
             it "Skip" $
-                property initSkipTest
+                initSkipTest
             it "If true" $
-                property ifTrueTest
+                ifTrueTest
             it "If false" $
-                property ifFalseTest
+                ifFalseTest
             it "variables simple" $
-                property varsTest
+                varsTest
             it "io simple" $
-                property ioTest
+                ioTest
             it "While simple" $
-                property whileTest
+                whileTest
             it "error simple" $
-                property errorTest
+                errorTest
             it "different erroneous scenarios" $
-                property errorsTest
+                errorsTest
             describe "complex" $ do
                 it "fib" $
                     property fibTest
