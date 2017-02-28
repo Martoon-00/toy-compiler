@@ -33,6 +33,8 @@ spec =
                 ioTest
             it "While simple" $
                 whileTest
+            it "If simple" $
+                property minTest
             it "error simple" $
                 errorTest
             it "different erroneous scenarios" $
@@ -150,4 +152,17 @@ gcdTest (NonNegative a) (NonNegative b) =
             , "b" := "r"
             ]
         , Write "a"
+        ]
+
+minTest :: NonNegative Value -> NonNegative Value -> Property
+minTest (NonNegative a) (NonNegative b) =
+    running sample $ [a, b] :~~> [min a b]
+  where
+    sample = mconcat
+        [ Read "a"
+        , Read "b"
+        , If ("a" <: "b")
+            ("c" := "a")
+            ("c" := "b")
+        , Write "c"
         ]
