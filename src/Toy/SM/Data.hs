@@ -21,6 +21,8 @@ data Inst
     | Nop
     deriving (Eq, Show)
 
+type Insts = V.Vector Inst
+
 -- | State of execution
 data ExecState = ExecState
     { _esIn    :: [Value]
@@ -32,7 +34,7 @@ data ExecState = ExecState
       -- ^ local variables values
     , _esStack :: [Value]
       -- ^ current stack
-    , _esInsts :: V.Vector Inst
+    , _esInsts :: Insts
       -- ^ instructions list
     , _esIp    :: IP
       -- ^ instruction pointer, no of command to execute next
@@ -47,11 +49,11 @@ type Error = (IP, String)
 type Exec = Either Error ExecState
 
 -- | Execution state at beginning of program and with empty input
-simpleExecState :: V.Vector Inst -> ExecState
+simpleExecState :: Insts -> ExecState
 simpleExecState = anExecState []
 
 -- | Execution state at beginning of program
-anExecState :: [Value] -> V.Vector Inst -> ExecState
+anExecState :: [Value] -> Insts -> ExecState
 anExecState is insts = ExecState is [] M.empty [] insts 0
 
 -- | Get input and output streams.

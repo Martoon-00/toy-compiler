@@ -1,13 +1,15 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TupleSections         #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE TupleSections             #-}
+{-# LANGUAGE TypeFamilies              #-}
 
 module Test.Util
     ( TestRes (..)
     , (>-->)
     , (~~)
+    , alsoSM
     ) where
 
 import           Control.Lens         ((^?), _Right)
@@ -16,8 +18,11 @@ import           GHC.Exts             (IsList (..))
 import           Test.QuickCheck      (NonNegative (..), Property, property, (===))
 
 import           Toy.Data             (Value)
-import           Toy.Lang.Data        (ExecState (..), Stmt, getIO)
-import           Toy.Lang.Interpreter (execute)
+import qualified Toy.Lang.Data        as L
+import qualified Toy.Lang.Interpreter as L
+import qualified Toy.Lang.Translator  as L
+import qualified Toy.SM.Data          as SM
+import qualified Toy.SM.Interpreter   as SM
 
 type In = [Value]
 type Out = [Value]
@@ -26,8 +31,26 @@ type InOut = ([Value], [Value])
 class Interpretable e where
     exec :: e -> In -> Maybe InOut
 
-instance Interpretable Stmt where
-    exec stmt is = getIO <$> execute (ExecState is [] M.empty stmt) ^? _Right
+instance Interpretable L.Stmt where
+    exec stmt is =
+        L.getIO <$> L.execute (L.ExecState is [] M.empty stmt) ^? _Right
+
+instance Interpretable SM.Insts where
+    exec insts is =
+        SM.getIO <$> SM.execute (SM.ExecState is [] M.empty [] insts 0) ^? _Right
+
+instance (Interpretable e1, Interpretable e2) => Interpretable (e1, e2) where
+    exec (e1, e2) input =
+        let r1 = exec e1 input
+            r2 = exec e2 input
+        in  if r1 /= r2
+            then error $ "Got different results: " ++
+                         show r1 ++ " != " ++ show r2
+            else r1
+
+alsoSM :: L.Stmt -> (L.Stmt, SM.Insts)
+alsoSM = (,) <$> id <*> L.toIntermediate
+
 
 data TestRes
     = TestRes Out  -- execution produced given output for given input
