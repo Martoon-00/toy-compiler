@@ -5,13 +5,14 @@ module Test.InterpreterSpec
     ( spec
     ) where
 
+import           Control.Lens         ((&))
 import qualified Data.Map             as M
 import           Test.Hspec           (Spec, describe, it)
 import           Test.QuickCheck      (Discard (..), Property, conjoin, property, within,
                                        (===), (==>))
 
 import           Test.Arbitrary       ()
-import           Test.Util            (TestInOut (..), running, (~~))
+import           Test.Util            (TestRes (..), (>-->), (~~))
 import           Toy.Data
 import           Toy.Lang.Data        (ExecState (..), Stmt (..), simpleExecState)
 import           Toy.Lang.Interpreter (execute)
@@ -65,12 +66,12 @@ initSkipTest = execute sample === Right expected
     expected = simpleExecState Skip
 
 ifTrueTest :: Property
-ifTrueTest = running sample $ [] :==> [0]
+ifTrueTest = sample & [] >--> [0]
   where
     sample = If (1 +: 2) (Write 0) (Write 1)
 
 ifFalseTest :: Property
-ifFalseTest = running sample $ [] :==> [1]
+ifFalseTest = sample & [] >--> [1]
   where
     sample = If (1 -: 1) (Write 0) (Write 1)
 
@@ -99,7 +100,7 @@ ioTest = (+) @Value 2 ~~ sample
         ]
 
 whileTest :: Property
-whileTest = running sample $ [] :==> [4, 3 .. 0]
+whileTest = sample & [] >--> [4, 3 .. 0]
   where
     sample = mconcat
         [ "i" := 0
@@ -110,13 +111,13 @@ whileTest = running sample $ [] :==> [4, 3 .. 0]
         ]
 
 errorTest :: Property
-errorTest = running sample $ [] :==% ()
+errorTest = sample & [] >--> X
   where
     sample = Write (5 /: 0)
 
 errorsTest :: Property
 errorsTest = property $
-    conjoin $ (\sample -> running sample $ [] :==% ()) <$>
+    conjoin $ [] >--> X <$>
         [ Write (5 /: 0)
         , Read "x"
         , Write "x"

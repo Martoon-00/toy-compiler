@@ -46,4 +46,5 @@ test-suite tests
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded -Wall -fno-warn-orphans
-  default-extensions:  OverloadedStrings
+  default-extensions:  OverloadedLists
+                       OverloadedStrings

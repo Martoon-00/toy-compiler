@@ -1,16 +1,18 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Test.Util
-    ( running
-    , TestInOut (..)
+    ( TestRes (..)
+    , (>-->)
     , (~~)
-    , usingValue
     ) where
 
 import           Control.Lens         ((^?), _Right)
 import qualified Data.Map             as M
+import           GHC.Exts             (IsList (..))
 import           Test.QuickCheck      (NonNegative (..), Property, property, (===))
 
 import           Toy.Data             (Value)
@@ -21,25 +23,28 @@ type In = [Value]
 type Out = [Value]
 type InOut = ([Value], [Value])
 
-class Executable e where
+class Interpretable e where
     exec :: e -> In -> Maybe InOut
 
-instance Executable Stmt where
+instance Interpretable Stmt where
     exec stmt is = getIO <$> execute (ExecState is [] M.empty stmt) ^? _Right
 
-data TestInOut
-    = In :==> Out
-    -- ^ execution produced given output for given input
-    | In :==% ()
-    -- ^ execution failed for given input
+data TestRes
+    = TestRes Out  -- execution produced given output for given input
+    | X            -- execution failed for given input
 
-infix 1 :==>
-infix 1 :==%
+instance IsList TestRes where
+    type Item TestRes = Value
+    fromList = TestRes
+    toList _ = error "toList: impossible for TestRes"
 
-running :: Executable e => e -> TestInOut -> Property
-running prog (is :==> os) = exec prog is === Just ([], os)
-running prog (is :==% _ ) = exec prog is === Nothing
+infix 5 >-->
 
+(>-->) :: Interpretable e => In -> TestRes -> e -> Property
+(input >--> res) prog = exec prog input === (([], ) <$> expected res)
+  where
+    expected (TestRes out) = Just out
+    expected X             = Nothing
 
 class Equivalence f where
     equivalent :: f -> ([Value] -> Maybe Value) -> [Value] -> Property
@@ -54,13 +59,10 @@ instance Equivalence f => Equivalence (Value -> f) where
 -- | Interprets given program in our language as a function, and
 -- checks that it's equivalent to another function.
 -- Program have to print a single value.
-(~~) :: (Equivalence f, Executable e) => f -> e -> Property
+(~~) :: (Equivalence f, Interpretable e) => f -> e -> Property
 f ~~ prog = equivalent f (fmap getRes . exec prog) []
   where
     getRes ([] , [x]) = x
     getRes (_:_, _  ) = error "Non empty input remained!"
     getRes (_,   xs)  = error $ "Non single value in output!: "
                                 ++ show (reverse xs)
-
-usingValue :: (Value -> f) -> (Value -> f)
-usingValue = id
