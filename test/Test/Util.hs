@@ -10,9 +10,11 @@ module Test.Util
     , (>-->)
     , (~~)
     , alsoSM
+    , instsSM
     ) where
 
 import           Control.Lens         ((^?), _Right)
+import           Control.Spoon        (teaspoon)
 import qualified Data.Map             as M
 import           GHC.Exts             (IsList (..))
 import           Test.QuickCheck      (NonNegative (..), Property, property, (===))
@@ -23,6 +25,8 @@ import qualified Toy.Lang.Interpreter as L
 import qualified Toy.Lang.Translator  as L
 import qualified Toy.SM.Data          as SM
 import qualified Toy.SM.Interpreter   as SM
+
+import           Debug.Trace
 
 type In = [Value]
 type Out = [Value]
@@ -39,17 +43,19 @@ instance Interpretable SM.Insts where
     exec insts is =
         SM.getIO <$> SM.execute (SM.ExecState is [] M.empty [] insts 0) ^? _Right
 
-instance (Interpretable e1, Interpretable e2) => Interpretable (e1, e2) where
-    exec (e1, e2) input =
+instance (Interpretable e1, Interpretable e2)
+       => Interpretable ((e1, String), (e2, String)) where
+    exec ((e1, d1), (e2, d2)) input =
         let r1 = exec e1 input
             r2 = exec e2 input
         in  if r1 /= r2
-            then error $ "Got different results: " ++
+            then error $ "Got different results " ++
+                         d1 ++ "/" ++ d2 ++ ":\n" ++
                          show r1 ++ " != " ++ show r2
             else r1
 
-alsoSM :: L.Stmt -> (L.Stmt, SM.Insts)
-alsoSM = (,) <$> id <*> L.toIntermediate
+alsoSM :: L.Stmt -> ((L.Stmt, String), (SM.Insts, String))
+alsoSM stmt = ((stmt, "Lang"), (traceShowId $ L.toIntermediate stmt, "SM"))
 
 
 data TestRes
@@ -73,7 +79,7 @@ class Equivalence f where
     equivalent :: f -> ([Value] -> Maybe Value) -> [Value] -> Property
 
 instance Equivalence Value where
-    equivalent r f0 args = Just r === f0 (reverse args)
+    equivalent r f0 args = teaspoon r === f0 (reverse args)
 
 instance Equivalence f => Equivalence (Value -> f) where
     equivalent f f0 args =
@@ -89,3 +95,7 @@ f ~~ prog = equivalent f (fmap getRes . exec prog) []
     getRes (_:_, _  ) = error "Non empty input remained!"
     getRes (_,   xs)  = error $ "Non single value in output!: "
                                 ++ show (reverse xs)
+
+
+instsSM :: SM.Insts -> SM.Insts
+instsSM = id

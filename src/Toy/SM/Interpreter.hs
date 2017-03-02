@@ -4,13 +4,14 @@ module Toy.SM.Interpreter
     ( execute
     ) where
 
-import           Control.Lens (at, (^.))
-import           Data.List    (uncons)
-import qualified Data.Map     as M
-import qualified Data.Vector  as V
+import           Control.Lens  (at, (%~), (^.), _Left)
+import           Data.List     (uncons)
+import qualified Data.Map      as M
+import qualified Data.Vector   as V
 
-import           Toy.Data     (Value, binOp)
-import           Toy.SM.Data  (Exec, ExecState (..), Inst (..))
+import           Toy.Data      (Value, binOp)
+import           Toy.Lang.Util (arithspoon)
+import           Toy.SM.Data   (Exec, ExecState (..), Inst (..))
 
 execute :: ExecState -> Exec
 execute exec@(ExecState is os vars stack insts ip)
@@ -21,8 +22,9 @@ execute exec@(ExecState is os vars stack insts ip)
     step _ (Push k) =
         return $ ExecState is os vars (k:stack) insts (ip + 1)
 
-    step (a:b:stack') (Bin op) =
-        return $ ExecState is os vars (binOp op a b : stack') insts (ip + 1)
+    step (b:a:stack') (Bin op) = do
+        eval <- _Left %~ (ip,) $ arithspoon $ binOp op a b
+        return $ ExecState is os vars (eval : stack') insts (ip + 1)
     step _            (Bin _ ) =
         failure "Not enough arguments on stack"
 
@@ -44,6 +46,7 @@ execute exec@(ExecState is os vars stack insts ip)
     step _          Write =
         failure "Stack is empty"
 
-    step _ Nop = return exec
+    step _ Nop =
+        return $ ExecState is os vars stack insts (ip + 1)
 
     failure = Left . (ip, )

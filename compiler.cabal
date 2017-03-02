@@ -34,7 +34,9 @@ test-suite tests
   main-is:             Test.hs
   other-modules:       Spec
                        Test.Arbitrary
-                       Test.InterpreterSpec
+                       Test.Lang.ExpSpec
+                       Test.Lang.InterpreterSpec
+                       Test.SM.InterpreterSpec
                        Test.Util
   type:                exitcode-stdio-1.0
   build-depends:       base >= 4.7 && < 5
@@ -42,6 +44,7 @@ test-suite tests
                      , compiler
                      , hspec
                      , lens
+                     , spoon
                      , QuickCheck
   hs-source-dirs:      test
   default-language:    Haskell2010

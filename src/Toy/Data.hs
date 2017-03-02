@@ -58,6 +58,25 @@ unaryOp op  = error $ "Unsupported operation: " ++ show op
 
 -- * Binary operations
 
+infixl 6 +:
+infixl 6 -:
+infixl 7 *:
+infixl 7 /:
+infixl 7 %:
+
+infixr 3 &&:
+infixr 2 ||:
+infixl 7 &:
+infixl 5 |:
+infixl 6 ^:
+
+infix 4 <:
+infix 4 <=:
+infix 4 >:
+infix 4 >=:
+infix 4 ==:
+infix 4 !=:
+
 (+:), (-:), (*:), (/:), (%:),
     (&&:), (||:), (^:), (&:), (|:),
     (<:), (>:), (<=:), (>=:), (==:), (!=:)

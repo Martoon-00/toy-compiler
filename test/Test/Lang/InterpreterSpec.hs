@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Test.InterpreterSpec
+module Test.Lang.InterpreterSpec
     ( spec
     ) where
 
@@ -12,7 +12,7 @@ import           Test.QuickCheck      (Discard (..), Property, conjoin, property
                                        (===), (==>))
 
 import           Test.Arbitrary       ()
-import           Test.Util            (TestRes (..), (>-->), (~~))
+import           Test.Util            (TestRes (..), alsoSM, (>-->), (~~))
 import           Toy.Data
 import           Toy.Lang.Data        (ExecState (..), Stmt (..), simpleExecState)
 import           Toy.Lang.Interpreter (execute)
@@ -20,7 +20,7 @@ import           Toy.Lang.Interpreter (execute)
 
 spec :: Spec
 spec =
-    describe "interpreter" $ do
+    describe "lang" $ describe "interpreter" $ do
         describe "examples" $ do
             it "Skip" $
                 initSkipTest
@@ -92,11 +92,11 @@ varsTest = execute sample === Right expected
         in  ExecState [] [] expectedVars Skip
 
 ioTest :: Property
-ioTest = (+) @Value 2 ~~ sample
+ioTest = id @Value ~~ sample
   where
-    sample = mconcat
+    sample = alsoSM $ mconcat
         [ Read "a"
-        , Write ("a" +: 2)
+        , Write "a"
         ]
 
 whileTest :: Property
