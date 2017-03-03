@@ -12,15 +12,16 @@ import           Test.QuickCheck      (Discard (..), Property, conjoin, property
                                        (===), (==>))
 
 import           Test.Arbitrary       ()
-import           Test.Util            (TestRes (..), alsoSM, (>-->), (~~))
+import           Test.Util            (ExecWay (..), TestRes (..), describeExecWays,
+                                       (>-->), (~*~), (~~))
 import           Toy.Data
 import           Toy.Lang.Data        (ExecState (..), Stmt (..), simpleExecState)
 import           Toy.Lang.Interpreter (execute)
 
 
 spec :: Spec
-spec =
-    describe "lang" $ describe "interpreter" $ do
+spec = do
+    describeExecWays [Interpret] $ \_ -> do
         describe "examples" $ do
             it "Skip" $
                 initSkipTest
@@ -30,8 +31,6 @@ spec =
                 ifFalseTest
             it "variables simple" $
                 varsTest
-            it "io simple" $
-                ioTest
             it "While simple" $
                 whileTest
             it "If simple" $
@@ -48,6 +47,12 @@ spec =
 
         it "`execute` always ends with Skip" $
             property executeAlwaysEndsWithSkip
+
+    describeExecWays [Interpret, Translate] $ \way -> do
+        describe "examples" $ do
+            it "io simple" $
+                ioTest way
+
 
 executeAlwaysEndsWithSkip :: ExecState -> Property
 executeAlwaysEndsWithSkip initExecState@(ExecState _ _ _ initStmt) =
@@ -91,10 +96,10 @@ varsTest = execute sample === Right expected
                 ]
         in  ExecState [] [] expectedVars Skip
 
-ioTest :: Property
-ioTest = id @Value ~~ sample
+ioTest :: ExecWay -> Property
+ioTest = id @Value ~*~ sample
   where
-    sample = alsoSM $ mconcat
+    sample = mconcat
         [ Read "a"
         , Write "a"
         ]

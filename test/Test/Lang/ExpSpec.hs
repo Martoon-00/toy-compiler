@@ -9,42 +9,42 @@ import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (Property)
 
 import           Test.Arbitrary  ()
-import           Test.Util       (alsoSM, (~~))
+import           Test.Util       (ExecWay (..), describeExecWays, (~*~))
 import           Toy.Data
 import           Toy.Lang.Data   (Stmt (..))
 
 
 spec :: Spec
 spec =
-    describe "lang" $ do
+    describeExecWays [Interpret, Translate] $ \way -> do
         describe "expressions" $ do
             describe "arithmetic" $ do
-                it "plus"
-                    plusTest
-                it "div"
-                    divTest
-                it "complex"
-                    complexArithTest
+                it "plus" $
+                    plusTest way
+                it "div" $
+                    divTest way
+                it "complex" $
+                    complexArithTest way
 
 
-plusTest :: Property
-plusTest = (+) @Value 5 ~~ alsoSM sample
+plusTest :: ExecWay -> Property
+plusTest = (+) @Value 5 ~*~ sample
   where
     sample = mconcat
         [ Read "a"
         , Write $ "a" +: 5
         ]
 
-divTest :: Property
-divTest = div @Value 2 ~~ alsoSM sample
+divTest :: ExecWay -> Property
+divTest = div @Value 2 ~*~ sample
   where
     sample = mconcat
         [ Read "a"
         , Write $ 2 /: "a"
         ]
 
-complexArithTest :: Property
-complexArithTest = fun ~~ alsoSM sample
+complexArithTest :: ExecWay -> Property
+complexArithTest = fun ~*~ sample
   where
     sample = mconcat
         [ Read "a"

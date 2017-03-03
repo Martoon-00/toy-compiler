@@ -7,16 +7,21 @@
 
 module Test.Util
     ( TestRes (..)
+    , ExecWay (..)
+    , describeExecWays
     , (>-->)
     , (~~)
-    , alsoSM
+    , (~*~)
     , instsSM
     ) where
 
 import           Control.Lens         ((^?), _Right)
+import           Control.Monad        (forM_)
 import           Control.Spoon        (teaspoon)
 import qualified Data.Map             as M
 import           GHC.Exts             (IsList (..))
+import           Test.Hspec           (describe)
+import           Test.Hspec.Core.Spec (SpecWith)
 import           Test.QuickCheck      (NonNegative (..), Property, property, (===))
 
 import           Toy.Data             (Value)
@@ -25,8 +30,6 @@ import qualified Toy.Lang.Interpreter as L
 import qualified Toy.Lang.Translator  as L
 import qualified Toy.SM.Data          as SM
 import qualified Toy.SM.Interpreter   as SM
-
-import           Debug.Trace
 
 type In = [Value]
 type Out = [Value]
@@ -43,19 +46,23 @@ instance Interpretable SM.Insts where
     exec insts is =
         SM.getIO <$> SM.execute (SM.ExecState is [] M.empty [] insts 0) ^? _Right
 
-instance (Interpretable e1, Interpretable e2)
-       => Interpretable ((e1, String), (e2, String)) where
-    exec ((e1, d1), (e2, d2)) input =
-        let r1 = exec e1 input
-            r2 = exec e2 input
-        in  if r1 /= r2
-            then error $ "Got different results " ++
-                         d1 ++ "/" ++ d2 ++ ":\n" ++
-                         show r1 ++ " != " ++ show r2
-            else r1
 
-alsoSM :: L.Stmt -> ((L.Stmt, String), (SM.Insts, String))
-alsoSM stmt = ((stmt, "Lang"), (traceShowId $ L.toIntermediate stmt, "SM"))
+data ExecWay
+    = Interpret  -- ^ Interpret language directly
+    | Translate  -- ^ Translate to SM and interpret
+    deriving (Eq)
+
+instance Show ExecWay where
+    show Interpret = "Lang interpreter"
+    show Translate = "Translator + SM interpreter"
+
+inExecWay :: ExecWay -> L.Stmt -> In -> Maybe InOut
+inExecWay Interpret = exec
+inExecWay Translate = exec . L.toIntermediate
+
+describeExecWays :: [ExecWay] -> (ExecWay -> SpecWith a) -> SpecWith a
+describeExecWays ways specs =
+    forM_ ways $ describe <$> show <*> specs
 
 
 data TestRes
@@ -85,16 +92,25 @@ instance Equivalence f => Equivalence (Value -> f) where
     equivalent f f0 args =
         property $ \(NonNegative arg) -> equivalent (f arg) f0 (arg:args)
 
--- | Interprets given program in our language as a function, and
+
+singleOutput :: InOut -> Value
+singleOutput ([] , [x]) = x
+singleOutput (_:_, _  ) = error "Non empty input remained!"
+singleOutput (_,   xs)  = error $ "Non single value in output!: "
+                                  ++ show (reverse xs)
+
+
+-- | Interprets given program in one of our languages as a function, and
 -- checks that it's equivalent to another function.
 -- Program have to print a single value.
 (~~) :: (Equivalence f, Interpretable e) => f -> e -> Property
-f ~~ prog = equivalent f (fmap getRes . exec prog) []
-  where
-    getRes ([] , [x]) = x
-    getRes (_:_, _  ) = error "Non empty input remained!"
-    getRes (_,   xs)  = error $ "Non single value in output!: "
-                                ++ show (reverse xs)
+f ~~ prog = equivalent f (fmap singleOutput . exec prog) []
+
+-- | Executes given program in our language as a function in given way, and
+-- checks that it's equivalent to another function.
+-- Program have to print a single value.
+(~*~) :: Equivalence f => f -> L.Stmt -> ExecWay -> Property
+(f ~*~ prog) way = equivalent f (fmap singleOutput . inExecWay way prog) []
 
 
 instsSM :: SM.Insts -> SM.Insts

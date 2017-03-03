@@ -10,7 +10,7 @@ import           Toy.Data      (Exp (..))
 import qualified Toy.Lang.Data as L
 import qualified Toy.SM.Data   as SM
 
-toIntermediate :: L.Stmt -> V.Vector SM.Inst
+toIntermediate :: L.Stmt -> SM.Insts
 toIntermediate = V.fromList . D.toList . convert
 
 convert :: L.Stmt -> D.DList SM.Inst
