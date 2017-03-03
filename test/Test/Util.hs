@@ -10,6 +10,7 @@ module Test.Util
     , ExecWay (..)
     , describeExecWays
     , (>-->)
+    , (>-*->)
     , (~~)
     , (~*~)
     , instsSM
@@ -22,7 +23,8 @@ import qualified Data.Map             as M
 import           GHC.Exts             (IsList (..))
 import           Test.Hspec           (describe)
 import           Test.Hspec.Core.Spec (SpecWith)
-import           Test.QuickCheck      (NonNegative (..), Property, property, (===))
+import           Test.QuickCheck      (NonNegative (..), Property, conjoin,
+                                       counterexample, property, (.&&.), (===))
 
 import           Toy.Data             (Value)
 import qualified Toy.Lang.Data        as L
@@ -82,11 +84,24 @@ infix 5 >-->
     expected (TestRes out) = Just out
     expected X             = Nothing
 
+(>-*->) :: In -> TestRes -> L.Stmt -> ExecWay -> Property
+(input >-*-> res) prog way =
+    inExecWay way prog input === (([], ) <$> expected res)
+  where
+    expected (TestRes out) = Just out
+    expected X             = Nothing
+
 class Equivalence f where
     equivalent :: f -> ([Value] -> Maybe Value) -> [Value] -> Property
 
 instance Equivalence Value where
-    equivalent r f0 args = teaspoon r === f0 (reverse args)
+    equivalent r f0 args =
+        let expected = f0 (reverse args)
+            result   = teaspoon r
+            disp     = maybe "failure" show
+        in  counterexample
+            ("Expected " ++ disp expected ++ ", got " ++ disp result)
+            (expected == result)
 
 instance Equivalence f => Equivalence (Value -> f) where
     equivalent f f0 args =
@@ -115,3 +130,8 @@ f ~~ prog = equivalent f (fmap singleOutput . exec prog) []
 
 instsSM :: SM.Insts -> SM.Insts
 instsSM = id
+
+instance Monoid Property where
+    mempty = property True
+    mappend = (.&&.)
+    mconcat = conjoin

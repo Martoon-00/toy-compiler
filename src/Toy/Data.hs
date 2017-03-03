@@ -110,9 +110,9 @@ binOp "%"  = mod
 
 binOp "&&" = asToBool (&&)
 binOp "||" = asToBool (||)
-binOp "^"  = asToBool xor
-binOp "&"  = asToBool (.&.)
-binOp "|"  = asToBool (.|.)
+binOp "^"  = xor
+binOp "&"  = (.&.)
+binOp "|"  = (.|.)
 
 binOp ">"  = binResToBool (>)
 binOp ">=" = binResToBool (>=)
