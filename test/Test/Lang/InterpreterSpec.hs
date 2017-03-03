@@ -5,18 +5,18 @@ module Test.Lang.InterpreterSpec
     ( spec
     ) where
 
-import           Control.Lens         ((&))
-import qualified Data.Map             as M
-import           Test.Hspec           (Spec, describe, it)
-import           Test.QuickCheck      (Discard (..), Property, conjoin, property, within,
-                                       (===), (==>))
+import           Control.Lens    ((&))
+import qualified Data.Map        as M
+import           Test.Hspec      (Spec, describe, it)
+import           Test.QuickCheck (Discard (..), Property, conjoin, property, within,
+                                  (===), (==>))
 
-import           Test.Arbitrary       ()
-import           Test.Util            (ExecWay (..), TestRes (..), describeExecWays,
-                                       (>-->), (~*~), (~~))
-import           Toy.Exp.Data
-import           Toy.Lang.Data        (ExecState (..), Stmt (..), simpleExecState)
-import           Toy.Lang.Interpreter (execute)
+import           Test.Arbitrary  ()
+import           Test.Util       (ExecWay (..), TestRes (..), describeExecWays, (>-->),
+                                  (~*~), (~~))
+import           Toy.Exp
+import           Toy.Lang        (ExecState (..), Stmt (..), simpleExecState)
+import           Toy.Lang        (execute)
 
 
 spec :: Spec

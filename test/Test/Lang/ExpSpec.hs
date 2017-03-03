@@ -11,8 +11,8 @@ import           Test.QuickCheck (Property)
 
 import           Test.Arbitrary  ()
 import           Test.Util       (ExecWay (..), describeExecWays, (~*~))
-import           Toy.Exp.Data
-import           Toy.Lang.Data   (Stmt (..))
+import           Toy.Exp
+import           Toy.Lang        (Stmt (..))
 
 
 spec :: Spec

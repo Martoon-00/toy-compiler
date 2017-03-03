@@ -9,8 +9,7 @@ import           Data.List    (uncons)
 import qualified Data.Map     as M
 import qualified Data.Vector  as V
 
-import           Toy.Exp.Data (Value, binOp)
-import           Toy.Exp.Util (arithspoon)
+import           Toy.Exp      (Value, arithspoon, binOp)
 import           Toy.SM.Data  (Exec, ExecState (..), Inst (..))
 
 execute :: ExecState -> Exec

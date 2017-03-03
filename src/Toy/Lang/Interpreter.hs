@@ -7,20 +7,8 @@ module Toy.Lang.Interpreter
 
 import qualified Data.Map      as M
 
-import           Toy.Exp.Data  (Exp (..), LocalVars, binOp, unaryOp)
-import           Toy.Exp.Util  (arithspoon)
-import           Toy.Lang.Data (Calc, Exec, ExecState (..), Stmt (..), withStmt)
-
--- | Evaluate expression in given variables context
-eval :: Exp -> LocalVars -> Calc
-eval e vars = ev e
-  where
-    ev (ValueE v   ) = Right v
-    ev (VarE v     ) =
-        maybe (Left $ "No variable " ++ show v ++ " defined") Right $
-        M.lookup v vars
-    ev (UnaryE op v) = arithspoon =<< (unaryOp op <$> ev v)
-    ev (BinE op a b) = arithspoon =<< (binOp op <$> ev a <*> ev b)
+import           Toy.Exp       (eval)
+import           Toy.Lang.Data (Exec, ExecState (..), Stmt (..), withStmt)
 
 -- | Proceed in given program state, halting at `SkipS` operation.
 execute :: ExecState -> Exec

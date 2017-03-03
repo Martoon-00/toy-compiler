@@ -26,12 +26,9 @@ import           Test.Hspec.Core.Spec (SpecWith)
 import           Test.QuickCheck      (NonNegative (..), Property, conjoin,
                                        counterexample, property, (.&&.), (===))
 
-import           Toy.Exp.Data         (Value)
-import qualified Toy.Lang.Data        as L
-import qualified Toy.Lang.Interpreter as L
-import qualified Toy.Lang.Translator  as L
-import qualified Toy.SM.Data          as SM
-import qualified Toy.SM.Interpreter   as SM
+import           Toy.Exp              (Value)
+import qualified Toy.Lang             as L
+import qualified Toy.SM               as SM
 
 type In = [Value]
 type Out = [Value]

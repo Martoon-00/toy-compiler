@@ -5,8 +5,8 @@ import qualified Data.Map        as M
 import           Data.String     (fromString)
 import           Test.QuickCheck (Arbitrary (..), choose, frequency, getSmall, vector)
 
-import           Toy.Exp.Data
-import           Toy.Lang.Data   (ExecState (..), Stmt (..))
+import           Toy.Exp
+import           Toy.Lang        (ExecState (..), Stmt (..))
 
 instance Arbitrary Var where
     arbitrary = fromString . pure <$> choose ('a', 'z')

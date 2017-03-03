@@ -45,9 +45,6 @@ type Error = (Stmt, String)
 -- | Result of execution
 type Exec = Either Error ExecState
 
--- | Result of expression evaluation
-type Calc = Either String Value
-
 -- | Adds current statement info to probable evaluation error
 withStmt :: Stmt -> Either String a -> Either Error a
 withStmt stmt = _Left %~ (stmt, )
