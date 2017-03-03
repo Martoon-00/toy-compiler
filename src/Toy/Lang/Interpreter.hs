@@ -7,9 +7,9 @@ module Toy.Lang.Interpreter
 
 import qualified Data.Map      as M
 
-import           Toy.Data      (Exp (..), LocalVars, binOp, unaryOp)
+import           Toy.Exp.Data  (Exp (..), LocalVars, binOp, unaryOp)
+import           Toy.Exp.Util  (arithspoon)
 import           Toy.Lang.Data (Calc, Exec, ExecState (..), Stmt (..), withStmt)
-import           Toy.Lang.Util (arithspoon)
 
 -- | Evaluate expression in given variables context
 eval :: Exp -> LocalVars -> Calc

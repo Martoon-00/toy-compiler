@@ -14,7 +14,7 @@ import           Test.QuickCheck      (Discard (..), Property, conjoin, property
 import           Test.Arbitrary       ()
 import           Test.Util            (ExecWay (..), TestRes (..), describeExecWays,
                                        (>-->), (~*~), (~~))
-import           Toy.Data
+import           Toy.Exp.Data
 import           Toy.Lang.Data        (ExecState (..), Stmt (..), simpleExecState)
 import           Toy.Lang.Interpreter (execute)
 

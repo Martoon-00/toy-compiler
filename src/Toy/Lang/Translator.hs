@@ -6,7 +6,7 @@ import qualified Data.DList    as D
 import           Data.Monoid   ((<>))
 import qualified Data.Vector   as V
 
-import           Toy.Data      (Exp (..))
+import           Toy.Exp.Data  (Exp (..))
 import qualified Toy.Lang.Data as L
 import qualified Toy.SM.Data   as SM
 

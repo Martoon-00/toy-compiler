@@ -7,7 +7,7 @@ module Toy.Lang.Data where
 import           Control.Lens ((%~), _Left)
 import qualified Data.Map     as M
 
-import           Toy.Data     (Exp (..), LocalVars, Value, Var)
+import           Toy.Exp.Data (Exp (..), LocalVars, Value, Var)
 
 -- | Statement of a program.
 data Stmt

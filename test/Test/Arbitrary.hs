@@ -5,7 +5,7 @@ import qualified Data.Map        as M
 import           Data.String     (fromString)
 import           Test.QuickCheck (Arbitrary (..), choose, frequency, getSmall, vector)
 
-import           Toy.Data
+import           Toy.Exp.Data
 import           Toy.Lang.Data   (ExecState (..), Stmt (..))
 
 instance Arbitrary Var where

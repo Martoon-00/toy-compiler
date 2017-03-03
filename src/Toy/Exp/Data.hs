@@ -2,15 +2,15 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TupleSections              #-}
 
-module Toy.Data where
+module Toy.Exp.Data where
 
-import           Control.Lens  ((%~))
-import           Data.Bits     (xor, (.&.), (.|.))
-import qualified Data.Map      as M
-import           Data.String   (IsString (..))
-import           Data.Text     (Text)
+import           Control.Lens ((%~))
+import           Data.Bits    (xor, (.&.), (.|.))
+import qualified Data.Map     as M
+import           Data.String  (IsString (..))
+import           Data.Text    (Text)
 
-import           Toy.Lang.Util (asToBool, binResToBool, bool)
+import           Toy.Exp.Util (asToBool, binResToBool, bool)
 
 -- | Variable name
 newtype Var = Var String

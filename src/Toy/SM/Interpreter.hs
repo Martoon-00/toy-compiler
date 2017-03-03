@@ -4,14 +4,14 @@ module Toy.SM.Interpreter
     ( execute
     ) where
 
-import           Control.Lens  (at, (%~), (^.), _Left)
-import           Data.List     (uncons)
-import qualified Data.Map      as M
-import qualified Data.Vector   as V
+import           Control.Lens (at, (%~), (^.), _Left)
+import           Data.List    (uncons)
+import qualified Data.Map     as M
+import qualified Data.Vector  as V
 
-import           Toy.Data      (Value, binOp)
-import           Toy.Lang.Util (arithspoon)
-import           Toy.SM.Data   (Exec, ExecState (..), Inst (..))
+import           Toy.Exp.Data (Value, binOp)
+import           Toy.Exp.Util (arithspoon)
+import           Toy.SM.Data  (Exec, ExecState (..), Inst (..))
 
 execute :: ExecState -> Exec
 execute exec@(ExecState is os vars stack insts ip)

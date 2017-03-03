@@ -1,4 +1,4 @@
-module Toy.Lang.Util
+module Toy.Exp.Util
     ( arithspoon
     , bool
     , asToBool

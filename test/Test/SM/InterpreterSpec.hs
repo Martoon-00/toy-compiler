@@ -10,7 +10,7 @@ import           Test.QuickCheck (Property, conjoin, property)
 
 import           Test.Arbitrary  ()
 import           Test.Util       (TestRes (..), instsSM, (>-->), (~~))
-import           Toy.Data
+import           Toy.Exp.Data
 import           Toy.SM.Data     (Inst (..))
 
 
