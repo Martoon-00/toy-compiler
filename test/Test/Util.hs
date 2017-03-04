@@ -23,7 +23,7 @@ import qualified Data.Map             as M
 import           GHC.Exts             (IsList (..))
 import           Test.Hspec           (describe)
 import           Test.Hspec.Core.Spec (SpecWith)
-import           Test.QuickCheck      (NonNegative (..), Property, conjoin,
+import           Test.QuickCheck      (Arbitrary, NonNegative (..), Property, conjoin,
                                        counterexample, property, (.&&.), (===))
 
 import           Toy.Exp              (Value)
@@ -88,21 +88,31 @@ infix 5 >-->
     expected (TestRes out) = Just out
     expected X             = Nothing
 
+class Extract a p where
+    extract :: p -> a
+
+instance Extract a a where
+    extract = id
+
+instance Extract a (NonNegative a) where
+    extract = getNonNegative
+
 class Equivalence f where
     equivalent :: f -> ([Value] -> Maybe Value) -> [Value] -> Property
 
 instance Equivalence Value where
     equivalent r f0 args =
-        let expected = f0 (reverse args)
-            result   = teaspoon r
+        let result   = f0 (reverse args)
+            expected = teaspoon r
             disp     = maybe "failure" show
         in  counterexample
             ("Expected " ++ disp expected ++ ", got " ++ disp result)
             (expected == result)
 
-instance Equivalence f => Equivalence (Value -> f) where
+instance (Equivalence f, Extract Value v, Show v, Arbitrary v)
+       => Equivalence (v -> f) where
     equivalent f f0 args =
-        property $ \(NonNegative arg) -> equivalent (f arg) f0 (arg:args)
+        property $ \arg -> equivalent (f arg) f0 (extract arg : args)
 
 
 singleOutput :: InOut -> Value
@@ -115,12 +125,14 @@ singleOutput (_,   xs)  = error $ "Non single value in output!: "
 -- | Interprets given program in one of our languages as a function, and
 -- checks that it's equivalent to another function.
 -- Program have to print a single value.
+infix 3 ~~
 (~~) :: (Equivalence f, Interpretable e) => f -> e -> Property
 f ~~ prog = equivalent f (fmap singleOutput . exec prog) []
 
 -- | Executes given program in our language as a function in given way, and
 -- checks that it's equivalent to another function.
 -- Program have to print a single value.
+infix 3 ~*~
 (~*~) :: Equivalence f => f -> L.Stmt -> ExecWay -> Property
 (f ~*~ prog) way = equivalent f (fmap singleOutput . inExecWay way prog) []
 

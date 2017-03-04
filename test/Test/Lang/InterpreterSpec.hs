@@ -7,8 +7,8 @@ module Test.Lang.InterpreterSpec
 
 import           Control.Lens    ((&))
 import           Test.Hspec      (Spec, describe, it)
-import           Test.QuickCheck (Discard (..), Property, conjoin, property, within,
-                                  (===), (==>))
+import           Test.QuickCheck (Discard (..), NonNegative (..), Property, conjoin,
+                                  property, within, (===), (==>))
 
 import           Test.Arbitrary  ()
 import           Test.Util       (ExecWay (..), TestRes (..), describeExecWays, (>-->),
@@ -121,7 +121,7 @@ errorsTest = property $
         ]
 
 fibTest :: Property
-fibTest = (fib !!) ~~ sample
+fibTest = (fib !!) . getNonNegative ~~ sample
   where
     sample = mconcat
         [ "a" := 0
@@ -139,7 +139,7 @@ fibTest = (fib !!) ~~ sample
     fib = 0 : 1 : zipWith (+) fib (tail fib)
 
 gcdTest :: Property
-gcdTest = gcd @Value ~~ sample
+gcdTest = gcd' ~~ sample
   where
     sample = mconcat
         [ Read "a"
@@ -151,6 +151,8 @@ gcdTest = gcd @Value ~~ sample
             ]
         , Write "a"
         ]
+    gcd' :: NonNegative Value -> NonNegative Value -> Value
+    gcd' (NonNegative a) (NonNegative b) = gcd a b
 
 minTest :: Property
 minTest = min @Value ~~ sample
