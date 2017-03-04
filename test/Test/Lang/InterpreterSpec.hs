@@ -6,7 +6,6 @@ module Test.Lang.InterpreterSpec
     ) where
 
 import           Control.Lens    ((&))
-import qualified Data.Map        as M
 import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (Discard (..), Property, conjoin, property, within,
                                   (===), (==>))
@@ -35,8 +34,6 @@ spec = do
                 whileTest
             it "If simple" $
                 property minTest
-            it "error simple" $
-                errorTest
             it "different erroneous scenarios" $
                 errorsTest
             describe "complex" $ do
@@ -73,12 +70,12 @@ initSkipTest = execute sample === Right expected
 ifTrueTest :: Property
 ifTrueTest = sample & [] >--> [0]
   where
-    sample = If (1 +: 2) (Write 0) (Write 1)
+    sample = If 1 (Write 0) (Write 1)
 
 ifFalseTest :: Property
 ifFalseTest = sample & [] >--> [1]
   where
-    sample = If (1 -: 1) (Write 0) (Write 1)
+    sample = If 0 (Write 0) (Write 1)
 
 varsTest :: Property
 varsTest = execute sample === Right expected
@@ -90,7 +87,7 @@ varsTest = execute sample === Right expected
         , While ("a" ==: 0) Skip  -- test variable access
         ]
     expected =
-        let expectedVars = M.fromList
+        let expectedVars =
                 [ ("a", 3)
                 , ("b", 2)
                 ]
@@ -114,11 +111,6 @@ whileTest = sample & [] >--> [4, 3 .. 0]
             , "i" := "i" +: 1
             ]
         ]
-
-errorTest :: Property
-errorTest = sample & [] >--> X
-  where
-    sample = Write (5 /: 0)
 
 errorsTest :: Property
 errorsTest = property $
