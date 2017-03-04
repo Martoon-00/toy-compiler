@@ -42,10 +42,18 @@ instance Arbitrary Stmt where
         , (2, Read <$> arbitrary)
         , (2, Write <$> arbitrary)
         , (1, If <$> arbitrary <*> arbitrary <*> arbitrary)
-        -- , WhileS  -- TODO
+        , (1, forLoop <$> arbitrary <*> arbitrary)
         , (4, Seq <$> arbitrary <*> arbitrary)
         , (8, pure Skip)
         ]
+      where
+        forLoop n body = mconcat
+            [ "i0" := 0
+            , While ("i" <=: n) $ mconcat
+                [ body
+                , "i0" := "i0" + 1
+                ]
+            ]
 
 instance Arbitrary ExecState where
     arbitrary = ExecState <$> vector 0 <*> pure [] <*> pure M.empty <*> arbitrary
