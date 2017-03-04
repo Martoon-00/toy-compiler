@@ -3,7 +3,8 @@ module Test.Arbitrary where
 import           Control.Monad   (liftM2)
 import qualified Data.Map        as M
 import           Data.String     (fromString)
-import           Test.QuickCheck (Arbitrary (..), choose, frequency, getSmall, vector)
+import           Test.QuickCheck (Arbitrary (..), choose, elements, frequency, getSmall,
+                                  vector)
 
 import           Toy.Exp
 import           Toy.Lang        (ExecState (..), Stmt (..))
@@ -42,16 +43,17 @@ instance Arbitrary Stmt where
         , (2, Read <$> arbitrary)
         , (2, Write <$> arbitrary)
         , (1, If <$> arbitrary <*> arbitrary <*> arbitrary)
-        , (1, forLoop <$> arbitrary <*> arbitrary)
+        , (1, forLoop <$> (Var . (:"_i") <$> choose ('a', 'z'))
+                      <*> elements [0, 1] <*> arbitrary)
         , (4, Seq <$> arbitrary <*> arbitrary)
         , (8, pure Skip)
         ]
       where
-        forLoop n body = mconcat
-            [ "i0" := 0
-            , While ("i" <=: n) $ mconcat
+        forLoop i n body = mconcat
+            [ i := 0
+            , While (VarE i <=: n) $ mconcat
                 [ body
-                , "i0" := "i0" + 1
+                , i := VarE i + 1
                 ]
             ]
 
