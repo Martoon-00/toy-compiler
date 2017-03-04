@@ -16,4 +16,4 @@ before_install:
 install:
 - stack --no-terminal --install-ghc build --only-dependencies --jobs=4
 script:
-- stack --no-terminal build --test --jobs=4
+- stack --no-terminal build --test --jobs=4 --test-arguments --qc-max-success=10000
