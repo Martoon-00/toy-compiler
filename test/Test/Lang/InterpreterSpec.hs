@@ -5,7 +5,7 @@ module Test.Lang.InterpreterSpec
     ( spec
     ) where
 
-import           Control.Lens    ((&))
+import           Control.Lens    ((&), (<&>))
 import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (Discard (..), NonNegative (..), Property, conjoin,
                                   property, within, (===), (==>))
@@ -113,12 +113,11 @@ whileTest = sample & [] >--> [4, 3 .. 0]
         ]
 
 errorsTest :: Property
-errorsTest = property $
-    conjoin $ [] >--> X <$>
-        [ Write (5 /: 0)
-        , Read "x"
-        , Write "x"
-        ]
+errorsTest = conjoin $
+    [ Write (5 /: 0)
+    , Read "x"
+    , Write "x"
+    ] <&> [] >--> X
 
 fibTest :: Property
 fibTest = (fib !!) . getNonNegative ~~ sample
