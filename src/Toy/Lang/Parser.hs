@@ -68,19 +68,23 @@ expParser = foldr ($) expParser $
 -- * Program parser
 
 varParser :: Parser Var
-varParser = Var <$> ((:) <$> letter <*> many (satisfy isAlphaNum))
+varParser =
+    Var <$> ((:) <$> letter <*> many (satisfy isAlphaNum) <* some space)
+
+keywordParser :: Text -> Parser ()
+keywordParser t = () <$ asciiCI t <* some space
 
 stmtParser :: Parser Stmt
 stmtParser = sp $
-        Read  <$> (asciiCI "Read"  *> space *> varParser )
-    <|> Write <$> (asciiCI "Write" *> space *> expParser )
-    <|> If    <$> (asciiCI "If"    *> space *> expParser )
-              <*> (asciiCI "then"  *> space *> progParser)
-              <*> (asciiCI "else"  *> space *> progParser)
-    <|> While <$> (asciiCI "While" *> space *> expParser )
-              <*> (asciiCI "do"    *> space *> progParser)
-    <|> Skip  <$   asciiCI "Skip"
-    <|> (:=)  <$> (varParser <* spaces) <*> expParser
+        Read  <$> (keywordParser "Read"  *> varParser)
+    <|> Write <$> (keywordParser "Write" *> expParser )
+    <|> If    <$> (keywordParser "If"    *> expParser )
+              <*> (keywordParser "then"  *> progParser)
+              <*> (keywordParser "else"  *> progParser)
+    <|> While <$> (keywordParser "While" *> expParser )
+              <*> (keywordParser "do"    *> progParser)
+    <|> Skip  <$   keywordParser "Skip"
+    <|> (:=)  <$> varParser <*> expParser
 
 progParser :: Parser Stmt
 progParser = sp $
