@@ -18,11 +18,12 @@ module Test.Util
 
 import           Control.Lens         ((^?), _Right)
 import           Control.Monad        (forM_)
+import           Control.Monad.Trans  (MonadIO (..))
 import           Control.Spoon        (teaspoon)
 import qualified Data.Map             as M
 import           GHC.Exts             (IsList (..))
 import           Test.Hspec           (describe)
-import           Test.Hspec.Core.Spec (SpecWith)
+import           Test.Hspec.Core.Spec (SpecM (..), SpecWith)
 import           Test.QuickCheck      (Arbitrary, NonNegative (..), Property, conjoin,
                                        counterexample, property, (.&&.), (===))
 
@@ -144,3 +145,6 @@ instance Monoid Property where
     mempty = property True
     mappend = (.&&.)
     mconcat = conjoin
+
+instance MonadIO (SpecM a) where
+    liftIO = SpecM . liftIO

@@ -3,8 +3,9 @@ module Toy.Lang.Parser
     ) where
 
 import           Control.Applicative  (Alternative (..), (*>), (<*))
-import           Data.Attoparsec.Text (Parser, asciiCI, char, decimal, decimal, letter,
-                                       parseOnly, satisfy, signed, space, string)
+import           Data.Attoparsec.Text (Parser, asciiCI, char, decimal, decimal,
+                                       endOfInput, letter, parseOnly, satisfy, signed,
+                                       space, string)
 import           Data.Char            (isAlphaNum)
 import           Data.Text            (Text)
 
@@ -69,14 +70,14 @@ expParser = foldr ($) expParser $
 
 varParser :: Parser Var
 varParser =
-    Var <$> ((:) <$> letter <*> many (satisfy isAlphaNum) <* some space)
+    Var <$> ((:) <$> letter <*> many (satisfy isAlphaNum))
 
 keywordParser :: Text -> Parser ()
 keywordParser t = () <$ asciiCI t <* some space
 
 stmtParser :: Parser Stmt
 stmtParser = sp $
-        Read  <$> (keywordParser "Read"  *> varParser)
+        Read  <$> (keywordParser "Read"  *> varParser )
     <|> Write <$> (keywordParser "Write" *> expParser )
     <|> If    <$> (keywordParser "If"    *> expParser )
               <*> (keywordParser "then"  *> progParser)
@@ -84,7 +85,7 @@ stmtParser = sp $
     <|> While <$> (keywordParser "While" *> expParser )
               <*> (keywordParser "do"    *> progParser)
     <|> Skip  <$   keywordParser "Skip"
-    <|> (:=)  <$> varParser <*> expParser
+    <|> (:=)  <$> (varParser <* sp (string "=")) <*> expParser
 
 progParser :: Parser Stmt
 progParser = sp $
@@ -93,4 +94,4 @@ progParser = sp $
     <|> stmtParser
 
 parse :: Text -> Either String Stmt
-parse = parseOnly progParser
+parse = parseOnly $ progParser <* endOfInput

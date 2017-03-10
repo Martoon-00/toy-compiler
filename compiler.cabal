@@ -44,16 +44,30 @@ test-suite tests
                        Test.Arbitrary
                        Test.Lang.ExpSpec
                        Test.Lang.InterpreterSpec
+                       Test.Lang.ParserSpec
                        Test.SM.InterpreterSpec
+                       Test.Walker
+                       Test.Walker.Extractor
+                       Test.Walker.FileReader
+                       Test.Walker.Instances
                        Test.Util
   type:                exitcode-stdio-1.0
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       attoparsec
+                     , base >= 4.7 && < 5
                      , containers
                      , compiler
+                     , data-default
+                     , directory
+                     , either
+                     , exceptions
+                     , filepath
                      , hspec
                      , hspec-core
                      , lens
+                     , mtl
                      , spoon
+                     , text
+                     , transformers
                      , QuickCheck
   hs-source-dirs:      test
   default-language:    Haskell2010
