@@ -24,7 +24,6 @@ import qualified Data.Map                  as M
 import           Data.Text                 (Text)
 import qualified Data.Text.IO              as TIO
 import           Prelude                   hiding (readFile)
-import           System.FilePath.Posix     ((</>))
 
 data Reads = Reads
     { _readFails   :: M.Map FilePath (Maybe SomeException)
@@ -40,20 +39,21 @@ instance Show Reads where
 instance Default Reads where
     def = Reads def False
 
-newtype FileReader a = FileReader (ReaderT FilePath (MaybeT (StateT Reads IO)) a)
+newtype FileReader a = FileReader (ReaderT (FilePath -> FilePath) (MaybeT (StateT Reads IO)) a)
     deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch,
-              Alternative, MonadPlus, MonadState Reads, MonadReader FilePath)
+              Alternative, MonadPlus, MonadState Reads,
+              MonadReader (FilePath -> FilePath))
 
-runFileReader :: FileReader a -> FilePath -> IO (Either Reads a)
-runFileReader (FileReader fr) root = do
-    (mres, fileReads) <- runStateT (runMaybeT (runReaderT fr root)) def
+runFileReader :: FileReader a -> (FilePath -> FilePath) -> IO (Either Reads a)
+runFileReader (FileReader fr) dataIdToPath = do
+    (mres, fileReads) <- runStateT (runMaybeT (runReaderT fr dataIdToPath)) def
     return $ case mres of
         Nothing -> Left fileReads
         Just x  -> Right x
 
 readFile :: FilePath -> FileReader Text
 readFile name = do
-    path <- (</> name) <$> ask
+    path <- ($ name) <$> ask
     let onSuccess = do
             readSuccess .= True
             readFails . at path .= Just Nothing

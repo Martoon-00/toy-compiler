@@ -10,7 +10,7 @@ import           Control.Applicative   (many)
 import           Data.Attoparsec.Text  (decimal, parseOnly, signed, space)
 
 import           Test.Walker.Extractor (Parsable (..), TestCaseData (..), file,
-                                        readingFiles)
+                                        readWithExtension)
 import           Toy.Exp               (Value)
 import qualified Toy.Lang              as L
 
@@ -26,8 +26,8 @@ data ProgramTestData = ProgramTestData
     } deriving (Show)
 
 instance TestCaseData ProgramTestData where
-    tryGetTestCaseData = readingFiles $
-        ProgramTestData <$> file "program.prog"
+    tryGetTestCaseData = readWithExtension $
+        ProgramTestData <$> file ".prog"
 
 data FullTestData = FullTestData
     { ftdProgram :: L.Stmt
@@ -36,8 +36,8 @@ data FullTestData = FullTestData
     } deriving (Show)
 
 instance TestCaseData FullTestData where
-    tryGetTestCaseData = readingFiles $ do
-        ftdProgram <- file "program.prog"
-        ftdInput   <- file "input.in"
-        ftdOutput  <- file "output.out"
+    tryGetTestCaseData = readWithExtension $ do
+        ftdProgram <- file ".prog"
+        ftdInput   <- file ".in"
+        ftdOutput  <- file ".out"
         return FullTestData{..}
