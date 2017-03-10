@@ -24,74 +24,74 @@ sp p = many space *> p <* many space
 -- Layer number = its operations priority.
 
 -- | Parser for left-associative binary operation.
-binopLParser :: Text -> Parser Exp -> Parser Exp
-binopLParser op lp = BinE op <$> (lp <* sp (string op)) <*> binopLParser op lp
+binopLP :: Text -> Parser Exp -> Parser Exp
+binopLP op lp = BinE op <$> (lp <* sp (string op)) <*> binopLP op lp
 
-level6Parser :: Parser Exp -> Parser Exp
-level6Parser lp = sp parser
+level6P :: Parser Exp -> Parser Exp
+level6P lp = sp parser
   where
-    parser = binopLParser "+" lp
-         <|> binopLParser "-" lp
+    parser = binopLP "+" lp
+         <|> binopLP "-" lp
          <|> lp
 
-level7Parser :: Parser Exp -> Parser Exp
-level7Parser lp = sp parser
+level7P :: Parser Exp -> Parser Exp
+level7P lp = sp parser
   where
-    parser = binopLParser "*" lp
-         <|> binopLParser "/" lp
-         <|> binopLParser "%" lp
+    parser = binopLP "*" lp
+         <|> binopLP "/" lp
+         <|> binopLP "%" lp
          <|> lp
 
-level4Parser :: Parser Exp -> Parser Exp
-level4Parser lp = sp parser
+level4P :: Parser Exp -> Parser Exp
+level4P lp = sp parser
   where
-    parser = binopLParser "==" lp
-         <|> binopLParser "!=" lp
-         <|> binopLParser "<=" lp
-         <|> binopLParser ">=" lp
-         <|> binopLParser "<"  lp
-         <|> binopLParser ">"  lp
+    parser = binopLP "==" lp
+         <|> binopLP "!=" lp
+         <|> binopLP "<=" lp
+         <|> binopLP ">=" lp
+         <|> binopLP "<"  lp
+         <|> binopLP ">"  lp
          <|> lp
 
-elemParser :: Parser Exp -> Parser Exp
-elemParser p = sp $
+elemP :: Parser Exp -> Parser Exp
+elemP p = sp $
         char '(' *> p <* char ')'
     <|> ValueE <$> signed decimal
 
-expParser :: Parser Exp
-expParser = foldr ($) expParser $
-    [ level4Parser
-    , level6Parser
-    , level7Parser
-    , elemParser
+expP :: Parser Exp
+expP = foldr ($) expP $
+    [ level4P
+    , level6P
+    , level7P
+    , elemP
     ]
 
 -- * Program parser
 
-varParser :: Parser Var
-varParser =
+varP :: Parser Var
+varP =
     Var <$> ((:) <$> letter <*> many (satisfy isAlphaNum))
 
-keywordParser :: Text -> Parser ()
-keywordParser t = () <$ asciiCI t <* some space
+keywordP :: Text -> Parser ()
+keywordP t = () <$ asciiCI t <* some space
 
-stmtParser :: Parser Stmt
-stmtParser = sp $
-        Read  <$> (keywordParser "Read"  *> varParser )
-    <|> Write <$> (keywordParser "Write" *> expParser )
-    <|> If    <$> (keywordParser "If"    *> expParser )
-              <*> (keywordParser "then"  *> progParser)
-              <*> (keywordParser "else"  *> progParser)
-    <|> While <$> (keywordParser "While" *> expParser )
-              <*> (keywordParser "do"    *> progParser)
-    <|> Skip  <$   keywordParser "Skip"
-    <|> (:=)  <$> (varParser <* sp (string "=")) <*> expParser
+stmtP :: Parser Stmt
+stmtP = sp $
+        Read  <$> (keywordP "Read"  *> varP )
+    <|> Write <$> (keywordP "Write" *> expP )
+    <|> If    <$> (keywordP "If"    *> expP )
+              <*> (keywordP "then"  *> progP)
+              <*> (keywordP "else"  *> progP)
+    <|> While <$> (keywordP "While" *> expP )
+              <*> (keywordP "do"    *> progP)
+    <|> Skip  <$   keywordP "Skip"
+    <|> (:=)  <$> (varP <* sp (string "=")) <*> expP
 
-progParser :: Parser Stmt
-progParser = sp $
-        char '{' *> progParser <* char '}'
-    <|> Seq <$> (stmtParser <* char ';') <*> progParser
-    <|> stmtParser
+progP :: Parser Stmt
+progP = sp $
+        char '{' *> progP <* char '}'
+    <|> Seq <$> (stmtP <* char ';') <*> progP
+    <|> stmtP
 
 parse :: Text -> Either String Stmt
-parse = parseOnly $ progParser <* endOfInput
+parse = parseOnly $ progP <* endOfInput
