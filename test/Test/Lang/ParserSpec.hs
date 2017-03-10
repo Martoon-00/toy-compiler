@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -20,9 +19,8 @@ spec = describe "parser" $ do
 type TestData = Either String ProgramTestData
 
 parseWellTest :: TestData -> Property
-parseWellTest = \case
-    Left err -> counterexample ("Parse failed: " ++ err) $ False
-    _        -> property True
+parseWellTest (Left err) = counterexample ("Parse failed: " ++ err) False
+parseWellTest _          = property True
 
 parseBadTest :: TestData -> Property
 parseBadTest =

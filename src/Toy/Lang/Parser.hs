@@ -2,7 +2,7 @@ module Toy.Lang.Parser
     ( parse
     ) where
 
-import           Control.Applicative  (Alternative (..), (*>), (<*))
+import           Control.Applicative  (Alternative (..), optional, (*>), (<*))
 import           Data.Attoparsec.Text (Parser, asciiCI, char, decimal, decimal,
                                        endOfInput, letter, parseOnly, satisfy, signed,
                                        space, string)
@@ -57,6 +57,7 @@ elemP :: Parser Exp -> Parser Exp
 elemP p = sp $
         char '(' *> p <* char ')'
     <|> ValueE <$> signed decimal
+    <|> VarE   <$> varP
 
 expP :: Parser Exp
 expP = foldr ($) expP $
@@ -91,7 +92,7 @@ progP :: Parser Stmt
 progP = sp $
         char '{' *> progP <* char '}'
     <|> Seq <$> (stmtP <* char ';') <*> progP
-    <|> stmtP
+    <|> stmtP <* optional (char ';')
 
 parse :: Text -> Either String Stmt
 parse = parseOnly $ progP <* endOfInput

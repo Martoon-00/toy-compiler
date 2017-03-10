@@ -12,7 +12,7 @@ module Test.Walker.Extractor
     , describeDir
     ) where
 
-import           Control.Lens               ((^.))
+import           Control.Lens               ((%~), (^.), _Left)
 import           Control.Monad              (forM, forM_, when)
 import           Control.Monad.Catch        (Exception, throwM)
 import           Control.Monad.Trans        (MonadIO (..), lift)
@@ -25,7 +25,8 @@ import           System.Directory           (doesDirectoryExist, doesFileExist,
 import           System.FilePath.Lens       (basename)
 import           System.FilePath.Posix      ((</>))
 import           Test.Hspec                 (SpecWith, describe, it)
-import           Test.QuickCheck            (Property, once)
+import           Test.QuickCheck            (Property, once, property)
+import           Test.QuickCheck.Property   (failed, reason)
 
 import           Test.Util                  ()
 import           Test.Walker.FileReader     (FileReader, Reads (..), readFile,
@@ -69,7 +70,9 @@ walk path apply = do
         case edata of
             Left r -> do
                 when (_readSuccess r) $
-                    liftIO $ putStrLn $ "Incomplete test data!\n" ++ show r ++ "\n"
+                    it basename' $ property $
+                        failed { reason = "Incomplete test data!\n"
+                                 ++ show r ++ "\n" }
             Right d -> it basename' $ apply d
 
 data TestWalker d = TestWalker
@@ -86,7 +89,9 @@ describeDir path apply =
 file :: Parsable a => FilePath -> EitherT String FileReader a
 file path = do
     rd <- lift $ readFile path
-    EitherT . return $ parseData rd
+    EitherT . return $ (_Left %~ withDesc) $ parseData rd
+  where
+    withDesc err = "(" ++ path ++ ") " ++ err
 
 readWithExtension
     :: EitherT String FileReader a

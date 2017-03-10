@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards  #-}
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -8,14 +9,14 @@ module Test.Lang.InterpreterSpec
 import           Control.Lens    ((&), (<&>))
 import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (Discard (..), NonNegative (..), Property, conjoin,
-                                  property, within, (===), (==>))
+                                  counterexample, property, within, (===), (==>))
 
 import           Test.Arbitrary  ()
 import           Test.Util       (ExecWay (..), TestRes (..), describeExecWays, (>-->),
                                   (~*~), (~~))
+import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Exp
-import           Toy.Lang        (ExecState (..), Stmt (..), simpleExecState)
-import           Toy.Lang        (execute)
+import           Toy.Lang        (ExecState (..), Stmt (..), execute, simpleExecState)
 
 
 spec :: Spec
@@ -49,6 +50,10 @@ spec = do
         describe "examples" $ do
             it "io simple" $
                 ioTest way
+
+    describeExecWays [Interpret] $ \_ -> do
+        describeDir "./test/cases/exec"
+            fileTest
 
 
 executeAlwaysEndsWithSkip :: ExecState -> Property
@@ -164,3 +169,9 @@ minTest = min @Value ~~ sample
             ("c" := "b")
         , Write "c"
         ]
+
+fileTest :: Either String FullTestData -> Property
+fileTest (Left err) =
+    counterexample ("Parse failed: " ++ err) False
+fileTest (Right FullTestData{..}) =
+    ftdProgram & ftdInput >--> TestRes ftdOutput

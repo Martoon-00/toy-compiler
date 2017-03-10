@@ -3,7 +3,7 @@
 
 module Test.Walker.Instances
     ( ProgramTestData (..)
-
+    , FullTestData (..)
     ) where
 
 import           Control.Applicative   (many)
