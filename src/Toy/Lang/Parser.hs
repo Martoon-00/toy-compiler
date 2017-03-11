@@ -19,9 +19,13 @@ sp p = many space *> p <* many space
 
 -- * Expression parser
 
--- Parsers here are split up to layers, each one accepts parser for
--- all lower layers as parser for single atom.
--- Layer number = its operations priority.
+-- Expression parser is split up to layers.
+-- Parser at each level accepts as argument a parser for what it considers
+-- to be an /atom/, in fact - parser for all lower layers.
+-- E.g., parser which cares about sums accepts parser for numbers,
+-- expressions in brackets, multiplication and division operations.
+-- 
+-- Layer number = priority of operations it cares about.
 
 -- | Parser for left-associative binary operation.
 binopLP :: Text -> Parser Exp -> Parser Exp
@@ -53,6 +57,7 @@ level4P lp = sp parser
          <|> binopLP ">"  lp
          <|> lp
 
+-- atom for this parser is expression parser itself
 elemP :: Parser Exp -> Parser Exp
 elemP p = sp $
         char '(' *> p <* char ')'
