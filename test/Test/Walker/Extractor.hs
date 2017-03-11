@@ -17,6 +17,7 @@ import           Control.Monad              (forM, forM_, when)
 import           Control.Monad.Catch        (Exception, throwM)
 import           Control.Monad.Trans        (MonadIO (..), lift)
 import           Control.Monad.Trans.Either (EitherT (..))
+import           Data.List                  (sort)
 import qualified Data.Set                   as S
 import           Data.Text                  (Text)
 import           Prelude                    hiding (readFile)
@@ -51,7 +52,7 @@ walk path apply = do
     when (not validPath) $
         liftIO $ throwM $ WalkingError $ "Invalid path: " ++ show path
 
-    contents <- liftIO $ listDirectory path
+    contents <- liftIO $ sort <$> listDirectory path
     filenames <- fmap unique $ forM contents $ \filename -> do
         let file' = path </> filename
         exists <- liftIO $ doesFileExist file'
