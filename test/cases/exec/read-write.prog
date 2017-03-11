@@ -1,3 +1,3 @@
 read a;
-a = a;
+a = a + 2;
 write a

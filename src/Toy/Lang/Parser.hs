@@ -3,6 +3,7 @@ module Toy.Lang.Parser
     ) where
 
 import           Control.Applicative  (Alternative (..), optional, (*>), (<*))
+import           Control.Lens         ((<&>))
 import           Data.Attoparsec.Text (Parser, asciiCI, char, decimal, decimal,
                                        endOfInput, letter, parseOnly, satisfy, signed,
                                        space, string)
@@ -24,38 +25,24 @@ sp p = many space *> p <* many space
 -- to be an /atom/, in fact - parser for all lower layers.
 -- E.g., parser which cares about sums accepts parser for numbers,
 -- expressions in brackets, multiplication and division operations.
--- 
+--
 -- Layer number = priority of operations it cares about.
 
 -- | Parser for left-associative binary operation.
 binopLP :: Text -> Parser Exp -> Parser Exp
-binopLP op lp = BinE op <$> (lp <* sp (string op)) <*> binopLP op lp
+binopLP op lp = BinE op <$> lp <* sp (string op) <*> (binopLP op lp <|> lp)
+
+binopLayerP :: [Text] -> Parser Exp -> Parser Exp
+binopLayerP ops lp = sp $ foldr (<|>) lp $ ops <&> \op -> binopLP op lp
 
 level6P :: Parser Exp -> Parser Exp
-level6P lp = sp parser
-  where
-    parser = binopLP "+" lp
-         <|> binopLP "-" lp
-         <|> lp
+level6P = binopLayerP ["+", "-"]
 
 level7P :: Parser Exp -> Parser Exp
-level7P lp = sp parser
-  where
-    parser = binopLP "*" lp
-         <|> binopLP "/" lp
-         <|> binopLP "%" lp
-         <|> lp
+level7P = binopLayerP ["*", "/", "%"]
 
 level4P :: Parser Exp -> Parser Exp
-level4P lp = sp parser
-  where
-    parser = binopLP "==" lp
-         <|> binopLP "!=" lp
-         <|> binopLP "<=" lp
-         <|> binopLP ">=" lp
-         <|> binopLP "<"  lp
-         <|> binopLP ">"  lp
-         <|> lp
+level4P = binopLayerP ["==", "!=", "<=", ">=", "<", ">"]
 
 -- atom for this parser is expression parser itself
 elemP :: Parser Exp -> Parser Exp
@@ -96,7 +83,7 @@ stmtP = sp $
 progP :: Parser Stmt
 progP = sp $
         char '{' *> progP <* char '}'
-    <|> Seq <$> (stmtP <* char ';') <*> progP
+    <|> Seq <$> stmtP <* char ';' <*> progP
     <|> stmtP <* optional (char ';')
 
 parse :: Text -> Either String Stmt
