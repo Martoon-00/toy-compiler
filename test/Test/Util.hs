@@ -40,11 +40,13 @@ class Interpretable e where
 
 instance Interpretable L.Stmt where
     exec stmt is =
-        L.getIO <$> L.execute (L.ExecState is [] M.empty stmt) ^? _Right
+        let outcome = L.execute $ L.ExecState is [] M.empty stmt
+        in  L.getIO <$> outcome ^? _Right
 
 instance Interpretable SM.Insts where
     exec insts is =
-        SM.getIO <$> SM.execute (SM.ExecState is [] M.empty [] insts 0) ^? _Right
+        let outcome = SM.execute $ SM.ExecState is [] M.empty [] insts 0
+        in  SM.getIO <$> outcome ^? _Right
 
 
 data ExecWay
@@ -61,13 +63,12 @@ inExecWay Interpret = exec
 inExecWay Translate = exec . L.toIntermediate
 
 describeExecWays :: [ExecWay] -> (ExecWay -> SpecWith a) -> SpecWith a
-describeExecWays ways specs =
-    forM_ ways $ describe <$> show <*> specs
+describeExecWays ways specs = forM_ ways $ describe <$> show <*> specs
 
 
 data TestRes
-    = TestRes Out  -- execution produced given output for given input
-    | X            -- execution failed for given input
+    = TestRes Out  -- execution produced given output
+    | X            -- execution failed
 
 instance IsList TestRes where
     type Item TestRes = Value
@@ -75,13 +76,13 @@ instance IsList TestRes where
     toList _ = error "toList: impossible for TestRes"
 
 infix 5 >-->
-
 (>-->) :: Interpretable e => In -> TestRes -> e -> Property
 (input >--> res) prog = exec prog input === (([], ) <$> expected res)
   where
     expected (TestRes out) = Just out
     expected X             = Nothing
 
+infix 5 >-*->
 (>-*->) :: In -> TestRes -> L.Stmt -> ExecWay -> Property
 (input >-*-> res) prog way =
     inExecWay way prog input === (([], ) <$> expected res)
@@ -122,7 +123,6 @@ singleOutput (_:_, _  ) = error "Non empty input remained!"
 singleOutput (_,   xs)  = error $ "Non single value in output!: "
                                   ++ show (reverse xs)
 
-
 -- | Interprets given program in one of our languages as a function, and
 -- checks that it's equivalent to another function.
 -- Program have to print a single value.
@@ -137,7 +137,7 @@ infix 3 ~*~
 (~*~) :: Equivalence f => f -> L.Stmt -> ExecWay -> Property
 (f ~*~ prog) way = equivalent f (fmap singleOutput . inExecWay way prog) []
 
-
+-- | Just constraints type
 instsSM :: SM.Insts -> SM.Insts
 instsSM = id
 
