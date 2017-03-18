@@ -22,8 +22,8 @@ sp p = many space *> p <* many space
 -- Expression parser is split up to layers.
 -- Parser at each level accepts as argument a parser for what it considers
 -- to be an /atom/, in fact - parser for all lower layers.
--- E.g., parser which cares about sums accepts parser for numbers,
--- expressions in brackets, multiplication and division operations.
+-- E.g., parser which cares about sums accepts parser for products, numbers,
+-- variables e.t.c.
 
 -- | Parser for layer of left-associative binary operations.
 binopLALayerP :: [Text] -> Parser Exp -> Parser Exp
