@@ -25,8 +25,6 @@ sp p = many space *> p <* many space
 -- to be an /atom/, in fact - parser for all lower layers.
 -- E.g., parser which cares about sums accepts parser for numbers,
 -- expressions in brackets, multiplication and division operations.
---
--- Layer number = priority of operations it cares about.
 
 -- | Parser for left-associative binary operation.
 binopLP :: Text -> Parser Exp -> Parser Exp
@@ -34,15 +32,6 @@ binopLP op lp = BinE op <$> lp <* sp (string op) <*> (binopLP op lp <|> lp)
 
 binopLayerP :: [Text] -> Parser Exp -> Parser Exp
 binopLayerP ops lp = sp $ foldr (<|>) lp $ ops <&> \op -> binopLP op lp
-
-level6P :: Parser Exp -> Parser Exp
-level6P = binopLayerP ["+", "-"]
-
-level7P :: Parser Exp -> Parser Exp
-level7P = binopLayerP ["*", "/", "%"]
-
-level4P :: Parser Exp -> Parser Exp
-level4P = binopLayerP ["==", "!=", "<=", ">=", "<", ">"]
 
 -- atom for this parser is expression parser itself
 elemP :: Parser Exp -> Parser Exp
@@ -53,9 +42,13 @@ elemP p = sp $
 
 expP :: Parser Exp
 expP = foldr ($) expP $
-    [ level4P
-    , level6P
-    , level7P
+    [ -- priority #4
+      binopLayerP ["==", "!=", "<=", ">=", "<", ">"]
+      -- priority #6
+    , binopLayerP ["+", "-"]
+      -- priority #7
+    , binopLayerP ["*", "/", "%"]
+      -- expression atom
     , elemP
     ]
 
