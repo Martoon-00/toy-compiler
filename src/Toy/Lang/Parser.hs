@@ -3,7 +3,6 @@ module Toy.Lang.Parser
     ) where
 
 import           Control.Applicative  (Alternative (..), optional, (*>), (<*))
-import           Control.Lens         ((<&>))
 import           Data.Attoparsec.Text (Parser, asciiCI, char, decimal, decimal,
                                        endOfInput, letter, parseOnly, satisfy, signed,
                                        space, string)
@@ -26,12 +25,12 @@ sp p = many space *> p <* many space
 -- E.g., parser which cares about sums accepts parser for numbers,
 -- expressions in brackets, multiplication and division operations.
 
--- | Parser for left-associative binary operation.
-binopLP :: Text -> Parser Exp -> Parser Exp
-binopLP op lp = BinE op <$> lp <* sp (string op) <*> (binopLP op lp <|> lp)
-
-binopLayerP :: [Text] -> Parser Exp -> Parser Exp
-binopLayerP ops lp = sp $ foldr (<|>) lp $ ops <&> \op -> binopLP op lp
+-- | Parser for layer of left-associative binary operations.
+binopLALayerP :: [Text] -> Parser Exp -> Parser Exp
+binopLALayerP ops lp = sp $
+    let opParser op = BinE op <$> (lp <* sp (string op)) <*> result
+        result      = foldr (<|>) lp $ opParser <$> ops
+    in  result
 
 -- atom for this parser is expression parser itself
 elemP :: Parser Exp -> Parser Exp
@@ -43,11 +42,11 @@ elemP p = sp $
 expP :: Parser Exp
 expP = foldr ($) expP $
     [ -- priority #4
-      binopLayerP ["==", "!=", "<=", ">=", "<", ">"]
+      binopLALayerP ["==", "!=", "<=", ">=", "<", ">"]
       -- priority #6
-    , binopLayerP ["+", "-"]
+    , binopLALayerP ["+", "-"]
       -- priority #7
-    , binopLayerP ["*", "/", "%"]
+    , binopLALayerP ["*", "/", "%"]
       -- expression atom
     , elemP
     ]
