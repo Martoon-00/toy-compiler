@@ -22,7 +22,7 @@ execute exec@(ExecState is os vars stack insts ip)
         return $ ExecState is os vars (k:stack) insts (ip + 1)
 
     step (b:a:stack') (Bin op) = do
-        eval <- _Left %~ (ip,) $ arithspoon $ binOp op a b
+        eval <- describeError $ arithspoon $ binOp op a b
         return $ ExecState is os vars (eval : stack') insts (ip + 1)
     step _            (Bin _ ) =
         failure "Not enough arguments on stack"
@@ -37,7 +37,7 @@ execute exec@(ExecState is os vars stack insts ip)
         failure "Stack is empty"
 
     step _ Read = case uncons is of
-        Nothing       -> Left (ip, "No input")
+        Nothing       -> failure "No input"
         Just (i, is') -> return $ ExecState is' os vars (i:stack) insts (ip + 1)
 
     step (v:stack') Write =
@@ -48,4 +48,5 @@ execute exec@(ExecState is os vars stack insts ip)
     step _ Nop =
         return $ ExecState is os vars stack insts (ip + 1)
 
-    failure = Left . (ip, )
+    failure err = Left $ mconcat ["#", show ip, ": ", err]
+    describeError = _Left %~ \err -> mconcat ["#", show ip, ": ", err]

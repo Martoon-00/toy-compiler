@@ -12,8 +12,8 @@ import           Test.QuickCheck (Discard (..), NonNegative (..), Property, conj
                                   counterexample, property, within, (===), (==>))
 
 import           Test.Arbitrary  ()
-import           Test.Util       (ExecWay (..), TestRes (..), describeExecWays, (>-->),
-                                  (~*~), (~~))
+import           Test.Execution  (BinaryFile (..), ExecWay (..), TestRes (..),
+                                  describeExecWays, (>-->), (~*~), (~~))
 import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Exp
 import           Toy.Lang        (ExecState (..), Stmt (..), execute, simpleExecState)

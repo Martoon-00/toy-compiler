@@ -43,7 +43,7 @@ data ExecState = ExecState
 makeLenses ''ExecState
 
 -- | Execution error
-type Error = (IP, String)
+type Error = String
 
 -- | Result of execution
 type Exec = Either Error ExecState

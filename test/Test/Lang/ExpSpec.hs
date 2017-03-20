@@ -10,7 +10,7 @@ import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (Property)
 
 import           Test.Arbitrary  ()
-import           Test.Util       (ExecWay (..), describeExecWays, (~*~))
+import           Test.Execution  (ExecWay (..), describeExecWays, (~*~))
 import           Toy.Exp
 import           Toy.Lang        (Stmt (..))
 
