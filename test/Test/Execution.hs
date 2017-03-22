@@ -63,7 +63,16 @@ instance Executable SM.Insts where
 newtype BinaryFile = BinaryFile FilePath
     deriving (Show, Eq, IsString)
 
-{-# NOINLINE mkBinaryUnsafe #-}
+-- | Wow wow, lazy IO!
+--
+-- Makes given compiler IO-function pure.
+-- Once produced link to file is used, actual compilation occurs and
+-- binary gets created.
+--
+-- This is unsafe in a sense, that if 2 binaries are created with this
+-- function call, the one which overwrites (generated last) is not the one
+-- which was produced with last function call, but which was actually used
+-- last.
 mkBinaryUnsafe
     :: (FilePath -> FilePath -> a -> IO ())
     -> FilePath -> FilePath -> a -> BinaryFile
@@ -71,6 +80,7 @@ mkBinaryUnsafe compiler runtimePath outputPath prog =
     unsafePerformIO . unsafeInterleaveIO $ do
         compiler runtimePath outputPath prog
         return $ BinaryFile outputPath
+{-# NOINLINE mkBinaryUnsafe #-}
 
 instance Executable BinaryFile where
     exec (BinaryFile path) is = do
