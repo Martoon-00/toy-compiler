@@ -15,5 +15,6 @@ before_install:
   --strip-components=1 -C ~/.local/bin '*/stack'
 install:
 - stack --no-terminal --install-ghc build --only-dependencies --jobs=4
+- cd runtime && make && cd ..
 script:
 - stack --no-terminal build --test --jobs=4 --test-arguments --qc-max-success=10000
