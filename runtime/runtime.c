@@ -1,4 +1,4 @@
-# include <stdio.h>
+#include <stdio.h>
 
 void write(int val) {
     printf("%d\n", val);
