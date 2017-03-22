@@ -41,5 +41,5 @@ errorsTest = property $
     conjoin $ [] >--> X <$>
         [ instsSM [Write]
         , [Read]
-        , [Ld "I see the spine\nOf the world.."]
+        , [Load "I see the spine\nOf the world.."]
         ]

@@ -27,13 +27,13 @@ execute exec@(ExecState is os vars stack insts ip)
     step _            (Bin _ ) =
         failure "Not enough arguments on stack"
 
-    step _ (Ld name) = case vars ^. at name of
+    step _ (Load name) = case vars ^. at name of
         Just var -> return $ ExecState is os vars (var:stack) insts (ip + 1)
         Nothing  -> failure $ "No variable " ++ show name ++ " defined"
 
-    step (v:stack') (St name) =
+    step (v:stack') (Store name) =
         return $ ExecState is os (M.insert name v vars) stack' insts (ip + 1)
-    step _          (St _   ) =
+    step _          (Store _   ) =
         failure "Stack is empty"
 
     step _ Read = case uncons is of

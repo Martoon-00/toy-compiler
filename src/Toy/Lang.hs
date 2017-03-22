@@ -1,5 +1,3 @@
--- | Re-exports of Toy.Lang.*
-
 module Toy.Lang
        ( module M
        ) where

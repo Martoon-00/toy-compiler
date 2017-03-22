@@ -11,6 +11,7 @@ module Test.Execution
     ( TestRes (..)
     , ExecWay (..)
     , BinaryFile (..)
+    , defCompileWay
     , describeExecWays
     , (>-->)
     , (>-*->)
@@ -26,6 +27,7 @@ import           Control.Spoon              (teaspoon)
 import qualified Data.Map                   as M
 import qualified Data.Text                  as T
 import           GHC.Exts                   (IsList (..), IsString (..))
+import           System.IO.Unsafe           (unsafeInterleaveIO, unsafePerformIO)
 import           System.Process             (readProcess)
 import           Test.Hspec                 (describe)
 import           Test.Hspec.Core.Spec       (SpecWith)
@@ -36,6 +38,7 @@ import           Test.Util                  (getOutputValues, parseDataOrFail)
 import           Toy.Exp                    (Value)
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
+import qualified Toy.X86                    as X86
 
 type In = [Value]
 type Out = [Value]
@@ -60,6 +63,15 @@ instance Executable SM.Insts where
 newtype BinaryFile = BinaryFile FilePath
     deriving (Show, Eq, IsString)
 
+{-# NOINLINE mkBinaryUnsafe #-}
+mkBinaryUnsafe
+    :: (FilePath -> FilePath -> a -> IO ())
+    -> FilePath -> FilePath -> a -> BinaryFile
+mkBinaryUnsafe compiler runtimePath outputPath prog =
+    unsafePerformIO . unsafeInterleaveIO $ do
+        compiler runtimePath outputPath prog
+        return $ BinaryFile outputPath
+
 instance Executable BinaryFile where
     exec (BinaryFile path) is = do
         let input = unlines (show <$> is)
@@ -72,19 +84,29 @@ instance Executable BinaryFile where
         grab = EitherT . fmap (_Left %~ showError) . try
 
 data ExecWay
-    = Interpret  -- ^ Interpret language directly
-    | Translate  -- ^ Translate to SM and interpret
-    | Compile    -- ^ Compile to asm and execute
+    = Interpret
+    -- ^ Interpret language directly
+    | Translate
+    -- ^ Translate to SM and interpret
+    | Compile FilePath FilePath
+    -- ^ Compile to asm and execute.
+    -- 1st argument is runtime path, 2nd - output binary name.
     deriving (Eq)
 
 instance Show ExecWay where
-    show Interpret = "Lang interpreter"
-    show Translate = "Translator + SM interpreter"
-    show Compile   = "Compiler + execution"
+    show Interpret     = "Lang interpreter"
+    show Translate     = "Translator + SM interpreter"
+    show (Compile _ _) = "Compiler + execution"
+
+defCompileWay :: ExecWay
+defCompileWay = Compile "./runtime/runtime.o" "./tmp/prog"
 
 inExecWay :: ExecWay -> L.Stmt -> In -> EitherT String IO InOut
 inExecWay Interpret = exec
 inExecWay Translate = exec . L.toIntermediate
+inExecWay (Compile runtimePath progPath) =
+    exec . mkBinaryUnsafe X86.produceBinary runtimePath progPath
+         . X86.compile . L.toIntermediate
 
 describeExecWays :: [ExecWay] -> (ExecWay -> SpecWith a) -> SpecWith a
 describeExecWays ways specs = forM_ ways $ describe <$> show <*> specs
@@ -99,6 +121,14 @@ instance IsList TestRes where
     fromList = TestRes
     toList _ = error "toList: impossible for TestRes"
 
+assess :: (Eq a, Show a) => Either String a -> Maybe a -> Property
+assess result expected =
+    let dispm = maybe "failure" show
+        dispe = either ("failure: " ++) show
+    in  counterexample
+        ("Expected " ++ dispm expected ++ ", got " ++ dispe result)
+        (expected == result ^? _Right)
+
 infix 5 >-->
 (>-->) :: Executable e => In -> TestRes -> e -> Property
 (input >--> res) prog = ioProperty $ do
@@ -112,7 +142,7 @@ infix 5 >-*->
 (>-*->) :: In -> TestRes -> L.Stmt -> ExecWay -> Property
 (input >-*-> res) prog way = ioProperty $ do
     outcome <- runEitherT $ inExecWay way prog input
-    return $ outcome ^? _Right === (withEmptyInput <$> expected res)
+    return $ outcome `assess` (withEmptyInput <$> expected res)
   where
     expected (TestRes out) = Just out
     expected X             = Nothing
@@ -133,11 +163,7 @@ instance Equivalence Value where
     equivalent r f0 args = ioProperty $ do
         result <- runEitherT $ f0 (reverse args)
         let expected = teaspoon r
-            dispm    = maybe "failure" show
-            dispe    = either ("failure: " ++) show
-        return $ counterexample
-            ("Expected " ++ dispm expected ++ ", got " ++ dispe result)
-            (expected == result ^? _Right)
+        return $ result `assess` expected
 
 instance (Equivalence f, Extract Value v, Show v, Arbitrary v)
        => Equivalence (v -> f) where

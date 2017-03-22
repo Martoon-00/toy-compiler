@@ -12,8 +12,8 @@ import           Test.QuickCheck (Discard (..), NonNegative (..), Property, conj
                                   counterexample, property, within, (===), (==>))
 
 import           Test.Arbitrary  ()
-import           Test.Execution  (BinaryFile (..), ExecWay (..), TestRes (..),
-                                  describeExecWays, (>-->), (~*~), (~~))
+import           Test.Execution  (ExecWay (..), TestRes (..), defCompileWay,
+                                  describeExecWays, (>-*->), (>-->), (~*~), (~~))
 import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Exp
 import           Toy.Lang        (ExecState (..), Stmt (..), execute, simpleExecState)
@@ -46,14 +46,15 @@ spec = do
         it "`execute` always ends with Skip" $
             property executeAlwaysEndsWithSkip
 
-    describeExecWays [Interpret, Translate] $ \way -> do
-        describe "examples" $ do
-            it "io simple" $
-                ioTest way
-
-    describeExecWays [Interpret] $ \_ -> do
         describeDir "./test/cases/exec"
             fileTest
+
+    describeExecWays [Interpret, Translate, defCompileWay] $ \way -> do
+        describe "examples" $ do
+            it "no actions" $
+                noActions way
+            it "io simple" $
+                ioTest way
 
 
 executeAlwaysEndsWithSkip :: ExecState -> Property
@@ -65,6 +66,8 @@ executeAlwaysEndsWithSkip initExecState@(ExecState _ _ _ initStmt) =
             Left _                      -> property Discard
             Right (ExecState _ _ _ end) -> end === Skip
 
+noActions :: ExecWay -> Property
+noActions = mempty & [] >-*-> []
 
 initSkipTest :: Property
 initSkipTest = execute sample === Right expected

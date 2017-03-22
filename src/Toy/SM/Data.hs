@@ -14,8 +14,8 @@ type IP = Int
 data Inst
     = Push Int
     | Bin BinOp
-    | Ld Var
-    | St Var
+    | Load Var
+    | Store Var
     | Read
     | Write
     | Nop

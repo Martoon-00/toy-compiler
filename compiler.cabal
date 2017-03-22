@@ -14,6 +14,7 @@ library
   exposed-modules:     Toy.Exp
                        Toy.Lang
                        Toy.SM
+                       Toy.X86
   other-modules:       Toy.Exp.Data
                        Toy.Exp.Eval
                        Toy.Exp.Operations
@@ -24,16 +25,24 @@ library
                        Toy.Lang.Translator
                        Toy.SM.Data
                        Toy.SM.Interpreter
+                       Toy.X86.Data
+                       Toy.X86.Translator
 
   build-depends:       attoparsec
                      , base >= 4.7 && < 5
                      , containers
                      , deepseq
                      , dlist
+                     , formatting
                      , lens
+                     , mtl
+                     , process
                      , spoon
                      , vector
                      , text
+                     , text-format
+                     , raw-strings-qq
+                     , universum
   ghc-options:         -Wall
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
@@ -69,6 +78,7 @@ test-suite tests
                      , process
                      , spoon
                      , text
+                     , text-format
                      , transformers
                      , QuickCheck
   hs-source-dirs:      test
