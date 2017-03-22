@@ -24,6 +24,7 @@ import           Control.Monad              (forM_)
 import           Control.Monad.Catch        (SomeException, try)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Spoon              (teaspoon)
+import           Data.Functor               (($>))
 import qualified Data.Map                   as M
 import qualified Data.Text                  as T
 import           GHC.Exts                   (IsList (..), IsString (..))
@@ -74,12 +75,13 @@ newtype BinaryFile = BinaryFile FilePath
 -- which was produced with last function call, but which was actually used
 -- last.
 mkBinaryUnsafe
-    :: (FilePath -> FilePath -> a -> IO ())
-    -> FilePath -> FilePath -> a -> BinaryFile
+    :: Functor f
+    => (FilePath -> FilePath -> a -> IO (f ()))
+    -> FilePath -> FilePath -> a -> f BinaryFile
 mkBinaryUnsafe compiler runtimePath outputPath prog =
     unsafePerformIO . unsafeInterleaveIO $ do
-        compiler runtimePath outputPath prog
-        return $ BinaryFile outputPath
+        outcome <- compiler runtimePath outputPath prog
+        return $ outcome $> BinaryFile outputPath
 {-# NOINLINE mkBinaryUnsafe #-}
 
 instance Executable BinaryFile where
@@ -112,11 +114,14 @@ defCompileWay :: ExecWay
 defCompileWay = Compile "./runtime/runtime.o" "./tmp/prog"
 
 inExecWay :: ExecWay -> L.Stmt -> In -> EitherT String IO InOut
-inExecWay Interpret = exec
-inExecWay Translate = exec . L.toIntermediate
-inExecWay (Compile runtimePath progPath) =
-    exec . mkBinaryUnsafe X86.produceBinary runtimePath progPath
-         . X86.compile . L.toIntermediate
+inExecWay Interpret stmt input = exec stmt input
+inExecWay Translate stmt input = exec (L.toIntermediate stmt) input
+inExecWay (Compile runtimePath progPath) stmt input = do
+    binary <- EitherT . return
+            . mkBinaryUnsafe X86.produceBinary runtimePath progPath
+            . X86.compile $ L.toIntermediate stmt
+    exec binary input
+
 
 describeExecWays :: [ExecWay] -> (ExecWay -> SpecWith a) -> SpecWith a
 describeExecWays ways specs = forM_ ways $ describe <$> show <*> specs

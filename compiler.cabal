@@ -27,6 +27,7 @@ library
                        Toy.SM.Interpreter
                        Toy.X86.Data
                        Toy.X86.Translator
+                       Toy.X86.Util
 
   build-depends:       attoparsec
                      , base >= 4.7 && < 5
@@ -36,7 +37,7 @@ library
                      , formatting
                      , lens
                      , mtl
-                     , process
+                     , process >= 1.6
                      , spoon
                      , vector
                      , text

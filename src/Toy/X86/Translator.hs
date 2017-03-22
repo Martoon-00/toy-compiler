@@ -10,7 +10,6 @@ module Toy.X86.Translator
 
 import           Control.Lens        (at, (+=), (-=), (^.))
 import           Control.Monad       (forM)
-import           Control.Monad       (void)
 import           Control.Monad.State (get, runState)
 import           Control.Monad.Trans (MonadIO (..))
 import           Data.Functor        (($>))
@@ -20,12 +19,13 @@ import qualified Data.Set            as S
 import           Data.Text           (Text)
 import qualified Formatting          as F
 import           GHC.Exts            (fromList)
-import           System.Process      (readProcess)
+import           System.Process      (proc)
 
 import           Toy.Exp             (Var)
 import qualified Toy.SM              as SM
 import           Toy.X86.Data        (Inst (..), Insts, Operand (..), Program (..), eax,
                                       edi, edx, esi, esp)
+import           Toy.X86.Util        (readCreateProcess)
 
 compile :: SM.Insts -> Insts
 compile insts =
@@ -123,11 +123,13 @@ binop = \case
 -- * @-xassembler@ - specifies language (required for next option)
 --
 -- * @-@           - take source from /stdin/
--- TODO: extract error log
-produceBinary :: MonadIO m => FilePath -> FilePath -> Insts -> m ()
-produceBinary runtimePath outputPath insts =
-    void $
-    liftIO $
-    readProcess "gcc"
-        ["-m32", runtimePath, "-xassembler", "-", "-o", outputPath]
-        (F.formatToString F.build $ Program insts)
+produceBinary
+    :: MonadIO m
+    => FilePath
+    -> FilePath
+    -> Insts
+    -> m (Either String ())
+produceBinary runtimePath outputPath insts = liftIO $ do
+    let cmd = proc "gcc"
+            ["-m32", runtimePath, "-xassembler", "-", "-o", outputPath]
+    readCreateProcess cmd $ F.formatToString F.build (Program insts)
