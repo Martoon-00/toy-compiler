@@ -72,6 +72,7 @@ test-suite tests
                      , either
                      , exceptions
                      , filepath
+                     , formatting
                      , hspec
                      , hspec-core
                      , lens

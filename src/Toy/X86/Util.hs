@@ -15,7 +15,7 @@ import           System.IO               (hClose, hGetContents, hPutStr)
 import           System.Process          (CreateProcess (..), StdStream (..),
                                           waitForProcess, withCreateProcess)
 
--- | Copy-pasted `readCreateProcess` fnctions, but ignores stdout and
+-- | Copy-pasted `readCreateProcess` functions, but ignores stdout and
 -- extracts stderr.
 readCreateProcess
     :: CreateProcess

@@ -10,20 +10,22 @@ import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (Property)
 
 import           Test.Arbitrary  ()
-import           Test.Execution  (ExecWay (..), describeExecWays, (~*~))
+import           Test.Execution  (ExecWay (..), defCompileWay, describeExecWays, (~*~))
 import           Toy.Exp
 import           Toy.Lang        (Stmt (..))
 
 
 spec :: Spec
 spec =
-    describeExecWays [Interpret, Translate] $ \way -> do
+    describeExecWays [Interpret, Translate, defCompileWay] $ \way -> do
         describe "expressions" $ do
             describe "arithmetic" $ do
                 it "plus" $
                     plusTest way
                 it "div" $
                     divTest way
+                it "two variables" $
+                    twoVarsTest way
                 it "complex" $
                     complexArithTest way
             describe "comparisons" $ do
@@ -40,11 +42,20 @@ plusTest = (+) @Value 5 ~*~ sample
         ]
 
 divTest :: ExecWay -> Property
-divTest = div @Value 2 ~*~ sample
+divTest = quot @Value 6 ~*~ sample
   where
     sample = mconcat
         [ Read "a"
-        , Write $ 2 /: "a"
+        , Write $ 6 /: "a"
+        ]
+
+twoVarsTest :: ExecWay -> Property
+twoVarsTest = (+) @Value ~*~ sample
+  where
+    sample = mconcat
+        [ Read "a"
+        , Read "b"
+        , Write $ "a" +: "b"
         ]
 
 complexArithTest :: ExecWay -> Property
@@ -54,10 +65,10 @@ complexArithTest = fun ~*~ sample
         [ Read "a"
         , Read "b"
         , Read "c"
-        , Write $ "a" +: "b" *: 10 -: "c" /: 2
+        , Write $ "a" +: "b" *: 10 -: "c" %: 2
         ]
     fun :: Value -> Value -> Value -> Value
-    fun a b c = a + b * 10 - (c `div` 2)
+    fun a b c = a + b * 10 - (c `rem` 2)
 
 boolTest :: ExecWay -> Property
 boolTest = fun ~*~ sample

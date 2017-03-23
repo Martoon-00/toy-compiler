@@ -35,8 +35,8 @@ compile insts =
         prefix  = [BinOp "subl" stackSh esp]
         suffix  = [BinOp "addl" stackSh esp]
         body    = fromList . step ilocals =<< insts
-        body'   = fixMemRefs body
-    in  prefix <> body' <> suffix
+        post    = [(<> correctExit), fixMemRefs] :: [Insts -> Insts]
+    in  prefix <> foldr ($) body post <> suffix
 
 -- TODO: rewrite with smart pseudo-stack
 -- TODO: correct errors processing
@@ -53,7 +53,7 @@ step locals = \case
             Nothing  -> error "undetected variable!"
             Just idx -> [Pop eax, Mov eax (Mem idx)]
     SM.Read   -> [Call "read", Push eax]
-    SM.Write  -> [Pop eax, Call "write"]
+    SM.Write  -> [Call "write", Pop eax]
     SM.Bin op -> [Pop op2, Pop op1] <> binop op <> [Push op2]
 
 -- | Function 'step', when sets `Mem` indices, doesn't take into account
@@ -66,7 +66,7 @@ fixMemRefs insts =
     let (res, finalStackShift) = flip runState 0 $ forM insts $ \case
             op@(Push _)   -> (id += 1) $> op
             op@(Pop  _)   -> (id -= 1) $> op
-            (Mov o1 o2) -> Mov <$> fixMemRef o1 <*> fixMemRef o2
+            (Mov o1 o2)   -> Mov <$> fixMemRef o1 <*> fixMemRef o2
             op            -> return op
     in  case finalStackShift of
         0     -> res
@@ -74,12 +74,16 @@ fixMemRefs insts =
                        ++ show extra
 
   where
-    fixMemRef (Mem i) = Mem . (i +) <$> get
+    fixMemRef (Mem i) = Mem . (i-) <$> get
     fixMemRef other   = return other
 
 gatherLocals :: SM.Inst -> S.Set Var
 gatherLocals (SM.Store v) = [v]
 gatherLocals _            = []
+
+-- TODO:
+correctExit :: Insts
+correctExit = []
 
 -- | Register which is used as operand for binary operations.
 op1, op2 :: Operand
@@ -104,9 +108,9 @@ binop = \case
     unknown -> error $ "Unsupported operation: " ++ show unknown
   where
     idiv res =
-        [ Mov op2 eax
-        , NoopOperator "ctld"
-        , UnaryOp "idiv" op1
+        [ Mov op1 eax
+        , NoopOperator "cdq"
+        , UnaryOp "idiv" op2
         , Mov res op2
         ]
     cmp kind =

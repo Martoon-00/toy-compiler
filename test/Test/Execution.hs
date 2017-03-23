@@ -27,19 +27,23 @@ import           Control.Spoon              (teaspoon)
 import           Data.Functor               (($>))
 import qualified Data.Map                   as M
 import qualified Data.Text                  as T
+import qualified Formatting                 as F
 import           GHC.Exts                   (IsList (..), IsString (..))
 import           System.IO.Unsafe           (unsafeInterleaveIO, unsafePerformIO)
 import           System.Process             (readProcess)
 import           Test.Hspec                 (describe)
 import           Test.Hspec.Core.Spec       (SpecWith)
 import           Test.QuickCheck            (Arbitrary, NonNegative (..), Property,
-                                             counterexample, ioProperty, property, (===))
+                                             counterexample, ioProperty, once, property,
+                                             (===))
 
 import           Test.Util                  (getOutputValues, parseDataOrFail)
 import           Toy.Exp                    (Value)
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
 import qualified Toy.X86                    as X86
+
+import           Debug.Trace
 
 type In = [Value]
 type Out = [Value]
@@ -87,6 +91,7 @@ mkBinaryUnsafe compiler runtimePath outputPath prog =
 instance Executable BinaryFile where
     exec (BinaryFile path) is = do
         let input = unlines (show <$> is)
+        -- TODO: extract errors
         output <- grab $ readProcess path [] input
         return . withEmptyInput . getOutputValues . parseDataOrFail $ T.pack output
       where
@@ -114,13 +119,14 @@ defCompileWay :: ExecWay
 defCompileWay = Compile "./runtime/runtime.o" "./tmp/prog"
 
 inExecWay :: ExecWay -> L.Stmt -> In -> EitherT String IO InOut
-inExecWay Interpret stmt input = exec stmt input
-inExecWay Translate stmt input = exec (L.toIntermediate stmt) input
-inExecWay (Compile runtimePath progPath) stmt input = do
-    binary <- EitherT . return
-            . mkBinaryUnsafe X86.produceBinary runtimePath progPath
-            . X86.compile $ L.toIntermediate stmt
-    exec binary input
+inExecWay Interpret stmt = exec stmt
+inExecWay Translate stmt = exec (L.toIntermediate stmt)
+inExecWay (Compile runtimePath progPath) stmt =
+    let binary = mkBinaryUnsafe X86.produceBinary runtimePath progPath
+               . superTrace . X86.compile $ L.toIntermediate stmt
+    in  \input -> EitherT (return binary) >>= flip exec input
+  where
+    superTrace a = trace (F.formatToString F.build $ X86.Program a) a
 
 
 describeExecWays :: [ExecWay] -> (ExecWay -> SpecWith a) -> SpecWith a
@@ -155,7 +161,7 @@ infix 5 >-->
 
 infix 5 >-*->
 (>-*->) :: In -> TestRes -> L.Stmt -> ExecWay -> Property
-(input >-*-> res) prog way = ioProperty $ do
+(input >-*-> res) prog way = once . ioProperty $ do
     outcome <- runEitherT $ inExecWay way prog input
     return $ outcome `assess` (withEmptyInput <$> expected res)
   where
