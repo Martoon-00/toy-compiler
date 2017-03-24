@@ -37,7 +37,7 @@ library
                      , formatting
                      , lens
                      , mtl
-                     , process >= 1.6
+                     , process
                      , spoon
                      , vector
                      , text

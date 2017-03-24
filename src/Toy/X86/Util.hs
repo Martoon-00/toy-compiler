@@ -11,9 +11,10 @@ import           Control.Monad           (unless)
 import           Foreign.C.Error         (Errno (..), ePIPE)
 import           GHC.IO.Exception        (IOErrorType (..), IOException (..))
 import           System.Exit             (ExitCode (..))
-import           System.IO               (hClose, hGetContents, hPutStr)
-import           System.Process          (CreateProcess (..), StdStream (..),
-                                          waitForProcess, withCreateProcess)
+import           System.IO               (Handle, hClose, hGetContents, hPutStr)
+import           System.Process          (CreateProcess (..), ProcessHandle,
+                                          ProcessHandle, StdStream (..), createProcess,
+                                          waitForProcess)
 
 -- | Copy-pasted `readCreateProcess` functions, but ignores stdout and
 -- extracts stderr.
@@ -53,13 +54,8 @@ readCreateProcess cp input = do
      ExitFailure _ -> return $ Left output
 
 
--- | Fork a thread while doing something else, but kill it if there's an
--- exception.
---
--- This is important in the cases above because we want to kill the thread
--- that is holding the Handle lock, because when we clean up the process we
--- try to close that handle, which could otherwise deadlock.
---
+-- * Following functions are exported by /process/ library in latest lts only.
+
 withForkWait :: IO () -> (IO () ->  IO a) -> IO a
 withForkWait async body = do
   waitVar <- newEmptyMVar :: IO (MVar (Either SomeException ()))
@@ -74,3 +70,11 @@ ignoreSigPipe = handle $ \e -> case e of
                                            , ioe_errno = Just ioe }
                                      | Errno ioe == ePIPE -> return ()
                                    _ -> throwIO e
+
+withCreateProcess
+  :: CreateProcess
+  -> (Maybe Handle -> Maybe Handle -> Maybe Handle -> ProcessHandle -> IO a)
+  -> IO a
+withCreateProcess c action =
+    createProcess c >>=
+              (\(m_in, m_out, m_err, ph) -> action m_in m_out m_err ph)
