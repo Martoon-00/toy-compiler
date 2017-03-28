@@ -1,8 +1,10 @@
+{-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
@@ -11,7 +13,11 @@ module Test.Execution
     ( TestRes (..)
     , ExecWay (..)
     , BinaryFile (..)
-    , defCompileWay
+    , (<~~>)
+    , asIs
+    , translateLang
+    , compileX86
+    , defCompileX86
     , describeExecWays
     , (>-->)
     , (>-*->)
@@ -20,14 +26,13 @@ module Test.Execution
     ) where
 
 import           Control.Lens               ((%~), (^?), _Left, _Right)
-import           Control.Monad              (forM_)
+import           Control.Monad              (forM_, (>=>))
 import           Control.Monad.Catch        (SomeException, try)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Spoon              (teaspoon)
 import           Data.Functor               (($>))
 import qualified Data.Map                   as M
 import qualified Data.Text                  as T
-import qualified Formatting                 as F
 import           GHC.Exts                   (IsList (..), IsString (..))
 import           System.IO.Unsafe           (unsafeInterleaveIO, unsafePerformIO)
 import           System.Process             (readProcess)
@@ -43,17 +48,20 @@ import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
 import qualified Toy.X86                    as X86
 
-import           Debug.Trace
 
 type In = [Value]
 type Out = [Value]
-type InOut = ([Value], [Value])
+type InOut = (In, Out)
+type Meta = Maybe String
 
 withEmptyInput :: Out -> InOut
 withEmptyInput = ([], )
 
 class Executable e where
     exec :: e -> In -> EitherT String IO InOut
+
+-- counterexampleMeta :: Executable e => e -> Property -> Property
+-- counterexampleMeta = maybe id counterexample . executableMeta
 
 instance Executable L.Stmt where
     exec stmt is =
@@ -100,38 +108,49 @@ instance Executable BinaryFile where
 
         grab = EitherT . fmap (_Left %~ showError) . try
 
-data ExecWay
-    = Interpret
-    -- ^ Interpret language directly
-    | Translate
-    -- ^ Translate to SM and interpret
-    | Compile FilePath FilePath
-    -- ^ Compile to asm and execute.
-    -- 1st argument is runtime path, 2nd - output binary name.
-    deriving (Eq)
 
-instance Show ExecWay where
-    show Interpret     = "Lang interpreter"
-    show Translate     = "Translator + SM interpreter"
-    show (Compile _ _) = "Compiler + execution"
+data TranslateWay src dist = TranslateWay
+    { showTranslateWay :: String
+    , translatingIn    :: src -> EitherT String IO dist
+    }
 
-defCompileWay :: ExecWay
-defCompileWay = Compile "./runtime/runtime.o" "./tmp/prog"
+instance Show (TranslateWay a b) where
+    show TranslateWay{..} = showTranslateWay
 
-inExecWay :: ExecWay -> L.Stmt -> In -> EitherT String IO InOut
-inExecWay Interpret stmt = exec stmt
-inExecWay Translate stmt = exec (L.toIntermediate stmt)
-inExecWay (Compile runtimePath progPath) stmt =
-    let binary = mkBinaryUnsafe X86.produceBinary runtimePath progPath
-               . superTrace . X86.compile $ L.toIntermediate stmt
-    in  \input -> EitherT (return binary) >>= flip exec input
-  where
-    superTrace a = trace (F.formatToString F.build $ X86.Program a) a
+(<~~>) :: TranslateWay a b -> TranslateWay b c -> TranslateWay a c
+tw1 <~~> tw2 =
+    TranslateWay (showTranslateWay tw1 ++ " ~> " ++ showTranslateWay tw2)
+                 (translatingIn tw1 >=> translatingIn tw2)
 
+asIs :: TranslateWay a a
+asIs = TranslateWay "Interpret" return
 
-describeExecWays :: [ExecWay] -> (ExecWay -> SpecWith a) -> SpecWith a
+-- TODO:
+-- instance Category TranslateWay where
+
+translateLang :: TranslateWay L.Stmt SM.Insts
+translateLang = TranslateWay "Lang to SM" $ return . L.toIntermediate
+
+compileX86 :: FilePath -> FilePath -> TranslateWay SM.Insts BinaryFile
+compileX86 runtimePath outPath = TranslateWay "SM to binary" $ \insts -> do
+    let prog = X86.compile insts
+    EitherT . return $ mkBinaryUnsafe X86.produceBinary runtimePath outPath prog
+
+defCompileX86 :: TranslateWay SM.Insts BinaryFile
+defCompileX86 = compileX86 "./runtime/runtime.o" "./tmp/prog"
+
+data ExecWay l = forall e . Executable e => Ex (TranslateWay l e)
+
+instance Show (ExecWay l) where
+    show (Ex way) = show way
+
+describeExecWays :: [ExecWay l] -> (ExecWay l -> SpecWith a) -> SpecWith a
 describeExecWays ways specs = forM_ ways $ describe <$> show <*> specs
 
+translateAndExecute :: ExecWay l -> l -> In -> EitherT String IO InOut
+translateAndExecute (Ex way) prog input = do
+    executable <- translatingIn way prog
+    exec executable input
 
 data TestRes
     = TestRes Out  -- execution produced given output
@@ -160,10 +179,11 @@ infix 5 >-->
     expected X             = Nothing
 
 infix 5 >-*->
-(>-*->) :: In -> TestRes -> L.Stmt -> ExecWay -> Property
+(>-*->) :: In -> TestRes -> l -> ExecWay l -> Property
 (input >-*-> res) prog way = once . ioProperty $ do
-    outcome <- runEitherT $ inExecWay way prog input
-    return $ outcome `assess` (withEmptyInput <$> expected res)
+    outcome <- runEitherT $ translateAndExecute way prog input
+    return $ flip (foldr counterexample) (["ololo"] :: [String])
+           $ outcome `assess` (withEmptyInput <$> expected res)
   where
     expected (TestRes out) = Just out
     expected X             = Nothing
@@ -209,5 +229,6 @@ f ~~ prog = equivalent f (fmap singleOutput . exec prog) []
 -- checks that it's equivalent to another function.
 -- Program have to print a single value.
 infix 3 ~*~
-(~*~) :: Equivalence f => f -> L.Stmt -> ExecWay -> Property
-(f ~*~ prog) way = equivalent f (fmap singleOutput . inExecWay way prog) []
+(~*~) :: Equivalence f => f -> l -> ExecWay l -> Property
+(f ~*~ prog) way =
+    equivalent f (fmap singleOutput . translateAndExecute way prog) []

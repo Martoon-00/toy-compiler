@@ -3,7 +3,7 @@
 
 main:
     call read
-    addl $1, %eax,
+    addl $1, %eax
     subl $4, %esp
     movl $10, (%esp)
     call write

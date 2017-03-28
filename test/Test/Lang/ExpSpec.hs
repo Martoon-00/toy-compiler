@@ -10,14 +10,20 @@ import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (Property)
 
 import           Test.Arbitrary  ()
-import           Test.Execution  (ExecWay (..), defCompileWay, describeExecWays, (~*~))
+import           Test.Execution  (ExecWay (..), asIs, defCompileX86, describeExecWays,
+                                  translateLang, (<~~>), (~*~))
 import           Toy.Exp
 import           Toy.Lang        (Stmt (..))
 
 
 spec :: Spec
-spec =
-    describeExecWays [Interpret, Translate, defCompileWay] $ \way -> do
+spec = do
+    let ways =
+            [ Ex asIs
+            , Ex translateLang
+            , Ex $ translateLang <~~> defCompileX86
+            ]
+    describeExecWays ways $ \way -> do
         describe "expressions" $ do
             describe "arithmetic" $ do
                 it "plus" $
@@ -33,7 +39,7 @@ spec =
                     boolTest way
 
 
-plusTest :: ExecWay -> Property
+plusTest :: ExecWay Stmt -> Property
 plusTest = (+) @Value 5 ~*~ sample
   where
     sample = mconcat
@@ -41,7 +47,7 @@ plusTest = (+) @Value 5 ~*~ sample
         , Write $ "a" +: 5
         ]
 
-divTest :: ExecWay -> Property
+divTest :: ExecWay Stmt -> Property
 divTest = quot @Value 6 ~*~ sample
   where
     sample = mconcat
@@ -49,7 +55,7 @@ divTest = quot @Value 6 ~*~ sample
         , Write $ 6 /: "a"
         ]
 
-twoVarsTest :: ExecWay -> Property
+twoVarsTest :: ExecWay Stmt -> Property
 twoVarsTest = (+) @Value ~*~ sample
   where
     sample = mconcat
@@ -58,7 +64,7 @@ twoVarsTest = (+) @Value ~*~ sample
         , Write $ "a" +: "b"
         ]
 
-complexArithTest :: ExecWay -> Property
+complexArithTest :: ExecWay Stmt -> Property
 complexArithTest = fun ~*~ sample
   where
     sample = mconcat
@@ -70,7 +76,7 @@ complexArithTest = fun ~*~ sample
     fun :: Value -> Value -> Value -> Value
     fun a b c = a + b * 10 - (c `rem` 2)
 
-boolTest :: ExecWay -> Property
+boolTest :: ExecWay Stmt -> Property
 boolTest = fun ~*~ sample
   where
     sample = mconcat
