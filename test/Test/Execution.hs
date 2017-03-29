@@ -30,11 +30,11 @@ import qualified Control.Category           as Cat
 import           Control.Lens               ((%~), (^?), _Left, _Right)
 import           Control.Monad              (forM_, (>=>))
 import           Control.Monad.Catch        (SomeException, try)
+import           Control.Monad.Morph        (hoist)
 import           Control.Monad.Trans        (lift)
 import           Control.Monad.Trans.Either (EitherT (..))
-import           Control.Monad.Writer       (Writer, runWriter, tell)
+import           Control.Monad.Writer       (WriterT, runWriterT, tell)
 import           Control.Spoon              (teaspoon)
-import           Data.Functor               (($>))
 import qualified Data.Map                   as M
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
@@ -42,7 +42,6 @@ import           Data.Text.Buildable        (Buildable (..))
 import           Formatting                 ((%))
 import qualified Formatting                 as F
 import           GHC.Exts                   (IsList (..), IsString (..))
-import           System.IO.Unsafe           (unsafeInterleaveIO, unsafePerformIO)
 import           System.Process             (readProcess)
 import           Test.Hspec                 (describe)
 import           Test.Hspec.Core.Spec       (SpecWith)
@@ -95,26 +94,6 @@ instance Executable SM.Insts where
 newtype BinaryFile = BinaryFile FilePath
     deriving (Show, Eq, IsString)
 
--- | Wow wow, lazy IO!
---
--- Makes given compiler IO-function pure.
--- Once produced link to file is used, actual compilation occurs and
--- binary gets created.
---
--- This is unsafe in a sense, that if 2 binaries are created with this
--- function call, the one which overwrites (generated last) is not the one
--- which was produced with last function call, but which was actually used
--- last.
-mkBinaryUnsafe
-    :: Functor f
-    => (FilePath -> FilePath -> a -> IO (f ()))
-    -> FilePath -> FilePath -> a -> f BinaryFile
-mkBinaryUnsafe compiler runtimePath outputPath prog =
-    unsafePerformIO . unsafeInterleaveIO $ do
-        outcome <- compiler runtimePath outputPath prog
-        return $ outcome $> BinaryFile outputPath
-{-# NOINLINE mkBinaryUnsafe #-}
-
 instance Executable BinaryFile where
     exec (BinaryFile path) is = do
         let input = unlines (show <$> is)
@@ -130,7 +109,7 @@ instance Executable BinaryFile where
 
 data TranslateWay src dist = TranslateWay
     { showTranslateWay :: String
-    , translatingIn    :: src -> EitherT String (Writer [Meta]) dist
+    , translatingIn    :: src -> EitherT String (WriterT [Meta] IO) dist
     }
 
 instance Show (TranslateWay a b) where
@@ -154,9 +133,9 @@ translateLang = TranslateWay "Lang to SM" $ return . L.toIntermediate
 compileX86 :: FilePath -> FilePath -> TranslateWay SM.Insts BinaryFile
 compileX86 runtimePath outPath = TranslateWay "SM to binary" $ \insts -> do
     let prog = X86.compile insts
-        binary = mkBinaryUnsafe X86.produceBinary runtimePath outPath prog
     tell [Meta "Asm" $ F.sformat F.build (X86.Program prog)]
-    EitherT . lift $ return binary
+    hoist lift $ EitherT $ X86.produceBinary runtimePath outPath prog
+    return (BinaryFile outPath)
 
 defCompileX86 :: TranslateWay SM.Insts BinaryFile
 defCompileX86 = compileX86 "./runtime/runtime.o" "./tmp/prog"
@@ -174,9 +153,9 @@ propTranslating
     -> l
     -> (forall e . Executable e => e -> Property)
     -> Property
-propTranslating (Ex way) prog testExec =
-    let (eExec, metas) = runWriter . runEitherT $ translatingIn way prog
-    in  metaCounterexample metas $
+propTranslating (Ex way) prog testExec = ioProperty $ do
+    (eExec, metas) <- runWriterT . runEitherT $ translatingIn way prog
+    return $ metaCounterexample metas $
         case eExec of
             Left err -> property failed
                         { reason = "Translation failed: " ++ err }
