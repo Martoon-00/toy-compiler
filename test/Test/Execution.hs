@@ -37,6 +37,7 @@ import           Control.Spoon              (teaspoon)
 import           Data.Functor               (($>))
 import qualified Data.Map                   as M
 import qualified Data.Text                  as T
+import           Data.Text.Buildable        (Buildable (..))
 import           Formatting                 ((%))
 import qualified Formatting                 as F
 import           GHC.Exts                   (IsList (..), IsString (..))
@@ -59,7 +60,17 @@ import qualified Toy.X86                    as X86
 type In = [Value]
 type Out = [Value]
 type InOut = (In, Out)
-type Meta = (String, String)
+
+data Meta = Meta
+    { metaName :: String
+    , metaBody :: String
+    }
+
+instance Buildable Meta where
+    build Meta{..} =
+        F.bprint ("\n=== "%F.string%" ===\n"%F.string%"\n--^--^--\n")
+        metaName metaBody
+
 
 withEmptyInput :: Out -> InOut
 withEmptyInput = ([], )
@@ -68,10 +79,7 @@ class Executable e where
     exec :: e -> In -> EitherT String IO InOut
 
 metaCounterexample :: [Meta] -> Property -> Property
-metaCounterexample = flip $ foldr (counterexample . format)
-  where
-    format = uncurry $
-        F.formatToString ("\n=== "%F.string%" ===\n"%F.string%"\n--^--^--\n")
+metaCounterexample = flip $ foldr (counterexample . F.formatToString F.build)
 
 instance Executable L.Stmt where
     exec stmt is =
@@ -146,7 +154,7 @@ compileX86 :: FilePath -> FilePath -> TranslateWay SM.Insts BinaryFile
 compileX86 runtimePath outPath = TranslateWay "SM to binary" $ \insts -> do
     let prog = X86.compile insts
         binary = mkBinaryUnsafe X86.produceBinary runtimePath outPath prog
-    tell . pure $ ("Asm", F.formatToString F.build (X86.Program prog))
+    tell [Meta "Asm" $ F.formatToString F.build (X86.Program prog)]
     EitherT . lift $ return binary
 
 defCompileX86 :: TranslateWay SM.Insts BinaryFile
