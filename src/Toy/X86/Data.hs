@@ -53,7 +53,6 @@ data Inst
     | Push Operand
     | Pop Operand
     | Call Text
-    | Ret
     | BinOp Text Operand Operand
     | UnaryOp Text Operand
     | NoopOperator Text
@@ -71,7 +70,6 @@ instance Buildable Inst where
         Push op1        -> buildInst "pushl" [op1]
         Pop  op1        -> buildInst "popl" [op1]
         Call name       -> buildInst "call" [name]
-        Ret             -> "ret"
         BinOp o op1 op2 -> buildInst o [op1, op2]
         UnaryOp o op    -> buildInst o [op]
         NoopOperator o  -> build o

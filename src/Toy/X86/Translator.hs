@@ -8,7 +8,7 @@ module Toy.X86.Translator
     , produceBinary
     ) where
 
-import           Control.Lens        (at, (+=), (-=), (^.))
+import           Control.Lens        (at, (&), (+=), (-=), (^.))
 import           Control.Monad       (forM)
 import           Control.Monad.State (get, runState)
 import           Control.Monad.Trans (MonadIO (..))
@@ -31,12 +31,12 @@ compile :: SM.Insts -> Insts
 compile insts =
     let locals  = foldMap gatherLocals insts
         ilocals = M.fromList $ flip zip [0..] $ S.toList locals
-        stackSh = Const $ 4 * length locals
-        prefix  = [BinOp "subl" stackSh esp]
-        suffix  = [BinOp "addl" stackSh esp]
         body    = fromList . step ilocals =<< insts
-        post    = [(<> correctExit), fixMemRefs] :: [Insts -> Insts]
-    in  prefix <> foldr ($) body post <> suffix
+        post    = [ fixMemRefs
+                  , stackShift $ length locals
+                  , correctExit
+                  ] :: [Insts -> Insts]
+    in  foldl (&) body post
 
 -- TODO: rewrite with smart pseudo-stack
 -- TODO: correct errors processing
@@ -81,9 +81,16 @@ gatherLocals :: SM.Inst -> S.Set Var
 gatherLocals (SM.Store v) = [v]
 gatherLocals _            = []
 
--- TODO:
-correctExit :: Insts
-correctExit = []
+stackShift :: Int -> Insts -> Insts
+stackShift shift insts =
+    let stackSh = Const $ 4 * shift
+        prefix = BinOp "subl" stackSh esp
+        suffix = BinOp "addl" stackSh esp
+    in  [prefix] <> insts <> [suffix]
+
+
+correctExit :: Insts -> Insts
+correctExit = (<> [BinOp "xorl" eax eax, NoopOperator "ret"])
 
 -- | Register which is used as operand for binary operations.
 op1, op2 :: Operand
