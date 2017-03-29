@@ -76,6 +76,7 @@ test-suite tests
                      , hspec
                      , hspec-core
                      , lens
+                     , mmorph
                      , mtl
                      , process
                      , spoon

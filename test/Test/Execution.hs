@@ -25,14 +25,20 @@ module Test.Execution
     , (~*~)
     ) where
 
+import qualified Control.Category           as Cat
 import           Control.Lens               ((%~), (^?), _Left, _Right)
 import           Control.Monad              (forM_, (>=>))
 import           Control.Monad.Catch        (SomeException, try)
+import           Control.Monad.Morph        (hoist)
+import           Control.Monad.Trans        (lift)
 import           Control.Monad.Trans.Either (EitherT (..))
+import           Control.Monad.Writer       (WriterT, runWriterT, tell)
 import           Control.Spoon              (teaspoon)
 import           Data.Functor               (($>))
 import qualified Data.Map                   as M
 import qualified Data.Text                  as T
+import           Formatting                 ((%))
+import qualified Formatting                 as F
 import           GHC.Exts                   (IsList (..), IsString (..))
 import           System.IO.Unsafe           (unsafeInterleaveIO, unsafePerformIO)
 import           System.Process             (readProcess)
@@ -52,7 +58,7 @@ import qualified Toy.X86                    as X86
 type In = [Value]
 type Out = [Value]
 type InOut = (In, Out)
-type Meta = Maybe String
+type Meta = (String, String)
 
 withEmptyInput :: Out -> InOut
 withEmptyInput = ([], )
@@ -60,8 +66,10 @@ withEmptyInput = ([], )
 class Executable e where
     exec :: e -> In -> EitherT String IO InOut
 
--- counterexampleMeta :: Executable e => e -> Property -> Property
--- counterexampleMeta = maybe id counterexample . executableMeta
+metaCounterexample :: [Meta] -> Property -> Property
+metaCounterexample = flip $ foldr (counterexample . format)
+  where
+    format = uncurry $ F.formatToString ("\n=== "%F.string%" ===\n"%F.string)
 
 instance Executable L.Stmt where
     exec stmt is =
@@ -109,9 +117,11 @@ instance Executable BinaryFile where
         grab = EitherT . fmap (_Left %~ showError) . try
 
 
+type LaunchEnv a = EitherT String (WriterT [Meta] IO) a
+
 data TranslateWay src dist = TranslateWay
     { showTranslateWay :: String
-    , translatingIn    :: src -> EitherT String IO dist
+    , translatingIn    :: src -> LaunchEnv dist
     }
 
 instance Show (TranslateWay a b) where
@@ -125,8 +135,9 @@ tw1 <~~> tw2 =
 asIs :: TranslateWay a a
 asIs = TranslateWay "Interpret" return
 
--- TODO:
--- instance Category TranslateWay where
+instance Cat.Category TranslateWay where
+    id = asIs
+    (.) = flip (<~~>)
 
 translateLang :: TranslateWay L.Stmt SM.Insts
 translateLang = TranslateWay "Lang to SM" $ return . L.toIntermediate
@@ -134,7 +145,9 @@ translateLang = TranslateWay "Lang to SM" $ return . L.toIntermediate
 compileX86 :: FilePath -> FilePath -> TranslateWay SM.Insts BinaryFile
 compileX86 runtimePath outPath = TranslateWay "SM to binary" $ \insts -> do
     let prog = X86.compile insts
-    EitherT . return $ mkBinaryUnsafe X86.produceBinary runtimePath outPath prog
+        binary = mkBinaryUnsafe X86.produceBinary runtimePath outPath prog
+    tell . pure $ ("Asm", F.formatToString F.build (X86.Program prog))
+    EitherT . lift $ return binary
 
 defCompileX86 :: TranslateWay SM.Insts BinaryFile
 defCompileX86 = compileX86 "./runtime/runtime.o" "./tmp/prog"
@@ -147,10 +160,10 @@ instance Show (ExecWay l) where
 describeExecWays :: [ExecWay l] -> (ExecWay l -> SpecWith a) -> SpecWith a
 describeExecWays ways specs = forM_ ways $ describe <$> show <*> specs
 
-translateAndExecute :: ExecWay l -> l -> In -> EitherT String IO InOut
+translateAndExecute :: ExecWay l -> l -> In -> LaunchEnv InOut
 translateAndExecute (Ex way) prog input = do
     executable <- translatingIn way prog
-    exec executable input
+    hoist lift $ exec executable input
 
 data TestRes
     = TestRes Out  -- execution produced given output
@@ -181,8 +194,8 @@ infix 5 >-->
 infix 5 >-*->
 (>-*->) :: In -> TestRes -> l -> ExecWay l -> Property
 (input >-*-> res) prog way = once . ioProperty $ do
-    outcome <- runEitherT $ translateAndExecute way prog input
-    return $ flip (foldr counterexample) (["ololo"] :: [String])
+    (outcome, metas) <- runWriterT . runEitherT $ translateAndExecute way prog input
+    return $ metaCounterexample metas
            $ outcome `assess` (withEmptyInput <$> expected res)
   where
     expected (TestRes out) = Just out
@@ -198,13 +211,14 @@ instance Extract a (NonNegative a) where
     extract = getNonNegative
 
 class Equivalence f where
-    equivalent :: f -> ([Value] -> EitherT String IO Value) -> [Value] -> Property
+    equivalent :: f -> ([Value] -> LaunchEnv Value) -> [Value] -> Property
 
 instance Equivalence Value where
     equivalent r f0 args = ioProperty $ do
-        result <- runEitherT $ f0 (reverse args)
+        (result, metas) <- runWriterT . runEitherT $ f0 (reverse args)
         let expected = teaspoon r
-        return $ result `assess` expected
+        return $ metaCounterexample metas
+               $ result `assess` expected
 
 instance (Equivalence f, Extract Value v, Show v, Arbitrary v)
        => Equivalence (v -> f) where
@@ -223,7 +237,7 @@ singleOutput (_,   xs)  = error $ "Non single value in output!: "
 -- Program have to print a single value.
 infix 3 ~~
 (~~) :: (Equivalence f, Executable e) => f -> e -> Property
-f ~~ prog = equivalent f (fmap singleOutput . exec prog) []
+f ~~ prog = equivalent f (hoist lift . fmap singleOutput . exec prog) []
 
 -- | Executes given program in our language as a function in given way, and
 -- checks that it's equivalent to another function.
