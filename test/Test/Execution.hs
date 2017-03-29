@@ -36,6 +36,7 @@ import           Control.Monad.Writer       (Writer, runWriter, tell)
 import           Control.Spoon              (teaspoon)
 import           Data.Functor               (($>))
 import qualified Data.Map                   as M
+import           Data.Text                  (Text)
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (..))
 import           Formatting                 ((%))
@@ -62,13 +63,13 @@ type Out = [Value]
 type InOut = (In, Out)
 
 data Meta = Meta
-    { metaName :: String
-    , metaBody :: String
+    { metaName :: Text
+    , metaBody :: Text
     }
 
 instance Buildable Meta where
     build Meta{..} =
-        F.bprint ("\n=== "%F.string%" ===\n"%F.string%"\n--^--^--\n")
+        F.bprint ("\n=== "%F.stext%" ===\n"%F.stext%"\n--^--^--\n")
         metaName metaBody
 
 
@@ -79,7 +80,7 @@ class Executable e where
     exec :: e -> In -> EitherT String IO InOut
 
 metaCounterexample :: [Meta] -> Property -> Property
-metaCounterexample = flip $ foldr (counterexample . F.formatToString F.build)
+metaCounterexample = flip . foldr $ counterexample . F.formatToString F.build
 
 instance Executable L.Stmt where
     exec stmt is =
@@ -154,7 +155,7 @@ compileX86 :: FilePath -> FilePath -> TranslateWay SM.Insts BinaryFile
 compileX86 runtimePath outPath = TranslateWay "SM to binary" $ \insts -> do
     let prog = X86.compile insts
         binary = mkBinaryUnsafe X86.produceBinary runtimePath outPath prog
-    tell [Meta "Asm" $ F.formatToString F.build (X86.Program prog)]
+    tell [Meta "Asm" $ F.sformat F.build (X86.Program prog)]
     EitherT . lift $ return binary
 
 defCompileX86 :: TranslateWay SM.Insts BinaryFile
