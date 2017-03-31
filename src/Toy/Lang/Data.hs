@@ -40,14 +40,14 @@ data ExecState = ExecState
     } deriving (Eq, Show)
 
 -- | Execution error
-type Error = (Stmt, String)
+type Error = String
 
 -- | Result of execution
 type Exec = Either Error ExecState
 
 -- | Adds current statement info to probable evaluation error
 withStmt :: Stmt -> Either String a -> Either Error a
-withStmt stmt = _Left %~ (stmt, )
+withStmt stmt = _Left %~ ((show stmt ++ ": ") ++)
 
 -- | Execution state at beginning of program and with empty input
 simpleExecState :: Stmt -> ExecState

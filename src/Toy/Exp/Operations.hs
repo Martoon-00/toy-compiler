@@ -67,8 +67,8 @@ binOp :: BinOp -> Value -> Value -> Value
 binOp "+"  = (+)
 binOp "-"  = (-)
 binOp "*"  = (*)
-binOp "/"  = div
-binOp "%"  = mod
+binOp "/"  = quot
+binOp "%"  = rem
 
 binOp "&&" = asToBool (&&)
 binOp "||" = asToBool (||)

@@ -9,7 +9,8 @@ import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (Property, conjoin, property)
 
 import           Test.Arbitrary  ()
-import           Test.Util       (TestRes (..), instsSM, (>-->), (~~))
+import           Test.Execution  (TestRes (..), (>-->), (~~))
+import           Test.Util       (instsSM)
 import           Toy.Exp
 import           Toy.SM          (Inst (..))
 
@@ -40,5 +41,5 @@ errorsTest = property $
     conjoin $ [] >--> X <$>
         [ instsSM [Write]
         , [Read]
-        , [Ld "I see the spine\nOf the world.."]
+        , [Load "I see the spine\nOf the world.."]
         ]

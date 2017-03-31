@@ -19,7 +19,7 @@ execute (ExecState is os vars stmt@(var := expr)) = do
 execute (ExecState (i:is) os vars (Read var)) =
     return $ ExecState is os (M.insert var i vars) Skip
 execute (ExecState [] _ _ stmt@(Read _)) =
-    Left (stmt, "Input unavailable")
+    Left $ show stmt ++ ": Input unavailable"
 
 execute (ExecState is os vars stmt@(Write expr)) = do
     value <- withStmt stmt $ eval expr vars

@@ -14,8 +14,8 @@ type IP = Int
 data Inst
     = Push Int
     | Bin BinOp
-    | Ld Var
-    | St Var
+    | Load Var
+    | Store Var
     | Read
     | Write
     | Nop
@@ -43,7 +43,7 @@ data ExecState = ExecState
 makeLenses ''ExecState
 
 -- | Execution error
-type Error = (IP, String)
+type Error = String
 
 -- | Result of execution
 type Exec = Either Error ExecState

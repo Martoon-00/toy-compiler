@@ -4,8 +4,7 @@
 {-# LANGUAGE TypeApplications    #-}
 
 module Test.Walker.Extractor
-    ( Parsable (..)
-    , TestCaseData (..)
+    ( TestCaseData (..)
     , TestWalker (..)
     , file
     , readWithExtension
@@ -19,7 +18,6 @@ import           Control.Monad.Trans        (MonadIO (..), lift)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Data.List                  (sort)
 import qualified Data.Set                   as S
-import           Data.Text                  (Text)
 import           Prelude                    hiding (readFile)
 import           System.Directory           (doesDirectoryExist, doesFileExist,
                                              listDirectory)
@@ -29,12 +27,9 @@ import           Test.Hspec                 (SpecWith, describe, it)
 import           Test.QuickCheck            (Property, once, property)
 import           Test.QuickCheck.Property   (failed, reason)
 
-import           Test.Util                  ()
+import           Test.Util                  (Parsable (..))
 import           Test.Walker.FileReader     (FileReader, Reads (..), readFile,
                                              runFileReader)
-
-class Parsable e where
-    parseData :: Text -> Either String e
 
 class Show d => TestCaseData d where
     tryGetTestCaseData :: FilePath -> String -> IO (Either Reads (Either String d))

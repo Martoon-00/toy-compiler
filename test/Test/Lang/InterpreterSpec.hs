@@ -12,8 +12,9 @@ import           Test.QuickCheck (Discard (..), NonNegative (..), Property, conj
                                   counterexample, property, within, (===), (==>))
 
 import           Test.Arbitrary  ()
-import           Test.Util       (ExecWay (..), TestRes (..), describeExecWays, (>-->),
-                                  (~*~), (~~))
+import           Test.Execution  (ExecWay (..), TestRes (..), asIs, defCompileX86,
+                                  describeExecWays, translateLang, (<~~>), (>-*->),
+                                  (>-->), (~*~), (~~))
 import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Exp
 import           Toy.Lang        (ExecState (..), Stmt (..), execute, simpleExecState)
@@ -21,7 +22,7 @@ import           Toy.Lang        (ExecState (..), Stmt (..), execute, simpleExec
 
 spec :: Spec
 spec = do
-    describeExecWays [Interpret] $ \_ -> do
+    describeExecWays [Ex @Stmt asIs] $ \_ -> do
         describe "examples" $ do
             it "Skip" $
                 initSkipTest
@@ -46,14 +47,20 @@ spec = do
         it "`execute` always ends with Skip" $
             property executeAlwaysEndsWithSkip
 
-    describeExecWays [Interpret, Translate] $ \way -> do
-        describe "examples" $ do
-            it "io simple" $
-                ioTest way
-
-    describeExecWays [Interpret] $ \_ -> do
         describeDir "./test/cases/exec"
             fileTest
+
+    let ways =
+            [ Ex asIs
+            , Ex translateLang
+            , Ex $ translateLang <~~> defCompileX86
+            ]
+    describeExecWays ways $ \way -> do
+        describe "examples" $ do
+            it "no actions" $
+                noActions way
+            it "io simple" $
+                ioTest way
 
 
 executeAlwaysEndsWithSkip :: ExecState -> Property
@@ -65,6 +72,8 @@ executeAlwaysEndsWithSkip initExecState@(ExecState _ _ _ initStmt) =
             Left _                      -> property Discard
             Right (ExecState _ _ _ end) -> end === Skip
 
+noActions :: ExecWay Stmt -> Property
+noActions = mempty & [] >-*-> []
 
 initSkipTest :: Property
 initSkipTest = execute sample === Right expected
@@ -98,7 +107,7 @@ varsTest = execute sample === Right expected
                 ]
         in  ExecState [] [] expectedVars Skip
 
-ioTest :: ExecWay -> Property
+ioTest :: ExecWay Stmt -> Property
 ioTest = id @Value ~*~ sample
   where
     sample = mconcat

@@ -5,61 +5,89 @@ module Test.Lang.ExpSpec
     ( spec
     ) where
 
-import           Data.Bits       (xor)
-import           Test.Hspec      (Spec, describe, it)
-import           Test.QuickCheck (Property)
+import           Control.Category (id, (.))
+import           Control.Lens     ((&))
+import           Data.Bits        (xor, (.&.), (.|.))
+import           Data.Monoid      ((<>))
+import           Prelude          hiding (id, (.))
+import           Test.Hspec       (Spec, describe, it)
+import           Test.QuickCheck  (Property)
 
-import           Test.Arbitrary  ()
-import           Test.Util       (ExecWay (..), describeExecWays, (~*~))
+import           Test.Arbitrary   ()
+import           Test.Execution   (ExecWay (..), defCompileX86, describeExecWays,
+                                   translateLang, (~*~))
 import           Toy.Exp
-import           Toy.Lang        (Stmt (..))
+import           Toy.Lang         (Stmt (..))
 
 
 spec :: Spec
-spec =
-    describeExecWays [Interpret, Translate] $ \way -> do
+spec = do
+    let ways =
+            [ Ex id
+            , Ex translateLang
+            , Ex $ defCompileX86 . translateLang
+            ]
+    describeExecWays ways $ \way -> do
         describe "expressions" $ do
             describe "arithmetic" $ do
                 it "plus" $
-                    plusTest way
+                    uniopTest way (+ 5) (+ 5)
+                it "minus" $
+                    uniopTest way (subtract 1) (subtract 1)
                 it "div" $
-                    divTest way
+                    uniopTest way (quot 6) (6 /:)
+                it "two variables" $
+                    binopTest way (+) (+)
                 it "complex" $
                     complexArithTest way
+            describe "boolean" $ do
+                it "and" $
+                    binopTest way (asToBool (&&)) (&&:)
+                it "or" $
+                    binopTest way (asToBool (||)) (||:)
+                it "xor" $
+                    binopTest way xor (^:)
+                it "bitwise and" $
+                    binopTest way (.&.) (&:)
+                it "bitwise or" $
+                    binopTest way (.|.) (|:)
             describe "comparisons" $ do
-                it "simple" $
+                it "<" $
+                    binopTest way (binResToBool (<)) (<:)
+                it "==" $
+                    binopTest way (binResToBool (==)) (==:)
+                it "complex" $
                     boolTest way
 
 
-plusTest :: ExecWay -> Property
-plusTest = (+) @Value 5 ~*~ sample
-  where
-    sample = mconcat
-        [ Read "a"
-        , Write $ "a" +: 5
-        ]
+uniopTest
+    :: ExecWay Stmt
+    -> (Value -> Value)
+    -> (Exp -> Exp)
+    -> Property
+uniopTest way f1 f2 = way & f1 ~*~ Read "a" <> Write (f2 "a")
 
-divTest :: ExecWay -> Property
-divTest = div @Value 2 ~*~ sample
-  where
-    sample = mconcat
-        [ Read "a"
-        , Write $ 2 /: "a"
-        ]
+binopTest
+    :: ExecWay Stmt
+    -> (Value -> Value -> Value)
+    -> (Exp -> Exp -> Exp)
+    -> Property
+binopTest way f1 f2 =
+    way & f1 ~*~ (Read "a" <> Read "b" <> Write ("a" `f2` "b"))
 
-complexArithTest :: ExecWay -> Property
+complexArithTest :: ExecWay Stmt -> Property
 complexArithTest = fun ~*~ sample
   where
     sample = mconcat
         [ Read "a"
         , Read "b"
         , Read "c"
-        , Write $ "a" +: "b" *: 10 -: "c" /: 2
+        , Write $ "a" +: "b" *: 10 -: "c" %: 2
         ]
     fun :: Value -> Value -> Value -> Value
-    fun a b c = a + b * 10 - (c `div` 2)
+    fun a b c = a + b * 10 - (c `rem` 2)
 
-boolTest :: ExecWay -> Property
+boolTest :: ExecWay Stmt -> Property
 boolTest = fun ~*~ sample
   where
     sample = mconcat

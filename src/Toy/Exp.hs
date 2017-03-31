@@ -1,5 +1,3 @@
--- | Re-exports of Toy.Exp.*
-
 module Toy.Exp
        ( module M
        ) where

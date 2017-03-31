@@ -6,20 +6,13 @@ module Test.Walker.Instances
     , FullTestData (..)
     ) where
 
-import           Control.Applicative   (many)
-import           Data.Attoparsec.Text  (decimal, parseOnly, signed, space)
-
-import           Test.Walker.Extractor (Parsable (..), TestCaseData (..), file,
-                                        readWithExtension)
+import           Test.Util             (Parsable (..))
+import           Test.Walker.Extractor (TestCaseData (..), file, readWithExtension)
 import           Toy.Exp               (Value)
 import qualified Toy.Lang              as L
 
 instance Parsable L.Stmt where
     parseData = L.parse
-
-instance Parsable [Value] where
-    parseData = parseOnly $ many (many space *> signed decimal)
-
 
 data ProgramTestData = ProgramTestData
     { ptdProgram :: L.Stmt
