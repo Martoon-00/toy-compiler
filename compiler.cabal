@@ -26,6 +26,7 @@ library
                        Toy.SM.Data
                        Toy.SM.Interpreter
                        Toy.X86.Data
+                       Toy.X86.Optimize
                        Toy.X86.Translator
                        Toy.X86.Util
 

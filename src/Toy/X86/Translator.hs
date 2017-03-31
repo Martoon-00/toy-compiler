@@ -18,13 +18,14 @@ import           Data.Monoid         ((<>))
 import qualified Data.Set            as S
 import           Data.Text           (Text)
 import qualified Formatting          as F
-import           GHC.Exts            (fromList, toList)
+import           GHC.Exts            (fromList)
 import           System.Process      (proc)
 
 import           Toy.Exp             (Var)
 import qualified Toy.SM              as SM
 import           Toy.X86.Data        (Inst (..), Insts, Operand (..), Program (..), eax,
                                       edi, edx, esi, esp)
+import           Toy.X86.Optimize    (optimize)
 import           Toy.X86.Util        (readCreateProcess)
 
 compile :: SM.Insts -> Insts
@@ -33,7 +34,7 @@ compile insts =
         ilocals = M.fromList $ flip zip [0..] $ S.toList locals
         body    = fromList . step ilocals =<< insts
         post    = [ fixMemRefs
-                  , stackShift $ length locals
+                  , mkStackShift $ length locals
                   , correctExit
                   , optimize
                   ] :: [Insts -> Insts]
@@ -82,8 +83,8 @@ gatherLocals :: SM.Inst -> S.Set Var
 gatherLocals (SM.Store v) = [v]
 gatherLocals _            = []
 
-stackShift :: Int -> Insts -> Insts
-stackShift shift insts =
+mkStackShift :: Int -> Insts -> Insts
+mkStackShift shift insts =
     let stackSh = Const $ 4 * shift
         prefix = BinOp "subl" stackSh esp
         suffix = BinOp "addl" stackSh esp
@@ -91,15 +92,6 @@ stackShift shift insts =
 
 correctExit :: Insts -> Insts
 correctExit = (<> [BinOp "xorl" eax eax, NoopOperator "ret"])
-
-optimize :: Insts -> Insts
-optimize = fromList . squash . toList
-  where
-    squash (Push a : Pop b : is)
-        | a == b    = squash is
-        | otherwise = Push a : Pop b : squash is
-    squash (i      : is)         = i : squash is
-    squash []                    = []
 
 -- | Register which is used as operand for binary operations.
 op1, op2 :: Operand
