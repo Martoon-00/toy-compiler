@@ -18,7 +18,7 @@ import           Data.Monoid         ((<>))
 import qualified Data.Set            as S
 import           Data.Text           (Text)
 import qualified Formatting          as F
-import           GHC.Exts            (fromList)
+import           GHC.Exts            (fromList, toList)
 import           System.Process      (proc)
 
 import           Toy.Exp             (Var)
@@ -35,6 +35,7 @@ compile insts =
         post    = [ fixMemRefs
                   , stackShift $ length locals
                   , correctExit
+                  , optimize
                   ] :: [Insts -> Insts]
     in  foldl (&) body post
 
@@ -74,7 +75,7 @@ fixMemRefs insts =
                        ++ show extra
 
   where
-    fixMemRef (Mem i) = Mem . (i-) <$> get
+    fixMemRef (Mem i) = Mem . (i +) <$> get
     fixMemRef other   = return other
 
 gatherLocals :: SM.Inst -> S.Set Var
@@ -88,9 +89,17 @@ stackShift shift insts =
         suffix = BinOp "addl" stackSh esp
     in  [prefix] <> insts <> [suffix]
 
-
 correctExit :: Insts -> Insts
 correctExit = (<> [BinOp "xorl" eax eax, NoopOperator "ret"])
+
+optimize :: Insts -> Insts
+optimize = fromList . squash . toList
+  where
+    squash (Push a : Pop b : is)
+        | a == b    = squash is
+        | otherwise = Push a : Pop b : squash is
+    squash (i      : is)         = i : squash is
+    squash []                    = []
 
 -- | Register which is used as operand for binary operations.
 op1, op2 :: Operand
@@ -100,7 +109,7 @@ op2 = edi
 binop :: Text -> [Inst]
 binop = \case
     "+" -> [BinOp "addl" op1 op2]
-    "-" -> [BinOp "subl" op1 op2]
+    "-" -> [BinOp "subl" op2 op1, Mov op1 op2]  -- TODO: ???
     "*" -> [BinOp "imull" op1 op2]
     "/" -> idiv eax
     "%" -> idiv edx

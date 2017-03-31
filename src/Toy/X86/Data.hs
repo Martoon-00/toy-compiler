@@ -45,7 +45,7 @@ esp = Reg "esp"
 instance Buildable Operand where
     build (Reg   r) = "%" <> build r
     build (Const v) = "$" <> build v
-    build (Mem   i) = bprint (int%"("%F.build%")") (-4*i) esp
+    build (Mem   i) = bprint (int%"("%F.build%")") (4 * i) esp
 
 -- not very beautiful :(
 data Inst

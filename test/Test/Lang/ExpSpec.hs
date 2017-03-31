@@ -28,6 +28,8 @@ spec = do
             describe "arithmetic" $ do
                 it "plus" $
                     plusTest way
+                it "minus" $
+                    minusTest way
                 it "div" $
                     divTest way
                 it "two variables" $
@@ -44,7 +46,15 @@ plusTest = (+) @Value 5 ~*~ sample
   where
     sample = mconcat
         [ Read "a"
-        , Write $ "a" +: 5
+        , Write $ "a" + 5
+        ]
+
+minusTest :: ExecWay Stmt -> Property
+minusTest = subtract @Value 1 ~*~ sample
+  where
+    sample = mconcat
+        [ Read "a"
+        , Write $ "a" - 1
         ]
 
 divTest :: ExecWay Stmt -> Property
