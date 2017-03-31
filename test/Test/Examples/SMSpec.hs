@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Test.SM.InterpreterSpec
+module Test.Examples.SMSpec
     ( spec
     ) where
 
@@ -9,25 +9,27 @@ import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (Property, conjoin, property)
 
 import           Test.Arbitrary  ()
-import           Test.Execution  (TestRes (..), (>-->), (~~))
+import           Test.Execution  (ExecWay (..), TestRes (..), asIs, defCompileX86,
+                                  describeExecWays, (>-->), (~*~))
 import           Test.Util       (instsSM)
 import           Toy.Exp
-import           Toy.SM          (Inst (..))
+import           Toy.SM          (Inst (..), Insts)
 
 
 spec :: Spec
 spec =
-    describe "SM" $ describe "interpreter" $ do
+    describe "SM" $ describeExecWays [Ex asIs, Ex defCompileX86] $ \way -> do
         describe "examples" $ do
             it "io simple" $
-                ioTest
-            it "different erroneous scenarios" $
-                errorsTest
+                ioTest way
             describe "complex" $ do
                 return ()
 
-ioTest :: Property
-ioTest = (+) @Value 2 ~~ sample
+        it "different erroneous scenarios" $
+            errorsTest
+
+ioTest :: ExecWay Insts -> Property
+ioTest = (+) @Value 2 ~*~ sample
   where
     sample = instsSM
         [ Read

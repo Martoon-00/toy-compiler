@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Test.Lang.InterpreterSpec
+module Test.Examples.LangSpec
     ( spec
     ) where
 

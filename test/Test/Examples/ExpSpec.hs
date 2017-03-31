@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Test.Lang.ExpSpec
+module Test.Examples.ExpSpec
     ( spec
     ) where
 

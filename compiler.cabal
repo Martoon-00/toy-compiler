@@ -54,10 +54,10 @@ test-suite tests
   other-modules:       Spec
                        Test.Arbitrary
                        Test.Execution
-                       Test.Lang.ExpSpec
-                       Test.Lang.InterpreterSpec
-                       Test.Lang.ParserSpec
-                       Test.SM.InterpreterSpec
+                       Test.Examples.ExpSpec
+                       Test.Examples.LangSpec
+                       Test.Examples.ParserSpec
+                       Test.Examples.SMSpec
                        Test.Walker
                        Test.Walker.Extractor
                        Test.Walker.FileReader
