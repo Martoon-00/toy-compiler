@@ -6,6 +6,7 @@ module Toy.X86.Data
     , Inst (..)
     , Insts
     , Program (..)
+    , (//)
     , eax
     , edx
     , esi
@@ -32,7 +33,7 @@ data Operand
     | Const Value
     -- ^ Constant
     | Mem Int
-    -- ^ Memory reference. This keeps amount of /dwords/ to look back on stack
+    -- ^ Memory reference. This keeps amount of /qword/s to look back on stack
     deriving (Show, Eq)
 
 eax, edx, esi, edi, esp :: Operand
@@ -57,7 +58,11 @@ data Inst
     | UnaryOp Text Operand
     | NoopOperator Text
     | Set Text Operand
+    | Comment Text Inst
     deriving (Show, Eq)
+
+(//) :: Inst -> Text -> Inst
+(//) = flip Comment
 
 buildInst :: Buildable b => Text -> [b] -> Builder
 buildInst name ops =
@@ -74,6 +79,7 @@ instance Buildable Inst where
         UnaryOp o op    -> buildInst o [op]
         NoopOperator o  -> build o
         Set kind op     -> bprint ("set"%F.build%" "%F.build) kind op
+        Comment d inst  -> bprint (F.build%"\t# "%stext) inst d
 
 type Insts = V.Vector Inst
 

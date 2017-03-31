@@ -24,7 +24,7 @@ import           System.Process      (proc)
 import           Toy.Exp             (Var)
 import qualified Toy.SM              as SM
 import           Toy.X86.Data        (Inst (..), Insts, Operand (..), Program (..), eax,
-                                      edi, edx, esi, esp)
+                                      edi, edx, esi, esp, (//))
 import           Toy.X86.Optimize    (optimize)
 import           Toy.X86.Util        (readCreateProcess)
 
@@ -106,24 +106,44 @@ binop = \case
     "/" -> idiv eax
     "%" -> idiv edx
 
-    "<"  -> cmp "l"
-    ">"  -> cmp "g"
-    "<=" -> cmp "le"
-    ">=" -> cmp "ge"
+    "<"  -> cmp "g"  -- TODO: ?????
+    ">"  -> cmp "l"
+    "<=" -> cmp "ge"
+    ">=" -> cmp "le"
     "==" -> cmp "e"
     "!=" -> cmp "ne"
+
+    "^" -> [BinOp "xorl" op1 op2]
+    "&" -> [BinOp "andl" op1 op2]
+    "|" -> [BinOp "orl" op1 op2]
+    "&&" ->
+        [ BinOp "xor" eax eax  // "&&"
+        , BinOp "andl" op1 op1
+        , UnaryOp "setne" (Reg "ah")
+        , BinOp "andl" op2 op2
+        , UnaryOp "setne" (Reg "al")
+        , BinOp "and" (Reg "ah") (Reg "al")
+        , BinOp "xor" (Reg "ah") (Reg "ah")
+        , Mov eax op2
+        ]
+    "||" ->
+        [ BinOp "xor" eax eax  // "||"
+        , BinOp "orl" op1 op2
+        , UnaryOp "setne" (Reg "al")
+        , Mov eax op2
+        ]
 
     unknown -> error $ "Unsupported operation: " ++ show unknown
   where
     idiv res =
-        [ Mov op1 eax
+        [ Mov op1 eax  // "/"
         , NoopOperator "cdq"
         , UnaryOp "idiv" op2
         , Mov res op2
         ]
     cmp kind =
-        [ BinOp "xor" eax eax
-        , BinOp "orl" op1 op2
+        [ BinOp "xor" eax eax  // "cmp"
+        , BinOp "cmp" op1 op2
         , Set kind (Reg "al")
         , Mov eax op2
         ]
