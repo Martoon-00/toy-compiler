@@ -54,6 +54,10 @@ test-suite tests
   other-modules:       Spec
                        Test.Arbitrary
                        Test.Execution
+                       Test.Execution.Data
+                       Test.Execution.Exec
+                       Test.Execution.Testing
+                       Test.Execution.Trans
                        Test.Examples.ExpSpec
                        Test.Examples.LangSpec
                        Test.Examples.ParserSpec
