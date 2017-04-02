@@ -39,7 +39,7 @@ instance Executable L.Stmt where
 
 instance Executable SM.Insts where
     exec insts is =
-        let outcome = SM.execute $ SM.ExecState is [] M.empty [] insts 0
+        let outcome = SM.execute insts $ SM.anExecState is
         in  EitherT . return $ SM.getIO <$> outcome
 
 newtype BinaryFile = BinaryFile FilePath

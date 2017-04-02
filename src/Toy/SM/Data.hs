@@ -10,6 +10,8 @@ import           Toy.Exp      (BinOp, LocalVars, Value, Var)
 
 type IP = Int
 
+type LabelId = Int
+
 -- | Statement of a program.
 data Inst
     = Push Int
@@ -18,6 +20,9 @@ data Inst
     | Store Var
     | Read
     | Write
+    | Label LabelId
+    | Jmp LabelId
+    | JmpIf LabelId
     | Nop
     deriving (Eq, Show)
 
@@ -34,8 +39,6 @@ data ExecState = ExecState
       -- ^ local variables values
     , _esStack :: [Value]
       -- ^ current stack
-    , _esInsts :: Insts
-      -- ^ instructions list
     , _esIp    :: IP
       -- ^ instruction pointer, no of command to execute next
     } deriving (Eq, Show)
@@ -49,14 +52,14 @@ type Error = String
 type Exec = Either Error ExecState
 
 -- | Execution state at beginning of program and with empty input
-simpleExecState :: Insts -> ExecState
+simpleExecState :: ExecState
 simpleExecState = anExecState []
 
 -- | Execution state at beginning of program
-anExecState :: [Value] -> Insts -> ExecState
-anExecState is insts = ExecState is [] M.empty [] insts 0
+anExecState :: [Value] -> ExecState
+anExecState is = ExecState is [] M.empty [] 0
 
 -- | Get input and output streams.
 -- Unlike input, output stream has LIFO order
 getIO :: ExecState -> ([Value], [Value])
-getIO (ExecState is os _ _ _ _) = (is, os)
+getIO (ExecState is os _ _ _) = (is, os)

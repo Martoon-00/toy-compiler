@@ -15,7 +15,8 @@ data Stmt
     | Read Var
     | Write Exp
     | If Exp Stmt Stmt
-    | While Exp Stmt
+    | DoWhile Stmt Exp  -- ^ @do .. while@ is the most optimal / easy loop from
+                        -- asm point of view
     | Seq Stmt Stmt
     | Skip
     deriving (Eq, Show)
@@ -61,3 +62,8 @@ anExecState is = ExecState is [] M.empty
 -- Unlike input, output stream has LIFO order
 getIO :: ExecState -> ([Value], [Value])
 getIO (ExecState is os _ _) = (is, os)
+
+
+-- | @while@ loop in terms of `Stmt`.
+while :: Exp -> Stmt -> Stmt
+while cond stmt = If cond (DoWhile stmt cond) Skip

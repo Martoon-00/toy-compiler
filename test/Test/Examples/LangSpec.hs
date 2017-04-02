@@ -12,12 +12,12 @@ import           Test.QuickCheck (Discard (..), NonNegative (..), Property, conj
                                   counterexample, property, within, (===), (==>))
 
 import           Test.Arbitrary  ()
-import           Test.Execution  (ExecWay (..), TestRes (..), asIs, defCompileX86,
-                                  describeExecWays, translateLang, (<~~>), (>-*->),
-                                  (>-->), (~*~), (~~))
+import           Test.Execution  (ExecWay (..), TestRes (..), asIs, describeExecWays,
+                                  translateLang, (>-*->), (>-->), (~*~))
 import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Exp
 import           Toy.Lang        (ExecState (..), Stmt (..), execute, simpleExecState)
+import qualified Toy.Lang        as L
 
 
 spec :: Spec
@@ -26,23 +26,10 @@ spec = do
         describe "examples" $ do
             it "Skip" $
                 initSkipTest
-            it "If true" $
-                ifTrueTest
-            it "If false" $
-                ifFalseTest
             it "variables simple" $
                 varsTest
-            it "While simple" $
-                whileTest
-            it "If simple" $
-                property minTest
             it "different erroneous scenarios" $
                 errorsTest
-            describe "complex" $ do
-                it "fib" $
-                    property fibTest
-                it "gcd" $
-                    property gcdTest
 
         it "`execute` always ends with Skip" $
             property executeAlwaysEndsWithSkip
@@ -53,7 +40,7 @@ spec = do
     let ways =
             [ Ex asIs
             , Ex translateLang
-            , Ex $ translateLang <~~> defCompileX86
+            -- , Ex $ translateLang <~~> defCompileX86
             ]
     describeExecWays ways $ \way -> do
         describe "examples" $ do
@@ -61,6 +48,19 @@ spec = do
                 noActions way
             it "io simple" $
                 ioTest way
+            it "If true" $
+                ifTrueTest way
+            it "If false" $
+                ifFalseTest way
+            it "While simple" $
+                whileTest way
+            it "If simple" $
+                property $ minTest way
+            describe "complex" $ do
+                it "fib" $
+                    property $ fibTest way
+                it "gcd" $
+                    property $ gcdTest way
 
 
 executeAlwaysEndsWithSkip :: ExecState -> Property
@@ -81,13 +81,13 @@ initSkipTest = execute sample === Right expected
     sample   = simpleExecState Skip
     expected = simpleExecState Skip
 
-ifTrueTest :: Property
-ifTrueTest = sample & [] >--> [0]
+ifTrueTest :: ExecWay Stmt -> Property
+ifTrueTest = sample & [] >-*-> [0]
   where
     sample = If 1 (Write 0) (Write 1)
 
-ifFalseTest :: Property
-ifFalseTest = sample & [] >--> [1]
+ifFalseTest :: ExecWay Stmt -> Property
+ifFalseTest = sample & [] >-*-> [1]
   where
     sample = If 0 (Write 0) (Write 1)
 
@@ -98,7 +98,7 @@ varsTest = execute sample === Right expected
         [ "a" := 1
         , "b" := 2
         , "a" := 3
-        , While ("a" ==: 0) Skip  -- test variable access
+        , L.while ("a" ==: 0) Skip  -- test variable access
         ]
     expected =
         let expectedVars =
@@ -115,12 +115,12 @@ ioTest = id @Value ~*~ sample
         , Write "a"
         ]
 
-whileTest :: Property
-whileTest = sample & [] >--> [4, 3 .. 0]
+whileTest :: ExecWay Stmt -> Property
+whileTest = sample & [] >-*-> [4, 3 .. 0]
   where
     sample = mconcat
         [ "i" := 0
-        , While ("i" <: 5) $ mconcat
+        , L.while ("i" <: 5) $ mconcat
             [ Write "i"
             , "i" := "i" +: 1
             ]
@@ -133,14 +133,14 @@ errorsTest = conjoin $
     , Write "x"
     ] <&> [] >--> X
 
-fibTest :: Property
-fibTest = (fib !!) . getNonNegative ~~ sample
+fibTest :: ExecWay Stmt -> Property
+fibTest = (fib !!) . getNonNegative ~*~ sample
   where
     sample = mconcat
         [ "a" := 0
         , "b" := 1
         , Read "i"
-        , While ("i" >: 0) $ mconcat
+        , L.while ("i" >: 0) $ mconcat
             [ "c" := "b"
             , "b" := "a" +: "b"
             , "a" := "c"
@@ -151,13 +151,13 @@ fibTest = (fib !!) . getNonNegative ~~ sample
     fib :: [Value]
     fib = 0 : 1 : zipWith (+) fib (tail fib)
 
-gcdTest :: Property
-gcdTest = gcd' ~~ sample
+gcdTest :: ExecWay Stmt -> Property
+gcdTest = gcd' ~*~ sample
   where
     sample = mconcat
         [ Read "a"
         , Read "b"
-        , While ("b" >: 0) $ mconcat
+        , L.while ("b" >: 0) $ mconcat
             [ "r" := "a" %: "b"
             , "a" := "b"
             , "b" := "r"
@@ -167,8 +167,8 @@ gcdTest = gcd' ~~ sample
     gcd' :: NonNegative Value -> NonNegative Value -> Value
     gcd' (NonNegative a) (NonNegative b) = gcd a b
 
-minTest :: Property
-minTest = min @Value ~~ sample
+minTest :: ExecWay Stmt -> Property
+minTest = min @Value ~*~ sample
   where
     sample = mconcat
         [ Read "a"

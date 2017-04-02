@@ -10,7 +10,7 @@ import           Data.Char            (isAlphaNum)
 import           Data.Text            (Text)
 
 import           Toy.Exp              (Exp (..), Var (..))
-import           Toy.Lang.Data        (Stmt (..))
+import           Toy.Lang.Data        (Stmt (..), while)
 
 -- * Util parsers
 
@@ -67,7 +67,7 @@ stmtP = sp $
     <|> If    <$> (keywordP "If"    *> expP )
               <*> (keywordP "then"  *> progP)
               <*> (keywordP "else"  *> progP)
-    <|> While <$> (keywordP "While" *> expP )
+    <|> while <$> (keywordP "While" *> expP )
               <*> (keywordP "do"    *> progP)
     <|> Skip  <$   keywordP "Skip"
     <|> (:=)  <$> (varP <* sp (string "=")) <*> expP

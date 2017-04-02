@@ -30,8 +30,8 @@ execute (ExecState is os vars stmt@(If cond stmt0 stmt1)) = do
     execute . ExecState is os vars $
         if cond' /= 0 then stmt0 else stmt1
 
-execute (ExecState is os vars while@(While cond body)) =
-    execute $ ExecState is os vars (If cond (Seq body while) Skip)
+execute (ExecState is os vars while@(DoWhile body cond)) =
+    execute $ ExecState is os vars (Seq body $ If cond while Skip)
 
 execute (ExecState is os vars (Seq stmt0 stmt1)) = do
     ExecState is' os' vars' end <- execute (ExecState is os vars stmt0)

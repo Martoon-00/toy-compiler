@@ -30,7 +30,9 @@ import           Control.Monad.Morph        (hoist)
 import           Control.Monad.Trans        (lift)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Writer       (WriterT, runWriterT, tell)
+import qualified Data.Text                  as T
 import qualified Formatting                 as F
+import           GHC.Exts                   (toList)
 import           Test.Hspec                 (describe)
 import           Test.Hspec.Core.Spec       (SpecWith)
 import           Test.QuickCheck            (Property, ioProperty, once, property)
@@ -41,7 +43,6 @@ import           Test.Execution.Exec        (BinaryFile (..), Executable (..))
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
 import qualified Toy.X86                    as X86
-
 
 data TranslateWay src dist = TranslateWay
     { showTranslateWay :: String
@@ -64,7 +65,10 @@ instance Cat.Category TranslateWay where
     (.) = flip (<~~>)
 
 translateLang :: TranslateWay L.Stmt SM.Insts
-translateLang = TranslateWay "Lang to SM" $ return . L.toIntermediate
+translateLang = TranslateWay "Lang to SM" $ \orig -> do
+    let prog = L.toIntermediate orig
+    tell [Meta "SM" $ T.unlines $ T.pack . show <$> toList prog]
+    return prog
 
 compileX86 :: FilePath -> FilePath -> TranslateWay SM.Insts BinaryFile
 compileX86 runtimePath outPath = TranslateWay "SM to binary" $ \insts -> do
@@ -93,6 +97,6 @@ propTranslating (Ex way) prog testExec = once . ioProperty $ do
     (eExec, metas) <- runWriterT . runEitherT $ translatingIn way prog
     return $ metaCounterexample metas $
         case eExec of
-            Left err -> property failed
-                        { reason = "Translation failed: " ++ err }
+            Left err -> property
+                        failed { reason = "Translation failed: " ++ err }
             Right e  -> testExec e

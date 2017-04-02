@@ -8,6 +8,7 @@ import           Test.QuickCheck (Arbitrary (..), choose, elements, frequency, g
 
 import           Toy.Exp
 import           Toy.Lang        (ExecState (..), Stmt (..))
+import qualified Toy.Lang        as L
 
 instance Arbitrary Var where
     arbitrary = fromString . pure <$> choose ('a', 'z')
@@ -51,7 +52,7 @@ instance Arbitrary Stmt where
       where
         forLoop i n body = mconcat
             [ i := 0
-            , While (VarE i <=: n) $ mconcat
+            , L.while (VarE i <=: n) $ mconcat
                 [ body
                 , i := VarE i + 1
                 ]
