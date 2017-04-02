@@ -33,7 +33,7 @@ import           Control.Monad.Writer       (WriterT, runWriterT, tell)
 import qualified Formatting                 as F
 import           Test.Hspec                 (describe)
 import           Test.Hspec.Core.Spec       (SpecWith)
-import           Test.QuickCheck            (Property, ioProperty, property)
+import           Test.QuickCheck            (Property, ioProperty, once, property)
 import           Test.QuickCheck.Property   (failed, reason)
 
 import           Test.Execution.Data        (Meta, Meta (..), metaCounterexample)
@@ -89,7 +89,7 @@ propTranslating
     -> l
     -> (forall e . Executable e => e -> Property)
     -> Property
-propTranslating (Ex way) prog testExec = ioProperty $ do
+propTranslating (Ex way) prog testExec = once . ioProperty $ do
     (eExec, metas) <- runWriterT . runEitherT $ translatingIn way prog
     return $ metaCounterexample metas $
         case eExec of
