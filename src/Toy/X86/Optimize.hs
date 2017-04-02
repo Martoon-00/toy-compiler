@@ -26,15 +26,9 @@ optimize = fromList . optimizeTillCan . toList
 
     rules =
         [ pushPop
-        , movMov
         ]
 
     pushPop (Push a : Pop b : is)
         | a == b    = Just is
         | otherwise = Nothing
     pushPop _       = Nothing
-
-    movMov (Mov a b : Mov c d : is)
-        | b == c    = Just (Mov a d : is)
-        | otherwise = Nothing
-    movMov _        = Nothing

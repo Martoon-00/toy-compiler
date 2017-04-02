@@ -36,7 +36,7 @@ compile insts =
         post    = [ fixMemRefs
                   , mkStackShift $ length locals
                   , correctExit
-                --   , optimize
+                  , optimize
                   ] :: [Insts -> Insts]
     in  foldl (&) body post
 
