@@ -7,6 +7,7 @@ module Toy.X86.Data
     , Insts
     , Program (..)
     , (//)
+    , jmp
     , eax
     , edx
     , esi
@@ -25,7 +26,9 @@ import qualified Formatting             as F
 import           GHC.Exts               (toList)
 import           Prelude                hiding (unlines)
 import qualified Text.RawString.QQ      as QQ
+
 import           Toy.Exp                (Value)
+import           Toy.SM                 (LabelId)
 
 data Operand
     = Reg String
@@ -59,10 +62,15 @@ data Inst
     | NoopOperator Text
     | Set Text Operand
     | Comment Text Inst
+    | Label LabelId
+    | Jmp Text LabelId
     deriving (Show, Eq)
 
 (//) :: Inst -> Text -> Inst
 (//) = flip Comment
+
+jmp :: LabelId -> Inst
+jmp = Jmp "mp"
 
 buildInst :: Buildable b => Text -> [b] -> Builder
 buildInst name ops =
@@ -78,8 +86,13 @@ instance Buildable Inst where
         BinOp o op1 op2 -> buildInst o [op1, op2]
         UnaryOp o op    -> buildInst o [op]
         NoopOperator o  -> build o
-        Set kind op     -> bprint ("set"%F.build%" "%F.build) kind op
-        Comment d inst  -> bprint (F.build%"\t# "%stext) inst d
+        Set kind op     -> bprint ("set"%pad%" "%pad) kind op
+        Comment d inst  -> bprint (pad%"\t# "%pad) inst d
+        Label lid       -> bprint ("L"%F.build%":") lid
+        Jmp kind lid    -> bprint ("j"%pad%" L"%pad) kind lid
+      where
+        pad :: F.Buildable a => F.Format r (a -> r)
+        pad = F.right 6 ' '
 
 type Insts = V.Vector Inst
 

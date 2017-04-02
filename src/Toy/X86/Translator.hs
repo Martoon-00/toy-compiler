@@ -24,7 +24,7 @@ import           System.Process      (proc)
 import           Toy.Exp             (Var)
 import qualified Toy.SM              as SM
 import           Toy.X86.Data        (Inst (..), Insts, Operand (..), Program (..), eax,
-                                      edi, edx, esi, esp, (//))
+                                      edi, edx, esi, esp, jmp, (//))
 import           Toy.X86.Optimize    (optimize)
 import           Toy.X86.Util        (readCreateProcess)
 
@@ -36,7 +36,7 @@ compile insts =
         post    = [ fixMemRefs
                   , mkStackShift $ length locals
                   , correctExit
-                  , optimize
+                --   , optimize
                   ] :: [Insts -> Insts]
     in  foldl (&) body post
 
@@ -44,19 +44,22 @@ compile insts =
 -- TODO: correct errors processing
 step :: M.Map Var Int -> SM.Inst -> [Inst]
 step locals = \case
-    SM.Nop     -> []
-    SM.Push v  -> [Mov (Const v) eax, Push eax]
-    SM.Load v  ->
+    SM.Nop        -> []
+    SM.Push v     -> [Mov (Const v) eax, Push eax]
+    SM.Load v     ->
         case locals ^. at v of
             Nothing  -> error "No such variable"
             Just idx -> [Mov (Mem idx) eax, Push eax]
-    SM.Store v ->
+    SM.Store v    ->
         case locals ^. at v of
             Nothing  -> error "undetected variable!"
             Just idx -> [Pop eax, Mov eax (Mem idx)]
-    SM.Read   -> [Call "read", Push eax]
-    SM.Write  -> [Call "write", Pop eax]
-    SM.Bin op -> [Pop op2, Pop op1] <> binop op <> [Push op2]
+    SM.Read      -> [Call "read", Push eax]
+    SM.Write     -> [Call "write", Pop eax]
+    SM.Bin op    -> [Pop op2, Pop op1] <> binop op <> [Push op2]
+    SM.Label lid -> [Label lid]
+    SM.Jmp   lid -> [jmp lid]
+    SM.JmpIf lid -> [Pop eax, BinOp "cmp" (Const 0) eax, Jmp "ne" lid]
 
 -- | Function 'step', when sets `Mem` indices, doesn't take into account
 -- possible @Push@es and @Pop@s to stack. This functions fixes it.

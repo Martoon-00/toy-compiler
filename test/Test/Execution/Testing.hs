@@ -24,7 +24,7 @@ import           Control.Spoon              (teaspoon)
 import           GHC.Exts                   (IsList (..))
 import           Test.QuickCheck            (Arbitrary, NonNegative (..), Property,
                                              counterexample, ioProperty, once, property,
-                                             (===))
+                                             within, (===))
 
 import           Test.Execution.Data        (In, InOut, Out, withEmptyInput)
 import           Test.Execution.Exec        (Executable (..))
@@ -49,9 +49,12 @@ assess result expected =
         ("Expected " ++ dispm expected ++ ", got " ++ dispe result)
         (expected == result ^? _Right)
 
+withTimeout :: Property -> Property
+withTimeout = within 100000
+
 infix 5 >-->
 (>-->) :: Executable e => In -> TestRes -> e -> Property
-(input >--> res) prog = ioProperty $ do
+(input >--> res) prog = withTimeout . ioProperty $ do
     outcome <- runEitherT $ exec prog input
     return $ outcome ^? _Right === (withEmptyInput <$> expected res)
   where
@@ -61,9 +64,10 @@ infix 5 >-->
 infix 5 >-*->
 (>-*->) :: In -> TestRes -> l -> ExecWay l -> Property
 (input >-*-> res) prog way =
-    once $ propTranslating way prog $ \executable -> ioProperty $ do
-        outcome <- runEitherT $ exec executable input
-        return $ outcome `assess` (withEmptyInput <$> expected res)
+    once $ propTranslating way prog $ \executable ->
+        withTimeout . ioProperty $ do
+            outcome <- runEitherT $ exec executable input
+            return $ outcome `assess` (withEmptyInput <$> expected res)
   where
     expected (TestRes out) = Just out
     expected X             = Nothing
@@ -81,7 +85,7 @@ class Equivalence f where
     equivalent :: f -> ([Value] -> EitherT String IO Value) -> [Value] -> Property
 
 instance Equivalence Value where
-    equivalent r f0 args = ioProperty $ do
+    equivalent r f0 args = withTimeout . ioProperty $ do
         result <- runEitherT $ f0 (reverse args)
         let expected = teaspoon r
         return $ result `assess` expected

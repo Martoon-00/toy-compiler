@@ -61,7 +61,7 @@ anExecState is = ExecState is [] M.empty
 -- | Get input and output streams.
 -- Unlike input, output stream has LIFO order
 getIO :: ExecState -> ([Value], [Value])
-getIO (ExecState is os _ _) = (is, os)
+getIO (ExecState is os _ _) = (is, reverse os)
 
 
 -- | @while@ loop in terms of `Stmt`.

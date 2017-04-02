@@ -12,8 +12,9 @@ import           Test.QuickCheck (Discard (..), NonNegative (..), Property, conj
                                   counterexample, property, within, (===), (==>))
 
 import           Test.Arbitrary  ()
-import           Test.Execution  (ExecWay (..), TestRes (..), asIs, describeExecWays,
-                                  translateLang, (>-*->), (>-->), (~*~))
+import           Test.Execution  (ExecWay (..), TestRes (..), asIs, defCompileX86,
+                                  describeExecWays, translateLang, (<~~>), (>-*->),
+                                  (>-->), (~*~))
 import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Exp
 import           Toy.Lang        (ExecState (..), Stmt (..), execute, simpleExecState)
@@ -40,7 +41,7 @@ spec = do
     let ways =
             [ Ex asIs
             , Ex translateLang
-            -- , Ex $ translateLang <~~> defCompileX86
+            , Ex $ translateLang <~~> defCompileX86
             ]
     describeExecWays ways $ \way -> do
         describe "examples" $ do
@@ -116,7 +117,7 @@ ioTest = id @Value ~*~ sample
         ]
 
 whileTest :: ExecWay Stmt -> Property
-whileTest = sample & [] >-*-> [4, 3 .. 0]
+whileTest = sample & [] >-*-> [0 .. 4]
   where
     sample = mconcat
         [ "i" := 0
