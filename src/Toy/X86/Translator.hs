@@ -88,7 +88,7 @@ gatherLocals _            = []
 
 mkStackShift :: Int -> Insts -> Insts
 mkStackShift shift insts =
-    let stackSh = Const $ 4 * shift
+    let stackSh = Const . fromIntegral $ 4 * shift
         prefix = BinOp "subl" stackSh esp
         suffix = BinOp "addl" stackSh esp
     in  [prefix] <> insts <> [suffix]

@@ -135,7 +135,7 @@ errorsTest = conjoin $
     ] <&> [] >--> X
 
 fibTest :: ExecWay Stmt -> Property
-fibTest = (fib !!) . getNonNegative ~*~ sample
+fibTest = fib . getNonNegative ~*~ sample
   where
     sample = mconcat
         [ "a" := 0
@@ -149,8 +149,10 @@ fibTest = (fib !!) . getNonNegative ~*~ sample
             ]
         , Write "a"
         ]
-    fib :: [Value]
-    fib = 0 : 1 : zipWith (+) fib (tail fib)
+    fibs :: [Value]
+    fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
+    fib :: Value -> Value
+    fib = (fibs !!) . fromIntegral
 
 gcdTest :: ExecWay Stmt -> Property
 gcdTest = gcd' ~*~ sample

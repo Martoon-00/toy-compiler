@@ -22,9 +22,9 @@ import           Control.Lens               ((^?), _Right)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Spoon              (teaspoon)
 import           GHC.Exts                   (IsList (..))
-import           Test.QuickCheck            (Arbitrary, NonNegative (..), Property,
-                                             counterexample, ioProperty, once, property,
-                                             within, (===))
+import           Test.QuickCheck            (Arbitrary, Large (..), NonNegative (..),
+                                             Property, counterexample, ioProperty, once,
+                                             property, within, (===))
 
 import           Test.Execution.Data        (In, InOut, Out, withEmptyInput)
 import           Test.Execution.Exec        (Executable (..))
@@ -50,7 +50,7 @@ assess result expected =
         (expected == result ^? _Right)
 
 withTimeout :: Property -> Property
-withTimeout = within 100000
+withTimeout = within 10000000
 
 infix 5 >-->
 (>-->) :: Executable e => In -> TestRes -> e -> Property
@@ -80,6 +80,9 @@ instance Extract a a where
 
 instance Extract a (NonNegative a) where
     extract = getNonNegative
+
+instance Extract a (Large a) where
+    extract = getLarge
 
 class Equivalence f where
     equivalent :: f -> ([Value] -> EitherT String IO Value) -> [Value] -> Property

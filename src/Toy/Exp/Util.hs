@@ -11,14 +11,16 @@ import           Control.Lens      (Iso', from, iso, (^.))
 import           Control.Spoon     (spoonWithHandles)
 import           Data.Maybe        (fromJust)
 
+import           Toy.Exp.Data      (Value)
 
-bool :: Iso' Int Bool
-bool = iso (/= 0) fromEnum
 
-asToBool :: (Bool -> Bool -> Bool) -> Int -> Int -> Int
+bool :: Iso' Value Bool
+bool = iso (/= 0) (fromIntegral . fromEnum)
+
+asToBool :: (Bool -> Bool -> Bool) -> Value -> Value -> Value
 asToBool f a b = f (a ^. bool) (b ^. bool) ^. from bool
 
-binResToBool :: (Int -> Int -> Bool) -> Int -> Int -> Int
+binResToBool :: (Value -> Value -> Bool) -> Value -> Value -> Value
 binResToBool f a b = f a b ^. from bool
 
 -- | Like `teaspoon`, but for `ArithException` only and reports details

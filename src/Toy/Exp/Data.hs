@@ -3,6 +3,7 @@
 
 module Toy.Exp.Data where
 
+import           Data.Int    (Int32)
 import qualified Data.Map    as M
 import           Data.String (IsString (..))
 import           Data.Text   (Text)
@@ -12,7 +13,7 @@ newtype Var = Var String
     deriving (Eq, Ord, Show, IsString)
 
 -- | Expression type
-type Value = Int
+type Value = Int32
 
 -- | Current state of local variables
 type LocalVars = M.Map Var Value

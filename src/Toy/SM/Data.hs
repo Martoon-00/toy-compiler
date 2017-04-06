@@ -14,7 +14,7 @@ type LabelId = Int
 
 -- | Statement of a program.
 data Inst
-    = Push Int
+    = Push Value
     | Bin BinOp
     | Load Var
     | Store Var

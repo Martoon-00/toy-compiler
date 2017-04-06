@@ -11,7 +11,7 @@ import           Data.Bits        (xor, (.&.), (.|.))
 import           Data.Monoid      ((<>))
 import           Prelude          hiding (id, (.))
 import           Test.Hspec       (Spec, describe, it)
-import           Test.QuickCheck  (Property)
+import           Test.QuickCheck  (Large (..), Property, conjoin, counterexample)
 
 import           Test.Arbitrary   ()
 import           Test.Execution   (ExecWay (..), defCompileX86, describeExecWays,
@@ -30,13 +30,15 @@ spec = do
     describeExecWays ways $ \way -> do
         describe "expressions" $ do
             describe "arithmetic" $ do
-                it "plus" $
+                it "plus (uni)" $
                     uniopTest way (+ 5) (+ 5)
-                it "minus" $
+                it "minus (uni)" $
                     uniopTest way (subtract 1) (subtract 1)
-                it "div" $
+                it "div (uni)" $
                     uniopTest way (quot 6) (6 /:)
                 it "two variables" $
+                    binopTest way const const
+                it "plus" $
                     binopTest way (+) (+)
                 it "complex" $
                     complexArithTest way
@@ -72,8 +74,14 @@ binopTest
     -> (Value -> Value -> Value)
     -> (Exp -> Exp -> Exp)
     -> Property
-binopTest way f1 f2 =
-    way & f1 ~*~ (Read "a" <> Read "b" <> Write ("a" `f2` "b"))
+binopTest way f1 f2 = conjoin
+    [ counterexample "plain" $
+        way & f1 ~*~ sample
+    , counterexample "large" $
+        way & (\(Large a) (Large b) -> f1 a b) ~*~ sample
+    ]
+  where
+    sample = Read "a" <> Read "b" <> Write ("a" `f2` "b")
 
 complexArithTest :: ExecWay Stmt -> Property
 complexArithTest = fun ~*~ sample
