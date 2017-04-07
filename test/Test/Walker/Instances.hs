@@ -9,7 +9,6 @@ module Test.Walker.Instances
 import           Test.Walker.Extractor (TestCaseData (..), file, readWithExtension)
 import           Toy.Exp               (Value)
 import qualified Toy.Lang              as L
-import           Toy.Util              (Parsable (..))
 
 data ProgramTestData = ProgramTestData
     { ptdProgram :: L.Stmt

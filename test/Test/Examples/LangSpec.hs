@@ -8,8 +8,8 @@ module Test.Examples.LangSpec
 
 import           Control.Lens    ((&), (<&>))
 import           Test.Hspec      (Spec, describe, it)
-import           Test.QuickCheck (Discard (..), NonNegative (..), Property, conjoin,
-                                  counterexample, property, within, (===), (==>))
+import           Test.QuickCheck (Discard (..), NonNegative (..), Property, Small (..),
+                                  conjoin, counterexample, property, within, (===), (==>))
 
 import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->), (>-->), (~*~))
@@ -151,8 +151,8 @@ fibTest = sample ~*~ fib . getNonNegative
         ]
     fibs :: [Value]
     fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
-    fib :: Value -> Value
-    fib = (fibs !!) . fromIntegral
+    fib :: Small Value -> Value
+    fib = (fibs !!) . fromIntegral . getSmall
 
 gcdTest :: ExecWay Stmt -> Property
 gcdTest = sample ~*~ gcd'

@@ -23,20 +23,19 @@ module Test.Execution
 import           Control.Lens               ((^?), _Right)
 import           Control.Monad              (forM_)
 import           Control.Monad.Trans.Either (EitherT (..))
-import           Control.Monad.Writer       (runWriterT)
+import           Control.Monad.Writer       (runWriter)
 import           Control.Spoon              (teaspoon)
 import qualified Formatting                 as F
 import           GHC.Exts                   (IsList (..))
 import           Test.Hspec.Core.Spec       (SpecWith, describe)
 import           Test.QuickCheck            (Arbitrary, Large (..), NonNegative (..),
-                                             Property, counterexample, ioProperty, once,
-                                             property, within, (===))
-import           Test.QuickCheck.Property   (failed, reason)
+                                             Property, Small (..), counterexample,
+                                             ioProperty, once, property, within, (===))
+import           Test.QuickCheck.Property   (again, failed, reason)
 
 import           Toy.Execution              (ExecWay (..), Executable (..), In, InOut,
                                              Meta, Out, translatingIn, withEmptyInput)
 import           Toy.Exp                    (Value)
-
 
 data TestRes
     = TestRes Out  -- execution produced given output
@@ -90,6 +89,9 @@ instance Extract a (NonNegative a) where
 instance Extract a (Large a) where
     extract = getLarge
 
+instance Extract a (NonNegative (Small a)) where
+    extract = getSmall . getNonNegative
+
 class Equivalence f where
     equivalent :: f -> ([Value] -> EitherT String IO Value) -> [Value] -> Property
 
@@ -141,9 +143,9 @@ propTranslating
     -> l
     -> (forall e . Executable e => e -> Property)
     -> Property
-propTranslating (Ex way) prog testExec = once . ioProperty $ do
-    (eExec, metas) <- runWriterT . runEitherT $ translatingIn way prog
-    return $ metaCounterexample metas $
+propTranslating (Ex way) prog testExec =
+    let (eExec, metas) = runWriter . runEitherT $ translatingIn way prog
+    in  metaCounterexample metas $
         case eExec of
             Left err -> property
                         failed { reason = "Translation failed: " ++ err }
