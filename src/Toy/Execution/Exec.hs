@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 
-module Test.Execution.Exec
+module Toy.Execution.Exec
     ( Executable (..)
     , BinaryFile (..)
     ) where
@@ -23,10 +23,10 @@ import qualified Data.Text                  as T
 import           GHC.Exts                   (IsString (..))
 import           System.Process             (readProcess)
 
-import           Test.Execution.Data        (In, InOut, withEmptyInput)
-import           Test.Util                  (getOutputValues, parseDataOrFail)
+import           Toy.Execution.Data         (In, InOut, withEmptyInput)
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
+import           Toy.Util                   (getOutputValues, parseDataOrFail)
 
 
 class Executable e where

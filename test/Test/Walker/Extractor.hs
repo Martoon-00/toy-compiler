@@ -27,9 +27,10 @@ import           Test.Hspec                 (SpecWith, describe, it)
 import           Test.QuickCheck            (Property, once, property)
 import           Test.QuickCheck.Property   (failed, reason)
 
-import           Test.Util                  (Parsable (..))
+import           Test.Util                  ()
 import           Test.Walker.FileReader     (FileReader, Reads (..), readFile,
                                              runFileReader)
+import           Toy.Util                   (Parsable (..))
 
 class Show d => TestCaseData d where
     tryGetTestCaseData :: FilePath -> String -> IO (Either Reads (Either String d))

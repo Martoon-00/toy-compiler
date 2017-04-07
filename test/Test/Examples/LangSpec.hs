@@ -12,10 +12,10 @@ import           Test.QuickCheck (Discard (..), NonNegative (..), Property, conj
                                   counterexample, property, within, (===), (==>))
 
 import           Test.Arbitrary  ()
-import           Test.Execution  (ExecWay (..), TestRes (..), asIs, defCompileX86,
-                                  describeExecWays, translateLang, (<~~>), (>-*->),
-                                  (>-->), (~*~))
+import           Test.Execution  (TestRes (..), describeExecWays, (>-*->), (>-->), (~*~))
 import           Test.Walker     (FullTestData (..), describeDir)
+import           Toy.Execution   (ExecWay (..), asIs, defCompileX86, translateLang,
+                                  (<~~>))
 import           Toy.Exp
 import           Toy.Lang        (ExecState (..), Stmt (..), execute, simpleExecState)
 import qualified Toy.Lang        as L

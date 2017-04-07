@@ -14,8 +14,8 @@ import           Test.Hspec       (Spec, describe, it)
 import           Test.QuickCheck  (Large (..), Property, conjoin, counterexample)
 
 import           Test.Arbitrary   ()
-import           Test.Execution   (ExecWay (..), defCompileX86, describeExecWays,
-                                   translateLang, (~*~))
+import           Test.Execution   (describeExecWays, (~*~))
+import           Toy.Execution    (ExecWay (..), defCompileX86, translateLang)
 import           Toy.Exp
 import           Toy.Lang         (Stmt (..))
 

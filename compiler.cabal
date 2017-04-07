@@ -11,20 +11,31 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Toy.Exp
+  exposed-modules:     Toy.Execution
+                       Toy.Exp
                        Toy.Lang
                        Toy.SM
+                       Toy.Util
                        Toy.X86
-  other-modules:       Toy.Exp.Data
+  other-modules:       Toy.Execution.Data
+                       Toy.Execution.Exec
+                       Toy.Execution.Trans
+
+                       Toy.Exp.Data
                        Toy.Exp.Eval
                        Toy.Exp.Operations
                        Toy.Exp.Util
+
                        Toy.Lang.Data
                        Toy.Lang.Interpreter
                        Toy.Lang.Parser
                        Toy.Lang.Translator
+
                        Toy.SM.Data
                        Toy.SM.Interpreter
+
+                       Toy.Util.Parsable
+                       
                        Toy.X86.Data
                        Toy.X86.Optimize
                        Toy.X86.Translator
@@ -35,8 +46,11 @@ library
                      , containers
                      , deepseq
                      , dlist
+                     , exceptions
+                     , either
                      , formatting
                      , lens
+                     , mmorph
                      , mtl
                      , process
                      , spoon
@@ -54,10 +68,6 @@ test-suite tests
   other-modules:       Spec
                        Test.Arbitrary
                        Test.Execution
-                       Test.Execution.Data
-                       Test.Execution.Exec
-                       Test.Execution.Testing
-                       Test.Execution.Trans
                        Test.Examples.ExpSpec
                        Test.Examples.LangSpec
                        Test.Examples.ParserSpec

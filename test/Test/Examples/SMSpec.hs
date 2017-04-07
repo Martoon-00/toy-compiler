@@ -9,9 +9,9 @@ import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (Property, conjoin, property)
 
 import           Test.Arbitrary  ()
-import           Test.Execution  (ExecWay (..), TestRes (..), asIs, defCompileX86,
-                                  describeExecWays, (>-->), (~*~))
+import           Test.Execution  (TestRes (..), describeExecWays, (>-->), (~*~))
 import           Test.Util       (instsSM)
+import           Toy.Execution   (ExecWay (..), asIs, defCompileX86)
 import           Toy.Exp
 import           Toy.SM          (Inst (..), Insts)
 

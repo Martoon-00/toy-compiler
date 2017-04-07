@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeFamilies               #-}
 
-module Test.Execution.Trans
+module Toy.Execution.Trans
     ( TranslateWay (..)
     , (<~~>)
     , asIs
@@ -19,27 +19,20 @@ module Test.Execution.Trans
     , translateLang
     , compileX86
     , defCompileX86
-
-    , describeExecWays
-    , propTranslating
     ) where
 
 import qualified Control.Category           as Cat
-import           Control.Monad              (forM_, (>=>))
+import           Control.Monad              ((>=>))
 import           Control.Monad.Morph        (hoist)
 import           Control.Monad.Trans        (lift)
 import           Control.Monad.Trans.Either (EitherT (..))
-import           Control.Monad.Writer       (WriterT, runWriterT, tell)
+import           Control.Monad.Writer       (WriterT, tell)
 import qualified Data.Text                  as T
 import qualified Formatting                 as F
 import           GHC.Exts                   (toList)
-import           Test.Hspec                 (describe)
-import           Test.Hspec.Core.Spec       (SpecWith)
-import           Test.QuickCheck            (Property, ioProperty, once, property)
-import           Test.QuickCheck.Property   (failed, reason)
 
-import           Test.Execution.Data        (Meta, Meta (..), metaCounterexample)
-import           Test.Execution.Exec        (BinaryFile (..), Executable (..))
+import           Toy.Execution.Data         (Meta, Meta (..))
+import           Toy.Execution.Exec         (BinaryFile (..), Executable (..))
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
 import qualified Toy.X86                    as X86
@@ -84,19 +77,3 @@ data ExecWay l = forall e . Executable e => Ex (TranslateWay l e)
 
 instance Show (ExecWay l) where
     show (Ex way) = show way
-
-describeExecWays :: [ExecWay l] -> (ExecWay l -> SpecWith a) -> SpecWith a
-describeExecWays ways specs = forM_ ways $ describe <$> show <*> specs
-
-propTranslating
-    :: ExecWay l
-    -> l
-    -> (forall e . Executable e => e -> Property)
-    -> Property
-propTranslating (Ex way) prog testExec = once . ioProperty $ do
-    (eExec, metas) <- runWriterT . runEitherT $ translatingIn way prog
-    return $ metaCounterexample metas $
-        case eExec of
-            Left err -> property
-                        failed { reason = "Translation failed: " ++ err }
-            Right e  -> testExec e

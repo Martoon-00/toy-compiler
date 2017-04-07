@@ -6,10 +6,10 @@ module Test.Walker.Instances
     , FullTestData (..)
     ) where
 
-import           Test.Util             (Parsable (..))
 import           Test.Walker.Extractor (TestCaseData (..), file, readWithExtension)
 import           Toy.Exp               (Value)
 import qualified Toy.Lang              as L
+import           Toy.Util              (Parsable (..))
 
 instance Parsable L.Stmt where
     parseData = L.parse

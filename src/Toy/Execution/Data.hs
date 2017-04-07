@@ -1,20 +1,18 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections   #-}
 
-module Test.Execution.Data
+module Toy.Execution.Data
     ( In
     , Out
     , InOut
     , Meta (..)
     , withEmptyInput
-    , metaCounterexample
     ) where
 
 import           Data.Text           (Text)
 import           Data.Text.Buildable (Buildable (..))
 import           Formatting          ((%))
 import qualified Formatting          as F
-import           Test.QuickCheck     (Property, counterexample)
 import           Toy.Exp             (Value)
 
 type In = [Value]
@@ -34,6 +32,3 @@ instance Buildable Meta where
 
 withEmptyInput :: Out -> InOut
 withEmptyInput = ([], )
-
-metaCounterexample :: [Meta] -> Property -> Property
-metaCounterexample = flip . foldr $ counterexample . F.formatToString F.build
