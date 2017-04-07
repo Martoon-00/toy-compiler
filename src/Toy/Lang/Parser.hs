@@ -1,5 +1,7 @@
+{-# OPTIONS_GHC -fno-warn-orphans   #-}
+
 module Toy.Lang.Parser
-    ( parse
+    (
     ) where
 
 import           Control.Applicative  (Alternative (..), optional, (*>), (<*))
@@ -11,6 +13,7 @@ import           Data.Text            (Text)
 
 import           Toy.Exp              (Exp (..), Var (..))
 import           Toy.Lang.Data        (Stmt (..), while)
+import           Toy.Util             (Parsable (..))
 
 -- * Util parsers
 
@@ -78,5 +81,5 @@ progP = sp $
     <|> Seq <$> stmtP <* char ';' <*> progP
     <|> stmtP <* optional (char ';')
 
-parse :: Text -> Either String Stmt
-parse = parseOnly $ progP <* endOfInput
+instance Parsable Stmt where
+    parseData = parseOnly $ progP <* endOfInput

@@ -11,9 +11,6 @@ import           Toy.Exp               (Value)
 import qualified Toy.Lang              as L
 import           Toy.Util              (Parsable (..))
 
-instance Parsable L.Stmt where
-    parseData = L.parse
-
 data ProgramTestData = ProgramTestData
     { ptdProgram :: L.Stmt
     } deriving (Show)

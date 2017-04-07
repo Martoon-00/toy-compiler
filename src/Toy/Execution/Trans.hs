@@ -71,7 +71,7 @@ compileX86 runtimePath outPath = TranslateWay "SM to binary" $ \insts -> do
     return (BinaryFile outPath)
 
 defCompileX86 :: TranslateWay SM.Insts BinaryFile
-defCompileX86 = compileX86 "./runtime/runtime.o" "./tmp/prog"
+defCompileX86 = compileX86 "./runtime/" "./tmp/prog"
 
 data ExecWay l = forall e . Executable e => Ex (TranslateWay l e)
 

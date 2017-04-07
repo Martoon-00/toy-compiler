@@ -35,7 +35,7 @@ library
                        Toy.SM.Interpreter
 
                        Toy.Util.Parsable
-                       
+
                        Toy.X86.Data
                        Toy.X86.Optimize
                        Toy.X86.Translator
@@ -49,6 +49,7 @@ library
                      , exceptions
                      , either
                      , formatting
+                     , filepath
                      , lens
                      , mmorph
                      , mtl
@@ -62,6 +63,20 @@ library
   ghc-options:         -Wall
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
+
+executable launch
+  main-is:              Main.hs
+  build-depends:        base >= 4.8 && < 5
+                      , compiler
+                      , either
+                      , lens
+                      , text
+                      , universum
+
+  hs-source-dirs:       launch
+  default-language:     Haskell2010
+  ghc-options:          -threaded -Wall -fno-warn-orphans
+  default-extensions:   OverloadedStrings
 
 test-suite tests
   main-is:             Test.hs
