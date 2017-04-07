@@ -115,15 +115,15 @@ singleOutput (_,   xs)  = error $ "Non single value in output!: "
 -- checks that it's equivalent to another function.
 -- Program have to print a single value.
 infix 3 ~~
-(~~) :: (Equivalence f, Executable e) => f -> e -> Property
-f ~~ prog = equivalent f (fmap singleOutput . exec prog) []
+(~~) :: (Executable e, Equivalence f) => e -> f -> Property
+prog ~~ f = equivalent f (fmap singleOutput . exec prog) []
 
 -- | Executes given program in our language as a function in given way, and
 -- checks that it's equivalent to another function.
 -- Program have to print a single value.
 infix 3 ~*~
-(~*~) :: Equivalence f => f -> l -> ExecWay l -> Property
-(f ~*~ prog) way =
+(~*~) :: Equivalence f => l -> f -> ExecWay l -> Property
+(prog ~*~ f) way =
     propTranslating way prog $ \executable ->
     equivalent f (fmap singleOutput . exec executable) []
 

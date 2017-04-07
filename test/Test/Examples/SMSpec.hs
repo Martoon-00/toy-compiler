@@ -29,7 +29,7 @@ spec =
             errorsTest
 
 ioTest :: ExecWay Insts -> Property
-ioTest = (+) @Value 2 ~*~ sample
+ioTest = sample ~*~ (+) @Value 2
   where
     sample = instsSM
         [ Read

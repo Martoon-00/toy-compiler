@@ -109,7 +109,7 @@ varsTest = execute sample === Right expected
         in  ExecState [] [] expectedVars Skip
 
 ioTest :: ExecWay Stmt -> Property
-ioTest = id @Value ~*~ sample
+ioTest = sample ~*~ id @Value
   where
     sample = mconcat
         [ Read "a"
@@ -135,7 +135,7 @@ errorsTest = conjoin $
     ] <&> [] >--> X
 
 fibTest :: ExecWay Stmt -> Property
-fibTest = fib . getNonNegative ~*~ sample
+fibTest = sample ~*~ fib . getNonNegative
   where
     sample = mconcat
         [ "a" := 0
@@ -155,7 +155,7 @@ fibTest = fib . getNonNegative ~*~ sample
     fib = (fibs !!) . fromIntegral
 
 gcdTest :: ExecWay Stmt -> Property
-gcdTest = gcd' ~*~ sample
+gcdTest = sample ~*~ gcd'
   where
     sample = mconcat
         [ Read "a"
@@ -171,7 +171,7 @@ gcdTest = gcd' ~*~ sample
     gcd' (NonNegative a) (NonNegative b) = gcd a b
 
 minTest :: ExecWay Stmt -> Property
-minTest = min @Value ~*~ sample
+minTest = sample ~*~ min @Value
   where
     sample = mconcat
         [ Read "a"

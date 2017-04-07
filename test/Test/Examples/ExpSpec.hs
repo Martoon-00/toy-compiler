@@ -67,7 +67,9 @@ uniopTest
     -> (Value -> Value)
     -> (Exp -> Exp)
     -> Property
-uniopTest way f1 f2 = way & f1 ~*~ Read "a" <> Write (f2 "a")
+uniopTest way f1 f2 =
+    let sample = Read "a" <> Write (f2 "a")
+    in  way & sample ~*~ f1
 
 binopTest
     :: ExecWay Stmt
@@ -76,15 +78,15 @@ binopTest
     -> Property
 binopTest way f1 f2 = conjoin
     [ counterexample "plain" $
-        way & f1 ~*~ sample
+        way & sample ~*~ f1
     , counterexample "large" $
-        way & (\(Large a) (Large b) -> f1 a b) ~*~ sample
+        way & sample ~*~ \(Large a) (Large b) -> f1 a b
     ]
   where
     sample = Read "a" <> Read "b" <> Write ("a" `f2` "b")
 
 complexArithTest :: ExecWay Stmt -> Property
-complexArithTest = fun ~*~ sample
+complexArithTest = sample ~*~ fun
   where
     sample = mconcat
         [ Read "a"
@@ -96,7 +98,7 @@ complexArithTest = fun ~*~ sample
     fun a b c = a + b * 10 - (c `rem` 2)
 
 boolTest :: ExecWay Stmt -> Property
-boolTest = fun ~*~ sample
+boolTest = sample ~*~ fun
   where
     sample = mconcat
         [ Read "a"
