@@ -31,7 +31,7 @@ import           Test.Hspec.Core.Spec       (SpecWith, describe)
 import           Test.QuickCheck            (Arbitrary, Large (..), NonNegative (..),
                                              Property, Small (..), counterexample,
                                              ioProperty, once, property, within, (===))
-import           Test.QuickCheck.Property   (again, failed, reason)
+import           Test.QuickCheck.Property   (failed, reason)
 
 import           Toy.Execution              (ExecWay (..), Executable (..), In, InOut,
                                              Meta, Out, translatingIn, withEmptyInput)

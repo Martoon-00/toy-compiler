@@ -11,7 +11,7 @@ import           Data.Bits        (xor, (.&.), (.|.))
 import           Data.Monoid      ((<>))
 import           Prelude          hiding (id, (.))
 import           Test.Hspec       (Spec, describe, it)
-import           Test.QuickCheck  (Large (..), Property, conjoin, counterexample)
+import           Test.QuickCheck  (Large (..), Property, counterexample)
 
 import           Test.Arbitrary   ()
 import           Test.Execution   (describeExecWays, (~*~))
