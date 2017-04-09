@@ -1,3 +1,0 @@
-while 6 do p = 5;
-while 6 do {p = 4; r = 4};
-while 6 do p = 5

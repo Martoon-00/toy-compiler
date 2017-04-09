@@ -43,6 +43,8 @@ library
 
   build-depends:       attoparsec
                      , base >= 4.7 && < 5
+                     , conduit
+                     , conduit-combinators
                      , containers
                      , deepseq
                      , dlist
@@ -58,6 +60,7 @@ library
                      , vector
                      , text
                      , text-format
+                     , transformers
                      , raw-strings-qq
                      , universum
   ghc-options:         -Wall

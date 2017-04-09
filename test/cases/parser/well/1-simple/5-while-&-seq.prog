@@ -1,0 +1,2 @@
+while 6 do p := 5; od;
+while 6 do p := 5 od

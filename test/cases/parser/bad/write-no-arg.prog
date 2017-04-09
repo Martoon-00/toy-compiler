@@ -1,2 +1,2 @@
-k = 5;
-write 
+k := 5;
+write

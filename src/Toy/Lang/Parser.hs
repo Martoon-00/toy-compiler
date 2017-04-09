@@ -4,16 +4,18 @@ module Toy.Lang.Parser
     (
     ) where
 
-import           Control.Applicative  (Alternative (..), optional, (*>), (<*))
-import           Data.Attoparsec.Text (Parser, asciiCI, char, decimal, decimal,
-                                       endOfInput, letter, parseOnly, satisfy, signed,
-                                       space, string)
-import           Data.Char            (isAlphaNum)
-import           Data.Text            (Text)
+import           Control.Applicative        (Alternative (..), optional, (*>), (<*))
+import           Data.Attoparsec.Combinator (lookAhead)
+import           Data.Attoparsec.Text       (Parser, asciiCI, char, decimal, decimal,
+                                             endOfInput, letter, parseOnly, satisfy,
+                                             signed, space, string)
+import           Data.Char                  (isAlphaNum)
+import           Data.Functor               ((<$))
+import           Data.Text                  (Text)
 
-import           Toy.Exp              (Exp (..), Var (..))
-import           Toy.Lang.Data        (Stmt (..), while)
-import           Toy.Util             (Parsable (..))
+import           Toy.Exp                    (Exp (..), Var (..))
+import           Toy.Lang.Data              (Stmt (..), whileS)
+import           Toy.Util                   (Parsable (..))
 
 -- * Util parsers
 
@@ -40,6 +42,7 @@ elemP :: Parser Exp -> Parser Exp
 elemP p = sp $
         char '(' *> p <* char ')'
     <|> ValueE <$> signed decimal
+    <|> ReadE  <$  asciiCI "read()"
     <|> VarE   <$> varP
 
 expP :: Parser Exp
@@ -61,19 +64,20 @@ varP =
     Var <$> ((:) <$> letter <*> many (satisfy isAlphaNum))
 
 keywordP :: Text -> Parser ()
-keywordP t = () <$ asciiCI t <* some space
+keywordP t = () <$ asciiCI t <* lookAhead (satisfy $ not . isAlphaNum)
 
 stmtP :: Parser Stmt
 stmtP = sp $
-        Read  <$> (keywordP "Read"  *> varP )
-    <|> Write <$> (keywordP "Write" *> expP )
-    <|> If    <$> (keywordP "If"    *> expP )
-              <*> (keywordP "then"  *> progP)
-              <*> (keywordP "else"  *> progP)
-    <|> while <$> (keywordP "While" *> expP )
-              <*> (keywordP "do"    *> progP)
-    <|> Skip  <$   keywordP "Skip"
-    <|> (:=)  <$> (varP <* sp (string "=")) <*> expP
+        Write  <$> (keywordP "Write" *> expP )
+    <|> If     <$> (keywordP "If"    *> expP )
+               <*> (keywordP "then"  *> progP)
+               <*> (keywordP "else"  *> progP)
+               <*   keywordP "fi"
+    <|> whileS <$> (keywordP "While" *> expP )
+               <*> (keywordP "do"    *> progP)
+               <*   keywordP "od"
+    <|> Skip   <$   keywordP "Skip"
+    <|> (:=)   <$> (varP <* sp (string ":=")) <*> expP
 
 progP :: Parser Stmt
 progP = sp $

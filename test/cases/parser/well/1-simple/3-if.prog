@@ -1,0 +1,4 @@
+if 4
+then s := read()
+else skip
+fi

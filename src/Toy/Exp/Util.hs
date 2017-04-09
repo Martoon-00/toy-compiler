@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Toy.Exp.Util
     ( arithspoon
     , bool
@@ -5,13 +7,14 @@ module Toy.Exp.Util
     , binResToBool
     ) where
 
-import           Control.DeepSeq   (NFData)
-import           Control.Exception (ArithException, Handler (..))
-import           Control.Lens      (Iso', from, iso, (^.))
-import           Control.Spoon     (spoonWithHandles)
-import           Data.Maybe        (fromJust)
+import           Control.DeepSeq           (NFData)
+import           Control.Exception         (ArithException, Handler (..))
+import           Control.Lens              (Iso', from, iso, (^.))
+import           Control.Monad.Error.Class (MonadError (..))
+import           Control.Spoon             (spoonWithHandles)
+import           Data.Maybe                (fromJust)
 
-import           Toy.Exp.Data      (Value)
+import           Toy.Exp.Data              (Value)
 
 
 bool :: Iso' Value Bool
@@ -25,7 +28,8 @@ binResToBool f a b = f a b ^. from bool
 
 -- | Like `teaspoon`, but for `ArithException` only and reports details
 -- in case of error
-arithspoon :: NFData a => a -> Either String a
-arithspoon = fromJust . spoonWithHandles [Handler handler] . Right
+arithspoon :: (MonadError String m, NFData a) => a -> m a
+arithspoon = either throwError return
+           . fromJust . spoonWithHandles [Handler handler] . Right
   where
     handler = return . Just . Left . (show :: ArithException -> String)

@@ -17,8 +17,11 @@ module Toy.Execution.Exec
 
 import           Control.Lens               ((%~), _Left)
 import           Control.Monad.Catch        (SomeException, try)
+import           Control.Monad.Morph        (generalize, hoist)
+import           Control.Monad.State        (evalStateT)
 import           Control.Monad.Trans.Either (EitherT (..))
-import qualified Data.Map                   as M
+import           Data.Conduit               (($$), ($=))
+import qualified Data.Conduit.List          as C
 import qualified Data.Text                  as T
 import           GHC.Exts                   (IsString (..))
 import           System.Process             (readProcess)
@@ -33,9 +36,11 @@ class Executable e where
     exec :: e -> In -> EitherT String IO InOut
 
 instance Executable L.Stmt where
-    exec stmt is =
-        let outcome = L.execute $ L.ExecState is [] M.empty stmt
-        in  EitherT . return $ L.getIO <$> outcome
+    exec stmt is = hoist generalize . flip evalStateT mempty $
+        C.sourceList is $$ do
+            out   <- L.execute stmt $= C.consume
+            remIn <- C.consume
+            return (remIn, out)
 
 instance Executable SM.Insts where
     exec insts is =

@@ -1,23 +1,23 @@
 module Toy.Exp.Eval
-    ( Calc
-    , eval
+    ( eval
     ) where
 
-import qualified Data.Map           as M
-import           Toy.Exp.Data       (Exp (..), LocalVars, Value)
-import           Toy.Exp.Operations (binOp, unaryOp)
-import           Toy.Exp.Util       (arithspoon)
+import           Control.Lens              (at, use)
+import           Control.Monad.Error.Class (throwError)
+import           Data.Conduit              (await)
+import           Universum                 (whenNothingM)
 
--- | Result of expression evaluation
-type Calc = Either String Value
+import           Toy.Exp.Data              (Exec, Exp (..), Value)
+import           Toy.Exp.Operations        (binOp, unaryOp)
+import           Toy.Exp.Util              (arithspoon)
 
 -- | Evaluate expression in given variables context
-eval :: Exp -> LocalVars -> Calc
-eval e vars = ev e
-  where
-    ev (ValueE v   ) = Right v
-    ev (VarE v     ) =
-        maybe (Left $ "No variable " ++ show v ++ " defined") Right $
-        M.lookup v vars
-    ev (UnaryE op v) = arithspoon =<< (unaryOp op <$> ev v)
-    ev (BinE op a b) = arithspoon =<< (binOp op <$> ev a <*> ev b)
+eval :: Exp -> Exec Value
+eval e = case e of
+    ValueE v    -> return v
+    VarE v      ->
+        let err = "No variable " ++ show v ++ " defined"
+        in  use (at v) `whenNothingM` throwError err
+    ReadE       -> await `whenNothingM` throwError "No input"
+    UnaryE op v -> arithspoon =<< (unaryOp op <$> eval v)
+    BinE op a b -> arithspoon =<< (binOp op <$> eval a <*> eval b)

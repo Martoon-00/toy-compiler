@@ -17,7 +17,7 @@ import           Test.Arbitrary   ()
 import           Test.Execution   (describeExecWays, (~*~))
 import           Toy.Execution    (ExecWay (..), defCompileX86, translateLang)
 import           Toy.Exp
-import           Toy.Lang         (Stmt (..))
+import           Toy.Lang         (Stmt (..), readS)
 
 
 spec :: Spec
@@ -68,7 +68,7 @@ uniopTest
     -> (Exp -> Exp)
     -> Property
 uniopTest way f1 f2 =
-    let sample = Read "a" <> Write (f2 "a")
+    let sample = readS "a" <> Write (f2 "a")
     in  way & sample ~*~ f1
 
 binopTest
@@ -83,15 +83,15 @@ binopTest way f1 f2 = head
         way & sample ~*~ \(Large a) (Large b) -> f1 a b
     ]
   where
-    sample = Read "a" <> Read "b" <> Write ("a" `f2` "b")
+    sample = readS "a" <> readS "b" <> Write ("a" `f2` "b")
 
 complexArithTest :: ExecWay Stmt -> Property
 complexArithTest = sample ~*~ fun
   where
     sample = mconcat
-        [ Read "a"
-        , Read "b"
-        , Read "c"
+        [ readS "a"
+        , readS "b"
+        , readS "c"
         , Write $ "a" +: "b" *: 10 -: "c" %: 2
         ]
     fun :: Value -> Value -> Value -> Value
@@ -101,11 +101,11 @@ boolTest :: ExecWay Stmt -> Property
 boolTest = sample ~*~ fun
   where
     sample = mconcat
-        [ Read "a"
-        , Read "b"
-        , Read "c"
-        , Read "d"
-        , Read "e"
+        [ readS "a"
+        , readS "b"
+        , readS "c"
+        , readS "d"
+        , readS "e"
         , Write $ "a" ==: "b" &&: "c" <=: "d" ^: "e"
         ]
     fun :: Value -> Value -> Value -> Value -> Value -> Value

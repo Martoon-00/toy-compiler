@@ -8,8 +8,8 @@ module Test.Examples.LangSpec
 
 import           Control.Lens    ((&), (<&>))
 import           Test.Hspec      (Spec, describe, it)
-import           Test.QuickCheck (Discard (..), NonNegative (..), Property, Small (..),
-                                  conjoin, counterexample, property, within, (===), (==>))
+import           Test.QuickCheck (NonNegative (..), Property, Small (..), conjoin,
+                                  counterexample, property)
 
 import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->), (>-->), (~*~))
@@ -17,7 +17,7 @@ import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Execution   (ExecWay (..), asIs, defCompileX86, translateLang,
                                   (<~~>))
 import           Toy.Exp
-import           Toy.Lang        (ExecState (..), Stmt (..), execute, simpleExecState)
+import           Toy.Lang        (Stmt (..), readS)
 import qualified Toy.Lang        as L
 
 
@@ -25,16 +25,10 @@ spec :: Spec
 spec = do
     describeExecWays [Ex @Stmt asIs] $ \_ -> do
         describe "examples" $ do
-            it "Skip" $
-                initSkipTest
-            it "variables simple" $
-                varsTest
             it "different erroneous scenarios" $
                 errorsTest
 
-        it "`execute` always ends with Skip" $
-            property executeAlwaysEndsWithSkip
-
+        -- TODO: move below
         describeDir "./test/cases/exec"
             fileTest
 
@@ -64,23 +58,8 @@ spec = do
                     property $ gcdTest way
 
 
-executeAlwaysEndsWithSkip :: ExecState -> Property
-executeAlwaysEndsWithSkip initExecState@(ExecState _ _ _ initStmt) =
-    within 1000000 $
-    -- propability of initial action to be SkipS is too high
-    initStmt /= Skip ==>
-        case execute initExecState of
-            Left _                      -> property Discard
-            Right (ExecState _ _ _ end) -> end === Skip
-
 noActions :: ExecWay Stmt -> Property
 noActions = mempty & [] >-*-> []
-
-initSkipTest :: Property
-initSkipTest = execute sample === Right expected
-  where
-    sample   = simpleExecState Skip
-    expected = simpleExecState Skip
 
 ifTrueTest :: ExecWay Stmt -> Property
 ifTrueTest = sample & [] >-*-> [0]
@@ -92,27 +71,11 @@ ifFalseTest = sample & [] >-*-> [1]
   where
     sample = If 0 (Write 0) (Write 1)
 
-varsTest :: Property
-varsTest = execute sample === Right expected
-  where
-    sample = simpleExecState $ mconcat
-        [ "a" := 1
-        , "b" := 2
-        , "a" := 3
-        , L.while ("a" ==: 0) Skip  -- test variable access
-        ]
-    expected =
-        let expectedVars =
-                [ ("a", 3)
-                , ("b", 2)
-                ]
-        in  ExecState [] [] expectedVars Skip
-
 ioTest :: ExecWay Stmt -> Property
 ioTest = sample ~*~ id @Value
   where
     sample = mconcat
-        [ Read "a"
+        [ readS "a"
         , Write "a"
         ]
 
@@ -121,7 +84,7 @@ whileTest = sample & [] >-*-> [0 .. 4]
   where
     sample = mconcat
         [ "i" := 0
-        , L.while ("i" <: 5) $ mconcat
+        , L.whileS ("i" <: 5) $ mconcat
             [ Write "i"
             , "i" := "i" +: 1
             ]
@@ -130,7 +93,7 @@ whileTest = sample & [] >-*-> [0 .. 4]
 errorsTest :: Property
 errorsTest = conjoin $
     [ Write (5 /: 0)
-    , Read "x"
+    , readS "x"
     , Write "x"
     ] <&> [] >--> X
 
@@ -140,8 +103,8 @@ fibTest = sample ~*~ fib . getNonNegative
     sample = mconcat
         [ "a" := 0
         , "b" := 1
-        , Read "i"
-        , L.while ("i" >: 0) $ mconcat
+        , readS "i"
+        , L.whileS ("i" >: 0) $ mconcat
             [ "c" := "b"
             , "b" := "a" +: "b"
             , "a" := "c"
@@ -158,9 +121,9 @@ gcdTest :: ExecWay Stmt -> Property
 gcdTest = sample ~*~ gcd'
   where
     sample = mconcat
-        [ Read "a"
-        , Read "b"
-        , L.while ("b" >: 0) $ mconcat
+        [ readS "a"
+        , readS "b"
+        , L.whileS ("b" >: 0) $ mconcat
             [ "r" := "a" %: "b"
             , "a" := "b"
             , "b" := "r"
@@ -174,8 +137,8 @@ minTest :: ExecWay Stmt -> Property
 minTest = sample ~*~ min @Value
   where
     sample = mconcat
-        [ Read "a"
-        , Read "b"
+        [ readS "a"
+        , readS "b"
         , If ("a" <: "b")
             ("c" := "a")
             ("c" := "b")

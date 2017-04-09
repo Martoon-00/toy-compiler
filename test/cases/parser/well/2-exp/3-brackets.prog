@@ -1,1 +1,1 @@
-write x * (e + 2)
+write (x * (e + 2))

@@ -1,13 +1,11 @@
 module Test.Arbitrary where
 
 import           Control.Monad   (liftM2)
-import qualified Data.Map        as M
 import           Data.String     (fromString)
-import           Test.QuickCheck (Arbitrary (..), choose, elements, frequency, getSmall,
-                                  vector)
+import           Test.QuickCheck (Arbitrary (..), choose, elements, frequency, getSmall)
 
 import           Toy.Exp
-import           Toy.Lang        (ExecState (..), Stmt (..))
+import           Toy.Lang        (Stmt (..))
 import qualified Toy.Lang        as L
 
 instance Arbitrary Var where
@@ -16,6 +14,7 @@ instance Arbitrary Var where
 instance Arbitrary Exp where
     arbitrary = frequency
         [ (50, ValueE . getSmall <$> arbitrary)
+        , (10, pure ReadE)
 
         , (1, liftM2 (+:) arbitrary arbitrary)
         , (1, liftM2 (-:) arbitrary arbitrary)
@@ -41,7 +40,6 @@ instance Arbitrary Exp where
 instance Arbitrary Stmt where
     arbitrary = frequency
         [ (3, liftM2 (:=) arbitrary arbitrary)
-        , (2, Read <$> arbitrary)
         , (2, Write <$> arbitrary)
         , (1, If <$> arbitrary <*> arbitrary <*> arbitrary)
         , (1, forLoop <$> (Var . (:"_i") <$> choose ('a', 'z'))
@@ -52,11 +50,8 @@ instance Arbitrary Stmt where
       where
         forLoop i n body = mconcat
             [ i := 0
-            , L.while (VarE i <=: n) $ mconcat
+            , L.whileS (VarE i <=: n) $ mconcat
                 [ body
                 , i := VarE i + 1
                 ]
             ]
-
-instance Arbitrary ExecState where
-    arbitrary = ExecState <$> vector 0 <*> pure [] <*> pure M.empty <*> arbitrary
