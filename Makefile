@@ -22,11 +22,8 @@ deep-expressions-tests: build
 perfomance-tests: build
 	$(CHECK)/performance
 
-control-tests:
-	# core-tests
-	expressions-tests
-	deep-expressions-tests
-	# perfomance-tests
+control-tests: expressions-tests deep-expressions-tests
+
 
 clean:
 	stack clean

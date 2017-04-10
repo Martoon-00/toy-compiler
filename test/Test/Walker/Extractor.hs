@@ -7,6 +7,7 @@ module Test.Walker.Extractor
     , TestWalker (..)
     , file
     , readWithExtension
+    , readWithPathNExtension
     , describeDir
     ) where
 
@@ -82,17 +83,26 @@ describeDir
 describeDir path apply =
     describe path $ walk path $ once . apply
 
-file :: Parsable a => FilePath -> EitherT String FileReader a
+file :: Show b => Parsable a => b -> EitherT String (FileReader b) a
 file path = do
     rd <- lift $ readFile path
     EitherT . return $ (_Left %~ withDesc) $ parseData rd
   where
-    withDesc err = "(" ++ path ++ ") " ++ err
+    withDesc err = "(" ++ show path ++ ") " ++ err
 
 readWithExtension
-    :: EitherT String FileReader a
+    :: EitherT String (FileReader FilePath) a
     -> FilePath
     -> String
     -> IO (Either Reads (Either String a))
 readWithExtension action path basename' =
     runFileReader (runEitherT action) (\ext -> path </> basename' ++ ext)
+
+readWithPathNExtension
+    :: EitherT String (FileReader (FilePath, FilePath)) a
+    -> FilePath
+    -> String
+    -> IO (Either Reads (Either String a))
+readWithPathNExtension action path basename' =
+    runFileReader (runEitherT action) $
+    \(subpath, ext) -> path </> subpath </> basename' ++ ext
