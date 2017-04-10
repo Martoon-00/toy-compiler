@@ -1,73 +1,72 @@
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE ViewPatterns  #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE TypeOperators    #-}
+{-# LANGUAGE ViewPatterns     #-}
 
 module Toy.SM.Interpreter
     ( execute
     ) where
 
-import           Control.Lens (at, (%~), (^.), _Left)
-import           Data.List    (uncons)
-import qualified Data.Map     as M
-import           Data.Maybe   (fromMaybe)
-import qualified Data.Vector  as V
+import           Control.Lens               (at, use, (%=), (+=), (.=), (?=), (^.))
+import           Control.Monad              (replicateM, when)
+import           Control.Monad.Error.Class  (throwError)
+import           Control.Monad.State.Strict (StateT)
+import           Control.Monad.Trans.Either (EitherT)
+import           Data.Conduit               (await, yield)
+import           Data.Conduit.Lift          (evalStateC)
+import           Data.Default               (def)
+import           Data.Functor               (($>))
+import qualified Data.Map                   as M
+import           Data.Maybe                 (fromMaybe)
+import qualified Data.Vector                as V
+import           Universum                  (type ($))
 
-import           Toy.Exp      (Value, arithspoon, binOp)
-import           Toy.SM.Data  (Exec, ExecState (..), Inst (..), Insts, LabelId)
+import           Toy.Exp                    (Exec, ExecInOut, arithspoon, binOp)
+import           Toy.SM.Data                (ExecState (..), Inst (..), Insts, LabelId,
+                                             esIp, esLocals, esStack)
 
-execute :: Insts -> ExecState -> Exec
-execute insts exec@(ExecState is os vars stack ip)
-    | ip == V.length insts = return exec
-    | otherwise            = execute insts =<< step stack (insts V.! ip)
+type ExecProcess m = ExecInOut $ StateT ExecState $ EitherT String m
+
+execute :: Monad m => Insts -> Exec m ()
+execute = evalStateC def . executeDo
+
+executeDo :: Monad m => Insts -> ExecProcess m ()
+executeDo insts = exec
   where
-    step :: [Value] -> Inst -> Exec
-    step _ (Push k) =
-        return $ ExecState is os vars (k:stack) (ip + 1)
+    exec = do
+        ip <- use esIp
+        when (ip /= V.length insts) $ do
+            step (insts V.! ip)
+            esIp += 1
+            exec
 
-    step (b:a:stack') (Bin op) = do
-        eval <- describeError $ arithspoon $ binOp op a b
-        return $ ExecState is os vars (eval : stack') (ip + 1)
-    step _            (Bin _ ) =
-        failure "Not enough arguments on stack"
+    step = \case
+        Push v    -> push v
+        Bin op    -> do
+            [b, a] <- replicateM 2 pop
+            push =<< arithspoon (binOp op a b)
+        Load n    -> use (esLocals . at n) >>= \case
+            Nothing  -> throwError $ "No variable " ++ show n ++ " defined"
+            Just var -> push var
+        Store n   -> pop >>= (esLocals . at n ?= )
+        Read      -> await >>= maybe (throwError "No input") push
+        Write     -> pop >>= yield
+        Label{}   -> step Nop
+        Jmp lid   -> ensureEmptyStack >> (esIp .= getLabel lid)
+        JmpIf lid -> do
+            cond <- pop
+            when (cond /= 0) $ step (Jmp lid)
+        Nop       -> return ()
 
-    step _ (Load name) = case vars ^. at name of
-        Just var -> return $ ExecState is os vars (var:stack) (ip + 1)
-        Nothing  -> failure $ "No variable " ++ show name ++ " defined"
-
-    step (v:stack') (Store name) =
-        return $ ExecState is os (M.insert name v vars) stack' (ip + 1)
-    step _          (Store _   ) =
-        failure "Stack is empty"
-
-    step _ Read = case uncons is of
-        Nothing       -> failure "No input"
-        Just (i, is') -> return $ ExecState is' os vars (i:stack) (ip + 1)
-
-    step (v:stack') Write =
-        return $ ExecState is (v:os) vars stack' (ip + 1)
-    step _          Write =
-        failure "Stack is empty"
-
-    step s Label{} = step s Nop
-
-    step [] (Jmp labelId) =
-        return $ ExecState is os vars stack (getLabel labelId)
-    step st jmp@(Jmp _) =
-        error $ "Not empty stack on " ++ show jmp ++ ": " ++ show st
-
-    step [cond] (JmpIf labelId) =
-        return $ ExecState is os vars [] $
-            if cond /= 0 then getLabel labelId else ip + 1
-    step st jmpif@(JmpIf _) =
-        error $ "Not single value in stack on " ++ show jmpif
-             ++ ": " ++ show st
-
-    step _ Nop =
-        return $ ExecState is os vars stack (ip + 1)
-
+    push v = esStack %= (v:)
+    pop = use esStack >>= \case
+        []   -> throwError "Empty stack"
+        s:ss -> (esStack .= ss) $> s
+    ensureEmptyStack = do
+        st <- use esStack
+        when (not $ null st) $ throwError "Stack expected to be empty"
     getLabel = buildLabelsMap insts
-
-    failure err = Left $ mconcat ["#", show ip, ": ", err]
-    describeError = _Left %~ \err -> mconcat ["#", show ip, ": ", err]
 
 buildLabelsMap :: Insts -> LabelId -> Int
 buildLabelsMap (V.toList -> insts) =

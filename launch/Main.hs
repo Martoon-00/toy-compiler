@@ -3,18 +3,22 @@ module Main
     ) where
 
 import           Control.Lens               (view, (%~), (&))
+import           Control.Monad              (forever)
+import           Control.Monad.Trans        (liftIO)
 import           Control.Monad.Trans.Either (EitherT (..))
+import           Data.Conduit               (awaitForever, yield, ($$), (=$=))
 import           Data.Maybe                 (fromMaybe)
 import qualified Data.Text.IO               as T
-import qualified Data.Text.Lazy             as LT
-import qualified Data.Text.Lazy.IO          as LT
+import           GHC.IO.Handle              (hFlush)
+import           GHC.IO.Handle.FD           (stdout)
 import           Prelude                    hiding (interact)
 import           System.Environment         (getArgs, lookupEnv)
 import           System.FilePath.Lens       (basename, filename)
 import           Universum                  (whenLeftM)
 
-import           Toy.Execution              (In, InOut, exec)
+import           Toy.Exp                    (Exec)
 import qualified Toy.Lang                   as L
+import qualified Toy.SM                     as SM
 import           Toy.Util                   (parseData)
 import qualified Toy.X86                    as X86
 
@@ -25,8 +29,8 @@ launch :: [String] -> IO ()
 launch [mode, inputFile] = do
     prog <- either parseError id . parseData <$> T.readFile inputFile
     case mode of
-        "-i" -> interact $ exec prog
-        "-s" -> interact $ exec (L.toIntermediate prog)
+        "-i" -> interact $ L.execute prog
+        "-s" -> interact $ SM.execute (L.toIntermediate prog)
         "-o" -> do
             let insts      = X86.compile $ L.toIntermediate prog
                 outputPath = inputFile & filename %~ view basename
@@ -43,11 +47,11 @@ launch _ = putStrLn $ unlines
     , "\t2) path to file with program"
     ]
 
-interact :: (In -> EitherT String IO InOut) -> IO ()
-interact executor = do
-    stdin <- LT.getContents
-    let input = read . LT.unpack <$> LT.words stdin
-    eres <- runEitherT $ executor input
-    case eres of
-        Left err          -> error $ "Execution failed: " ++ err
-        Right (_, output) -> putStrLn . unlines $ show <$> output
+interact :: Exec IO () -> IO ()
+interact executor = handleRes $ readInput =$= executor $$ writeOutput
+  where
+    readInput        = forever $ readValue >>= yield
+    readValue        = liftIO $ putStr "> " >> hFlush stdout >> readLn
+    writeOutput      = awaitForever $ liftIO . print
+    handleRes action = runEitherT action `whenLeftM` printError
+    printError err   = error $ "Execution failed: " ++ err

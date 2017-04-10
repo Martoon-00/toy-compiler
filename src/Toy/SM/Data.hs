@@ -3,6 +3,7 @@
 module Toy.SM.Data where
 
 import           Control.Lens (makeLenses)
+import           Data.Default (Default (..))
 import qualified Data.Map     as M
 import qualified Data.Vector  as V
 
@@ -30,36 +31,15 @@ type Insts = V.Vector Inst
 
 -- | State of execution
 data ExecState = ExecState
-    { _esIn    :: [Value]
-      -- ^ represents stdin, extractable by `Read`
-    , _esOut   :: [Value]
-      -- ^ represents stdout, modifiable by `Write`
-      -- (list header corresponds to current end of output)
-    , _esVars  :: LocalVars
+    { _esLocals :: LocalVars
       -- ^ local variables values
-    , _esStack :: [Value]
+    , _esStack  :: [Value]
       -- ^ current stack
-    , _esIp    :: IP
+    , _esIp     :: IP
       -- ^ instruction pointer, no of command to execute next
     } deriving (Eq, Show)
 
 makeLenses ''ExecState
 
--- | Execution error
-type Error = String
-
--- | Result of execution
-type Exec = Either Error ExecState
-
--- | Execution state at beginning of program and with empty input
-simpleExecState :: ExecState
-simpleExecState = anExecState []
-
--- | Execution state at beginning of program
-anExecState :: [Value] -> ExecState
-anExecState is = ExecState is [] M.empty [] 0
-
--- | Get input and output streams.
--- Unlike input, output stream has LIFO order
-getIO :: ExecState -> ([Value], [Value])
-getIO (ExecState is os _ _ _) = (is, reverse os)
+instance Default ExecState where
+    def = ExecState M.empty [] 0

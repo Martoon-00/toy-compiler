@@ -46,6 +46,7 @@ library
                      , conduit
                      , conduit-combinators
                      , containers
+                     , data-default
                      , deepseq
                      , dlist
                      , exceptions
@@ -70,9 +71,11 @@ library
 executable launch
   main-is:              Main.hs
   build-depends:        base >= 4.8 && < 5
+                      , conduit
                       , compiler
                       , either
                       , lens
+                      , mtl
                       , text
                       , universum
 

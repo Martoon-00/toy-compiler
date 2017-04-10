@@ -4,10 +4,8 @@
 
 module Toy.Exp.Data where
 
-import           Control.Monad.State        (StateT)
 import           Control.Monad.Trans.Either (EitherT)
 import           Data.Conduit               (ConduitM)
-import           Data.Functor.Identity      (Identity)
 import           Data.Int                   (Int32)
 import qualified Data.Map                   as M
 import           Data.String                (IsString (..))
@@ -30,7 +28,11 @@ type UnaryOp = Text
 -- | Binary operation
 type BinOp = Text
 
-type Exec = ConduitM Value Value $ StateT LocalVars $ EitherT String Identity
+-- | Monad with input/output capabilities
+type ExecInOut = ConduitM Value Value
+
+-- | Monad in which execution happends
+type Exec m = ExecInOut $ EitherT String m
 
 -- | Expression
 data Exp

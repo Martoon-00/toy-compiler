@@ -17,16 +17,15 @@ module Toy.Execution.Exec
 
 import           Control.Lens               ((%~), _Left)
 import           Control.Monad.Catch        (SomeException, try)
-import           Control.Monad.Morph        (generalize, hoist)
-import           Control.Monad.State        (evalStateT)
 import           Control.Monad.Trans.Either (EitherT (..))
-import           Data.Conduit               (($$), ($=))
+import           Data.Conduit               (ConduitM, ($$), ($=))
 import qualified Data.Conduit.List          as C
 import qualified Data.Text                  as T
 import           GHC.Exts                   (IsString (..))
 import           System.Process             (readProcess)
 
 import           Toy.Execution.Data         (In, InOut, withEmptyInput)
+import           Toy.Exp                    (Value)
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
 import           Toy.Util                   (getOutputValues, parseDataOrFail)
@@ -35,17 +34,18 @@ import           Toy.Util                   (getOutputValues, parseDataOrFail)
 class Executable e where
     exec :: e -> In -> EitherT String IO InOut
 
+condExec :: Monad m => ConduitM Value Value m () -> In -> m InOut
+condExec ex input =
+    C.sourceList input $$ do
+        out   <- ex $= C.consume
+        remIn <- C.consume
+        return (remIn, out)
+
 instance Executable L.Stmt where
-    exec stmt is = hoist generalize . flip evalStateT mempty $
-        C.sourceList is $$ do
-            out   <- L.execute stmt $= C.consume
-            remIn <- C.consume
-            return (remIn, out)
+    exec stmt input = condExec (L.execute stmt) input
 
 instance Executable SM.Insts where
-    exec insts is =
-        let outcome = SM.execute insts $ SM.anExecState is
-        in  EitherT . return $ SM.getIO <$> outcome
+    exec insts input = condExec (SM.execute insts) input
 
 newtype BinaryFile = BinaryFile FilePath
     deriving (Show, Eq, IsString)
