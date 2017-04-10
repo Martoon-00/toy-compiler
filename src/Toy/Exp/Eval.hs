@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 module Toy.Exp.Eval
     ( eval
     ) where

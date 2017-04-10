@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 module Toy.Exp.Util
     ( arithspoon
     , bool

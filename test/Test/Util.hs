@@ -1,10 +1,14 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Test.Util
-    ( instsSM
+    ( Extract (..)
+    , instsSM
     ) where
 
 import           Control.Monad.Trans  (MonadIO (..))
 import           Test.Hspec.Core.Spec (SpecM (..))
-import           Test.QuickCheck      (Property, conjoin, property, (.&&.))
+import           Test.QuickCheck      (Large (..), NonNegative (..), Property, Small (..),
+                                       conjoin, property, (.&&.))
 
 import qualified Toy.SM               as SM
 
@@ -18,3 +22,19 @@ instance Monoid Property where
 
 instance MonadIO (SpecM a) where
     liftIO = SpecM . liftIO
+
+
+class Extract a p where
+    extract :: p -> a
+
+instance Extract a a where
+    extract = id
+
+instance Extract a (NonNegative a) where
+    extract = getNonNegative
+
+instance Extract a (Large a) where
+    extract = getLarge
+
+instance Extract a (NonNegative (Small a)) where
+    extract = getSmall . getNonNegative

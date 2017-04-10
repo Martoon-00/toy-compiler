@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-
 module Toy.Util.Parsable
     ( Parsable (..)
     , OutputValues (..)

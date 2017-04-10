@@ -1,14 +1,5 @@
-{-# LANGUAGE DefaultSignatures          #-}
-{-# LANGUAGE ExistentialQuantification  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE Rank2Types                 #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE TupleSections              #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeSynonymInstances       #-}
 
 module Toy.Execution.Exec
     ( Executable (..)
@@ -42,10 +33,10 @@ condExec ex input =
         return (remIn, out)
 
 instance Executable L.Stmt where
-    exec stmt input = condExec (L.execute stmt) input
+    exec = condExec . L.execute
 
 instance Executable SM.Insts where
-    exec insts input = condExec (SM.execute insts) input
+    exec = condExec . SM.execute
 
 newtype BinaryFile = BinaryFile FilePath
     deriving (Show, Eq, IsString)

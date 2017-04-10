@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}

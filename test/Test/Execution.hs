@@ -1,14 +1,6 @@
-{-# LANGUAGE DefaultSignatures          #-}
-{-# LANGUAGE ExistentialQuantification  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE Rank2Types                 #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE TupleSections              #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Test.Execution
     ( TestRes (..)
@@ -28,11 +20,11 @@ import           Control.Spoon              (teaspoon)
 import qualified Formatting                 as F
 import           GHC.Exts                   (IsList (..))
 import           Test.Hspec.Core.Spec       (SpecWith, describe)
-import           Test.QuickCheck            (Arbitrary, Large (..), NonNegative (..),
-                                             Property, Small (..), counterexample,
+import           Test.QuickCheck            (Arbitrary, Property, counterexample,
                                              ioProperty, once, property, within, (===))
 import           Test.QuickCheck.Property   (failed, reason)
 
+import           Test.Util                  (Extract (..))
 import           Toy.Execution              (ExecWay (..), Executable (..), In, InOut,
                                              Meta, Out, translatingIn, withEmptyInput)
 import           Toy.Exp                    (Value)
@@ -76,21 +68,6 @@ infix 5 >-*->
   where
     expected (TestRes out) = Just out
     expected X             = Nothing
-
-class Extract a p where
-    extract :: p -> a
-
-instance Extract a a where
-    extract = id
-
-instance Extract a (NonNegative a) where
-    extract = getNonNegative
-
-instance Extract a (Large a) where
-    extract = getLarge
-
-instance Extract a (NonNegative (Small a)) where
-    extract = getSmall . getNonNegative
 
 class Equivalence f where
     equivalent :: f -> ([Value] -> EitherT String IO Value) -> [Value] -> Property

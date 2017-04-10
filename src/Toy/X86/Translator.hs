@@ -1,7 +1,6 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE OverloadedLists  #-}
-{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Toy.X86.Translator
     ( compile

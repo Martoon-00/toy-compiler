@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Toy.Exp.Operations where
