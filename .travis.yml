@@ -18,4 +18,6 @@ install:
 - stack --no-terminal --install-ghc build --only-dependencies --jobs=4
 - cd runtime && make && cd ..
 script:
-- stack --no-terminal build --test --jobs=4 --test-arguments --qc-max-success=10000
+- stack --no-terminal build --test --jobs=4 --test-arguments --qc-max-success=1000
+- make -C compiler-tests/expressions -j 4
+- make -C compiler-tests/deep-expressions -j 4

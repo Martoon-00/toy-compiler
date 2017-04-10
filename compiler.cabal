@@ -91,6 +91,7 @@ test-suite tests
   other-modules:       Spec
                        Test.Arbitrary
                        Test.Execution
+                       Test.Examples.ControlSpec
                        Test.Examples.ExpSpec
                        Test.Examples.LangSpec
                        Test.Examples.ParserSpec

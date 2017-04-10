@@ -51,6 +51,7 @@ instance Cat.Category TranslateWay where
 translateLang :: TranslateWay L.Stmt SM.Insts
 translateLang = TranslateWay "Lang to SM" $ \orig -> do
     let prog = L.toIntermediate orig
+    tell [Meta "Lang" $ F.sformat F.shown orig]
     tell [Meta "SM" $ T.unlines $ T.pack . show <$> toList prog]
     return prog
 
