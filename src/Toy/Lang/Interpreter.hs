@@ -3,8 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Toy.Lang.Interpreter
-    ( eval
-    , execute
+    ( execute
     ) where
 
 import           Control.Lens               (at, (?=))

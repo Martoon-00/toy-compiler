@@ -19,5 +19,5 @@ install:
 - cd runtime && make && cd ..
 script:
 - stack --no-terminal build --test --jobs=4 --test-arguments --qc-max-success=1000
-- travis_wait 60 ./check.sh expressions
-- ./check.sh deep-expressions
+- travis_wait 120 ./check.sh expressions
+- travis_wait ./check.sh deep-expressions

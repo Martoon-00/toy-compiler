@@ -128,5 +128,4 @@ test-suite tests
   ghc-options:         -threaded -Wall -fno-warn-orphans
   default-extensions:  FlexibleContexts
                        FlexibleInstances
-                       OverloadedLists
                        OverloadedStrings
