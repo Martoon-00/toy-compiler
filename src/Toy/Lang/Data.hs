@@ -14,6 +14,8 @@ data Stmt
     | If Exp Stmt Stmt
     | DoWhile Stmt Exp  -- ^ @do .. while@ is the most optimal / easy loop from
                         -- asm point of view
+    | FunDecl Var [Var] Stmt
+    | FunCall Var [Exp]
     | Seq Stmt Stmt
     | Skip
     deriving (Eq, Show)

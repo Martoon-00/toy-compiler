@@ -9,11 +9,11 @@ import           Data.Int                   (Int32)
 import qualified Data.Map                   as M
 import           Data.String                (IsString (..))
 import           Data.Text                  (Text)
-import           Universum                  (type ($))
+import           Universum                  (type ($), Buildable)
 
 -- | Variable name
 newtype Var = Var String
-    deriving (Eq, Ord, Show, IsString)
+    deriving (Eq, Ord, Show, IsString, Buildable)
 
 -- | Expression type
 type Value = Int32
@@ -40,6 +40,7 @@ data Exp
     | ReadE
     | UnaryE UnaryOp Exp
     | BinE BinOp Exp Exp
+    | Fun Var [Exp]
     deriving (Eq, Show)
 
 instance IsString Exp where

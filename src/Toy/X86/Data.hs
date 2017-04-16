@@ -27,7 +27,7 @@ import           GHC.Exts               (toList)
 import           Prelude                hiding (unlines)
 import qualified Text.RawString.QQ      as QQ
 
-import           Toy.Exp                (Value)
+import           Toy.Exp                (Value, Var)
 import           Toy.SM                 (LabelId)
 
 data Operand
@@ -56,7 +56,6 @@ data Inst
     = Mov Operand Operand
     | Push Operand
     | Pop Operand
-    | Call Text
     | BinOp Text Operand Operand
     | UnaryOp Text Operand
     | NoopOperator Text
@@ -64,6 +63,8 @@ data Inst
     | Comment Text Inst
     | Label LabelId
     | Jmp Text LabelId
+    | Call Var
+    | Ret
     deriving (Show, Eq)
 
 (//) :: Inst -> Text -> Inst

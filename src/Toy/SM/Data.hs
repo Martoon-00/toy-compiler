@@ -2,20 +2,31 @@
 
 module Toy.SM.Data where
 
-import           Control.Lens (makeLenses)
-import           Data.Default (Default (..))
-import qualified Data.Map     as M
-import qualified Data.Vector  as V
+import           Control.Lens        (makeLenses)
+import           Data.Default        (Default (..))
+import qualified Data.Map            as M
+import           Data.Text.Buildable (Buildable (..))
+import qualified Data.Vector         as V
+import           Formatting          (bprint, (%))
+import qualified Formatting          as F
 
-import           Toy.Exp      (BinOp, LocalVars, Value, Var)
+import           Toy.Exp             (BinOp, LocalVars, Value, Var)
 
 type IP = Int
 
-type LabelId = Int
+data LabelId
+    = CLabel Int  -- control
+    | FLabel Var  -- function
+    deriving (Eq, Ord, Show)
+
+instance Buildable LabelId where
+    build (CLabel l) = bprint ("L"%F.build) l
+    build (FLabel n) = bprint ("F"%F.build) n
 
 -- | Statement of a program.
 data Inst
     = Push Value
+    | Pop
     | Bin BinOp
     | Load Var
     | Store Var
@@ -24,6 +35,7 @@ data Inst
     | Label LabelId
     | Jmp LabelId
     | JmpIf LabelId
+    | Call LabelId
     | Nop
     deriving (Eq, Show)
 
