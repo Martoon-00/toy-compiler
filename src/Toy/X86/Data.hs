@@ -6,7 +6,7 @@ module Toy.X86.Data
     , Inst (..)
     , Insts
     , Program (..)
-    , (//)
+    , (?)
     , jmp
     , eax
     , edx
@@ -15,6 +15,7 @@ module Toy.X86.Data
     , esp
     ) where
 
+import           Control.Lens           (Cons, cons)
 import           Data.List              (intersperse)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
@@ -61,16 +62,16 @@ data Inst
     | UnaryOp Text Operand
     | NoopOperator Text
     | Set Text Operand
-    | Comment Text Inst
+    | Comment Text
     | Label LabelId
     | Jmp Text LabelId
     deriving (Show, Eq)
 
-(//) :: Inst -> Text -> Inst
-(//) = flip Comment
-
 jmp :: LabelId -> Inst
 jmp = Jmp "mp"
+
+(?) :: Cons s s Inst Inst => Text -> s -> s
+(?) comment = cons $ Comment comment
 
 buildInst :: Buildable b => Text -> [b] -> Builder
 buildInst name ops =
@@ -87,7 +88,7 @@ instance Buildable Inst where
         UnaryOp o op    -> buildInst o [op]
         NoopOperator o  -> build o
         Set kind op     -> bprint ("set"%pad%" "%pad) kind op
-        Comment d inst  -> bprint (pad%"\t# "%pad) inst d
+        Comment d       -> bprint ("\t# "%pad) d
         Label lid       -> bprint ("L"%F.build%":") lid
         Jmp kind lid    -> bprint ("j"%pad%" L"%pad) kind lid
       where

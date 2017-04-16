@@ -24,7 +24,7 @@ import           System.Process        (proc)
 import           Toy.Exp               (Var)
 import qualified Toy.SM                as SM
 import           Toy.X86.Data          (Inst (..), Insts, Operand (..), Program (..), eax,
-                                        edi, edx, esi, esp, jmp, (//))
+                                        edi, edx, esi, esp, jmp, (?))
 import           Toy.X86.Optimize      (optimize)
 import           Toy.X86.Util          (readCreateProcess)
 
@@ -119,8 +119,8 @@ binop = \case
     "^" -> [BinOp "xorl" op1 op2]
     "&" -> [BinOp "andl" op1 op2]
     "|" -> [BinOp "orl" op1 op2]
-    "&&" ->
-        [ BinOp "xor" eax eax  // "&&"
+    "&&" -> "&&" ?
+        [ BinOp "xor" eax eax
         , BinOp "andl" op1 op1
         , UnaryOp "setne" (Reg "ah")
         , BinOp "andl" op2 op2
@@ -129,8 +129,8 @@ binop = \case
         , BinOp "xor" (Reg "ah") (Reg "ah")
         , Mov eax op2
         ]
-    "||" ->
-        [ BinOp "xor" eax eax  // "||"
+    "||" -> "||" ?
+        [ BinOp "xor" eax eax
         , BinOp "orl" op1 op2
         , UnaryOp "setne" (Reg "al")
         , Mov eax op2
@@ -138,14 +138,14 @@ binop = \case
 
     unknown -> error $ "Unsupported operation: " ++ show unknown
   where
-    idiv res =
-        [ Mov op1 eax  // "/"
+    idiv res = "/" ?
+        [ Mov op1 eax
         , NoopOperator "cdq"
         , UnaryOp "idiv" op2
         , Mov res op2
         ]
-    cmp kind =
-        [ BinOp "xor" eax eax  // "cmp"
+    cmp kind = "cmp" ?
+        [ BinOp "xor" eax eax
         , BinOp "cmp" op1 op2
         , Set kind (Reg "al")
         , Mov eax op2
@@ -154,7 +154,7 @@ binop = \case
 -- Executes gcc with flags:
 -- * -m32        - for x32 machine
 -- * -xassembler - specifies language (required for next option)
--- *             - take source from /stdin/
+-- * -           - take source from /stdin/
 produceBinary
     :: MonadIO m
     => FilePath

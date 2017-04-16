@@ -8,7 +8,7 @@ module Toy.SM.Interpreter
     ) where
 
 import           Control.Lens               (at, use, (%=), (+=), (.=), (?=), (^.))
-import           Control.Monad              (replicateM, when)
+import           Control.Monad              (replicateM, unless, when)
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.State.Strict (StateT)
 import           Control.Monad.Trans.Either (EitherT)
@@ -64,7 +64,7 @@ executeDo insts = exec
         s:ss -> (esStack .= ss) $> s
     ensureEmptyStack = do
         st <- use esStack
-        when (not $ null st) $ throwError "Stack expected to be empty"
+        unless (null st) $ throwError "Stack expected to be empty"
     getLabel = buildLabelsMap insts
 
 buildLabelsMap :: Insts -> LabelId -> Int
