@@ -3,7 +3,7 @@
 
 module Toy.Exp.Data where
 
-import           Control.Monad.Trans.Either (EitherT)
+import           Control.Monad.Trans.Either (EitherT (..))
 import           Data.Conduit               (ConduitM)
 import           Data.Int                   (Int32)
 import qualified Data.Map                   as M
@@ -18,19 +18,19 @@ newtype Var = Var String
 -- | Expression type
 type Value = Int32
 
--- | Current state of local variables
 type LocalVars = M.Map Var Value
 
--- | Unary operation
+data FunSign = FunSign Var [Var]
+    deriving (Show, Eq)
+
 type UnaryOp = Text
 
--- | Binary operation
 type BinOp = Text
 
 -- | Monad with input/output capabilities
 type ExecInOut = ConduitM Value Value
 
--- | Monad in which execution happends
+-- | Monad where execution happens
 type Exec m = ExecInOut $ EitherT String m
 
 -- | Expression
@@ -40,7 +40,7 @@ data Exp
     | ReadE
     | UnaryE UnaryOp Exp
     | BinE BinOp Exp Exp
-    | Fun Var [Exp]
+    | FunE Var [Exp]
     deriving (Eq, Show)
 
 instance IsString Exp where

@@ -48,7 +48,7 @@ instance Cat.Category TranslateWay where
     id = asIs
     (.) = flip (<~~>)
 
-translateLang :: TranslateWay L.Stmt SM.Insts
+translateLang :: TranslateWay L.Program SM.Insts
 translateLang = TranslateWay "Lang to SM" $ \orig -> do
     let prog = L.toIntermediate orig
     tell [Meta "Lang" $ F.sformat F.shown orig]

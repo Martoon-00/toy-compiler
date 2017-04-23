@@ -64,7 +64,6 @@ data Inst
     | Label LabelId
     | Jmp Text LabelId
     | Call Var
-    | Ret
     deriving (Show, Eq)
 
 (//) :: Inst -> Text -> Inst

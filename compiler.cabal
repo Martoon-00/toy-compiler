@@ -22,11 +22,11 @@ library
                        Toy.Execution.Trans
 
                        Toy.Exp.Data
-                       Toy.Exp.Eval
                        Toy.Exp.Operations
                        Toy.Exp.Util
 
                        Toy.Lang.Data
+                       Toy.Lang.Eval
                        Toy.Lang.Interpreter
                        Toy.Lang.Parser
                        Toy.Lang.Translator

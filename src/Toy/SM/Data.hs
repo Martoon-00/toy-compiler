@@ -10,7 +10,7 @@ import qualified Data.Vector         as V
 import           Formatting          (bprint, (%))
 import qualified Formatting          as F
 
-import           Toy.Exp             (BinOp, LocalVars, Value, Var)
+import           Toy.Exp             (BinOp, FunSign, LocalVars, Value, Var)
 
 type IP = Int
 
@@ -33,13 +33,23 @@ data Inst
     | Read
     | Write
     | Label LabelId
-    | Jmp LabelId
-    | JmpIf LabelId
-    | Call LabelId
+    | Jmp Int
+    | JmpIf Int
+    | Call FunSign
+    | Ret
     | Nop
+    | Enter [Var]  -- separates functions
     deriving (Eq, Show)
 
 type Insts = V.Vector Inst
+
+{-
+controlLabelId :: Prism' Text LabelId
+controlLabelId = prism' (sformat ("L"%F.build)) (getLabelId . unpack)
+  where
+    getLabelId ('L':labelId) = readMaybe labelId
+    getLabelId _             = Nothing
+-}
 
 -- | State of execution
 data ExecState = ExecState

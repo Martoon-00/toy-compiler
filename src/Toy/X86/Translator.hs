@@ -7,7 +7,7 @@ module Toy.X86.Translator
     , produceBinary
     ) where
 
-import           Control.Lens          (at, (&), (+=), (-=), (^.))
+import           Control.Lens          (at, ix, (&), (+=), (-=), (^.), (^?))
 import           Control.Monad         (forM)
 import           Control.Monad.State   (get, runState)
 import           Control.Monad.Trans   (MonadIO (..))
@@ -16,12 +16,13 @@ import qualified Data.Map              as M
 import           Data.Monoid           ((<>))
 import qualified Data.Set              as S
 import           Data.Text             (Text)
+import qualified Data.Vector           as V
 import qualified Formatting            as F
 import           GHC.Exts              (fromList)
 import           System.FilePath.Posix ((</>))
 import           System.Process        (proc)
 
-import           Toy.Exp               (Var)
+import           Toy.Exp               (FunSign (..), Var)
 import qualified Toy.SM                as SM
 import           Toy.X86.Data          (Inst (..), Insts, Operand (..), Program (..), eax,
                                         edi, edx, esi, esp, jmp, (//))
@@ -29,13 +30,20 @@ import           Toy.X86.Optimize      (optimize)
 import           Toy.X86.Util          (readCreateProcess)
 
 compile :: SM.Insts -> Insts
-compile insts =
-    let locals  = foldMap gatherLocals insts
-        ilocals = M.fromList $ flip zip [0..] $ S.toList locals
+compile = mconcat . map compileFun . separateFuns
+
+compileFun :: SM.Insts -> Insts
+compileFun insts =
+    let args = case insts ^? ix 0 of
+            Just (SM.Enter argsInfo) -> argsInfo
+            _                        -> error "Where is my Enter?!"
+        vars    = foldr S.delete (foldMap gatherLocals insts) args
+        iargs   = zip args [length vars + 1 ..]
+        ivars   = zip (S.toList vars) [0..]
+        ilocals = M.fromList $ iargs ++ ivars
         body    = fromList . step ilocals =<< insts
         post    = [ fixMemRefs
-                  , mkStackShift $ length locals
-                  , correctExit
+                  , mkStackShift $ length vars
                   , optimize
                   ] :: [Insts -> Insts]
     in  foldl (&) body post
@@ -46,6 +54,7 @@ step :: M.Map Var Int -> SM.Inst -> [Inst]
 step locals = \case
     SM.Nop        -> []
     SM.Push v     -> [Mov (Const v) eax, Push eax]
+    SM.Pop        -> [Pop eax]
     SM.Load v     ->
         case locals ^. at v of
             Nothing  -> error "No such variable"
@@ -58,8 +67,17 @@ step locals = \case
     SM.Write     -> [Call "write", Pop eax]
     SM.Bin op    -> [Pop op2, Pop op1] <> binop op <> [Push op2]
     SM.Label lid -> [Label lid]
-    SM.Jmp   lid -> [jmp lid]
-    SM.JmpIf lid -> [Pop eax, BinOp "cmp" (Const 0) eax, Jmp "ne" lid]
+    SM.Jmp   lid -> [jmp (SM.CLabel lid)]
+    SM.JmpIf lid ->
+        [ Pop eax
+        , BinOp "cmp" (Const 0) eax
+        , Jmp "ne" (SM.CLabel lid)
+        ]
+    SM.Call (FunSign name _)
+                 -> [Call name]
+    SM.Ret       -> [NoopOperator "ret"]
+    SM.Enter _   -> [NoopOperator "int3"]
+
 
 -- | Function 'step', when sets `Mem` indices, doesn't take into account
 -- possible @Push@es and @Pop@s to stack. This functions fixes it.
@@ -82,6 +100,16 @@ fixMemRefs insts =
     fixMemRef (Mem i) = Mem . (i +) <$> get
     fixMemRef other   = return other
 
+separateFuns :: SM.Insts -> [SM.Insts]
+separateFuns insts =
+    case V.findIndex (\(i, v) -> isEnter v && i > 0) $ V.indexed insts of
+        Nothing -> [insts]
+        Just k  -> let (funInsts, remaining) = V.splitAt k insts
+                   in  funInsts : separateFuns remaining
+  where
+    isEnter SM.Enter{} = True
+    isEnter _          = False
+
 gatherLocals :: SM.Inst -> S.Set Var
 gatherLocals (SM.Store v) = [v]
 gatherLocals _            = []
@@ -92,9 +120,6 @@ mkStackShift shift insts =
         prefix = BinOp "subl" stackSh esp
         suffix = BinOp "addl" stackSh esp
     in  [prefix] <> insts <> [suffix]
-
-correctExit :: Insts -> Insts
-correctExit = (<> [BinOp "xorl" eax eax, NoopOperator "ret"])
 
 -- | Register which is used as operand for binary operations.
 op1, op2 :: Operand

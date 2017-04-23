@@ -1,5 +1,7 @@
+{-# LANGUAGE ExplicitNamespaces    #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedLists       #-}
+{-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 
@@ -7,61 +9,97 @@ module Toy.Lang.Translator
     ( toIntermediate
     ) where
 
-import           Control.Lens        (Snoc (..), prism, (<<+=), (|>))
-import           Control.Monad       (join, replicateM)
-import           Control.Monad.State (State, evalState)
-import qualified Data.DList          as D
-import           Data.Monoid         ((<>))
-import qualified Data.Vector         as V
+import           Control.Lens         (Snoc (..), ix, preview, prism, (<<+=), _1)
+import           Control.Monad        (join, replicateM)
+import           Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
+import           Control.Monad.State  (MonadState, State, evalState)
+import qualified Data.DList           as D
+import qualified Data.Map             as M
+import           Data.Monoid          ((<>))
+import qualified Data.Vector          as V
+import           Universum            (type ($), whenNothingM)
 
-import           Toy.Exp.Data        (Exp (..), Var)
-import qualified Toy.Lang.Data       as L
-import qualified Toy.SM.Data         as SM
+import           Toy.Exp.Data         (Exp (..), FunSign (..), Var)
+import qualified Toy.Lang.Data        as L
+import qualified Toy.SM.Data          as SM
 
 instance Snoc (D.DList a) (D.DList a) a a where
     _Snoc = prism (uncurry D.snoc) undefined
 
-toIntermediate :: L.Stmt -> SM.Insts
-toIntermediate = V.fromList . D.toList . flip evalState 0 . convert
+instance Traversable D.DList where
+    traverse f l = fmap D.fromList $ traverse f (D.toList l)
 
-convert :: L.Stmt -> State Int (D.DList SM.Inst)
+toIntermediate :: L.Program -> SM.Insts
+toIntermediate (L.ProgramG funcs main) =
+    V.fromList . D.toList . flip evalState 0 . flip runReaderT funcs $ do
+        funcsC <- mapM convertFun $ snd <$> M.toList funcs
+        mainC  <- convertFun (FunSign "main" [], main)
+        return $ mconcat funcsC <> mainC
+  where
+    convertFun (FunSign name args, stmt) = fmap mconcat $ sequence
+        [ pure [ SM.Enter args, SM.Label $ SM.FLabel name ]
+        , convert stmt
+        , pure [ SM.Push 0, SM.Ret ]
+        ]
+
+convert :: L.Stmt -> ReaderT L.FunDecls (State Int) $ D.DList SM.Inst
 convert L.Skip         = return [SM.Nop]
-convert (n L.:= e)     = return $ pushExp e |> SM.Store n
-convert (L.Write e)    = return $ pushExp e |> SM.Write
+convert (n L.:= e)     = fmap mconcat $ sequence
+    [ pushExp e
+    , pure [SM.Store n]
+    ]
+convert (L.Write e)    = fmap mconcat $ sequence
+    [ pushExp e
+    , pure [SM.Write]
+    ]
 convert (L.Seq s1 s2)  = (<>) <$> convert s1 <*> convert s2
 convert (L.If c s1 s2) =
     replicateM 2 genLabel >>= \[midL, endL] -> fmap mconcat $ sequence
-        [ pure $ pushExp c
+        [ pushExp c
         , pure [SM.JmpIf midL]
         , convert s2
-        , pure [SM.Jmp endL, SM.Label midL]
+        , pure [SM.Jmp endL, SM.Label $ SM.CLabel midL]
         , convert s1
-        , pure [SM.Label endL]
+        , pure [SM.Label $ SM.CLabel endL]
         ]
 convert (L.DoWhile s c)  =
     genLabel >>= \label -> fmap mconcat $ sequence
-        [ pure [SM.Label label]
+        [ pure [SM.Label $ SM.CLabel label]
         , convert s
-        , pure $ pushExp c
+        , pushExp c
         , pure [SM.JmpIf label]
         ]
-convert (L.FunCall name args) = return $ callFun name args <> [SM.Pop]
+convert (L.FunCall name args) = fmap mconcat $ sequence
+    [ callFun name args
+    , pure [SM.Pop]
+    ]
+convert (L.Return e) = fmap mconcat $ sequence
+    [ pushExp e
+    , pure [SM.Ret]
+    ]
 
-genLabel :: State Int SM.LabelId
-genLabel = SM.CLabel <$> (id <<+= 1)
+genLabel :: MonadState Int m => m Int
+genLabel = id <<+= 1
 
 -- | Gives instructions which effectively push value equals to given
 -- expression on stack.
-pushExp :: Exp -> D.DList SM.Inst
-pushExp (ValueE k)    = [SM.Push k]
-pushExp (VarE n)      = [SM.Load n]
-pushExp ReadE         = [SM.Read]
+pushExp :: MonadReader L.FunDecls m => Exp -> m (D.DList SM.Inst)
+pushExp (ValueE k)    = return [SM.Push k]
+pushExp (VarE n)      = return [SM.Load n]
+pushExp ReadE         = return [SM.Read]
 pushExp (UnaryE _ _)  = error "SM doesn't support unary operations for now"
-pushExp (BinE op a b) = pushExp a <> pushExp b |> SM.Bin op
-pushExp (Fun n args)  = callFun n args
+pushExp (BinE op a b) = fmap mconcat $ sequence
+    [ pushExp a
+    , pushExp b
+    , pure [SM.Bin op]
+    ]
+pushExp (FunE n args) = callFun n args
 
-callFun :: Var -> [Exp] -> D.DList SM.Inst
-callFun name (D.fromList . reverse -> args) =
-    join (pushExp <$> args)
-    <> [SM.Call (SM.FLabel name)]
-    <> (SM.Pop <$ args)
+-- TODO: nice error processing
+callFun :: MonadReader L.FunDecls m => Var -> [Exp] -> m (D.DList SM.Inst)
+callFun name (D.fromList . reverse -> args) = do
+    sign <- preview (ix name . _1) `whenNothingM` error "No such function"
+    exps <- join <$> mapM pushExp args
+    return $ exps
+          <> [SM.Call sign]
+          <> (SM.Pop <$ args)  -- TODO: optimize
