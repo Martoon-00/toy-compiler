@@ -7,7 +7,9 @@ module Toy.X86.Data
     , Insts
     , Program (..)
     , (?)
+    , traverseOperands
     , jmp
+
     , eax
     , edx
     , esi
@@ -38,6 +40,8 @@ data Operand
     -- ^ Constant
     | Mem Int
     -- ^ Memory reference. This keeps amount of /qword/s to look back on stack
+    | Stack Int
+    -- ^ Stack reference. Temporally used in conversion from symbolic stack
     deriving (Show, Eq)
 
 eax, edx, esi, edi, esp :: Operand
@@ -51,6 +55,7 @@ instance Buildable Operand where
     build (Reg   r) = "%" <> build r
     build (Const v) = "$" <> build v
     build (Mem   i) = bprint (int%"("%F.build%")") (4 * i) esp
+    build (Stack _) = error "Stack reference remains upon compilation"
 
 -- not very beautiful :(
 data Inst
@@ -110,3 +115,16 @@ instance Buildable Program where
 
 main:
 |]
+
+traverseOperands :: Applicative f => (Operand -> f Operand) -> Inst -> f Inst
+traverseOperands f (Mov a b)         = Mov <$> f a <*> f b
+traverseOperands f (Push k )         = Push <$> f k
+traverseOperands f (Pop k  )         = Pop <$> f k
+traverseOperands _ o@Call{}          = pure o
+traverseOperands f (BinOp o op1 op2) = BinOp o <$> f op1 <*> f op2
+traverseOperands f (UnaryOp o op)    = UnaryOp o <$> f op
+traverseOperands _ o@NoopOperator{}  = pure o
+traverseOperands f (Set k op)        = Set k <$> f op
+traverseOperands _ o@Comment{}       = pure o
+traverseOperands _ o@Label{}         = pure o
+traverseOperands _ o@Jmp{}           = pure o
