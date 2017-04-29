@@ -1,3 +1,5 @@
+-- | Keeps our main Language -related logic
+
 module Toy.Lang
        ( module M
        ) where

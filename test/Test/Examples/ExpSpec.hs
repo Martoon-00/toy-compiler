@@ -14,7 +14,7 @@ import           Test.Hspec       (Spec, describe, it)
 import           Test.QuickCheck  (Large (..), Property, counterexample)
 
 import           Test.Arbitrary   ()
-import           Test.Execution   (describeExecWays, (~*~))
+import           Test.Execution   (describeExecWays, (>-*->), (~*~))
 import           Toy.Execution    (ExecWay (..), defCompileX86, translateLang)
 import           Toy.Exp
 import           Toy.Lang         (Stmt (..), readS)
@@ -60,6 +60,9 @@ spec = do
                     binopTest way (binResToBool (==)) (==:)
                 it "complex" $
                     boolTest way
+            describe "misc" $ do
+                it "large" $
+                    largeTest way
 
 
 uniopTest
@@ -110,3 +113,8 @@ boolTest = sample ~*~ fun
         ]
     fun :: Value -> Value -> Value -> Value -> Value -> Value
     fun a b c d e = if (a == b) && (c <= xor d e) then 1 else 0
+
+largeTest :: ExecWay Stmt -> Property
+largeTest = sample & [] >-*-> [55]
+  where
+    sample = Write $ foldr (+) 0 (ValueE <$> [1..10] :: [Exp])

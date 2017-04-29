@@ -6,8 +6,10 @@ module Toy.X86.Data
     , Inst (..)
     , Insts
     , Program (..)
-    , (//)
+    , (?)
+    , traverseOperands
     , jmp
+
     , eax
     , edx
     , esi
@@ -15,6 +17,7 @@ module Toy.X86.Data
     , esp
     ) where
 
+import           Control.Lens           (Cons, cons)
 import           Data.List              (intersperse)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
@@ -37,6 +40,8 @@ data Operand
     -- ^ Constant
     | Mem Int
     -- ^ Memory reference. This keeps amount of /qword/s to look back on stack
+    | Stack Int
+    -- ^ Stack reference. Temporally used in conversion from symbolic stack
     deriving (Show, Eq)
 
 eax, edx, esi, edi, esp :: Operand
@@ -50,6 +55,7 @@ instance Buildable Operand where
     build (Reg   r) = "%" <> build r
     build (Const v) = "$" <> build v
     build (Mem   i) = bprint (int%"("%F.build%")") (4 * i) esp
+    build (Stack _) = error "Stack reference remains upon compilation"
 
 -- not very beautiful :(
 data Inst
@@ -60,17 +66,17 @@ data Inst
     | UnaryOp Text Operand
     | NoopOperator Text
     | Set Text Operand
-    | Comment Text Inst
+    | Comment Text
     | Label LabelId
     | Jmp Text LabelId
     | Call Var
     deriving (Show, Eq)
 
-(//) :: Inst -> Text -> Inst
-(//) = flip Comment
-
 jmp :: LabelId -> Inst
 jmp = Jmp "mp"
+
+(?) :: Cons s s Inst Inst => Text -> s -> s
+(?) comment = cons $ Comment comment
 
 buildInst :: Buildable b => Text -> [b] -> Builder
 buildInst name ops =
@@ -87,7 +93,7 @@ instance Buildable Inst where
         UnaryOp o op    -> buildInst o [op]
         NoopOperator o  -> build o
         Set kind op     -> bprint ("set"%pad%" "%pad) kind op
-        Comment d inst  -> bprint (pad%"\t# "%pad) inst d
+        Comment d       -> bprint ("\t# "%pad) d
         Label lid       -> bprint ("L"%F.build%":") lid
         Jmp kind lid    -> bprint ("j"%pad%" L"%pad) kind lid
       where
@@ -109,3 +115,16 @@ instance Buildable Program where
 
 main:
 |]
+
+traverseOperands :: Applicative f => (Operand -> f Operand) -> Inst -> f Inst
+traverseOperands f (Mov a b)         = Mov <$> f a <*> f b
+traverseOperands f (Push k )         = Push <$> f k
+traverseOperands f (Pop k  )         = Pop <$> f k
+traverseOperands _ o@Call{}          = pure o
+traverseOperands f (BinOp o op1 op2) = BinOp o <$> f op1 <*> f op2
+traverseOperands f (UnaryOp o op)    = UnaryOp o <$> f op
+traverseOperands _ o@NoopOperator{}  = pure o
+traverseOperands f (Set k op)        = Set k <$> f op
+traverseOperands _ o@Comment{}       = pure o
+traverseOperands _ o@Label{}         = pure o
+traverseOperands _ o@Jmp{}           = pure o

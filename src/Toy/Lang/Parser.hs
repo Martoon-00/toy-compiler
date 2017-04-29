@@ -69,11 +69,11 @@ expP = foldr ($) expP $
 -- * Program parser
 
 varP :: Parser Var
-varP =
-    Var <$> ((:) <$> letter <*> many (satisfy isAlphaNum))
+varP = Var <$> ((:) <$> letter <*> many (satisfy isAlphaNum))
 
 keywordP :: Text -> Parser ()
 keywordP t = () <$ asciiCI t <* lookAhead (satisfy $ not . isAlphaNum)
+-- TODO: eof is also ok at the end
 
 stmtP :: Parser Stmt
 stmtP = sp $

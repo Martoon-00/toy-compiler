@@ -1,3 +1,5 @@
+-- | Keeps Stack Machine -related logic
+
 module Toy.SM
        ( module M
        ) where

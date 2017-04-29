@@ -1,3 +1,6 @@
+-- | Gathers all interpreting / translation / compilation logic,
+-- providing common interface for it.
+
 module Toy.Execution
        ( module M
        ) where
