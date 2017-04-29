@@ -1,3 +1,5 @@
+-- | Keeps expressions related datatypes and utils
+
 module Toy.Exp
        ( module M
        ) where

@@ -1,3 +1,5 @@
+-- | Keeps x86 assembler -related logic
+
 module Toy.X86
        ( module M
        ) where
