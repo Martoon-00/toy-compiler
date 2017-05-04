@@ -6,9 +6,12 @@ module Toy.X86.Data
     , Inst (..)
     , Insts
     , Program (..)
+    , StackDirection (..)
+
     , (?)
     , traverseOperands
     , jmp
+    , ret
 
     , eax
     , edx
@@ -57,7 +60,11 @@ instance Buildable Operand where
     build (Mem   i) = bprint (int%"("%F.build%")") (4 * i) esp
     build (Stack _) = error "Stack reference remains upon compilation"
 
--- not very beautiful :(
+data StackDirection
+    = Backward
+    | Forward
+    deriving (Show, Eq)
+
 data Inst
     = Mov Operand Operand
     | Push Operand
@@ -70,10 +77,14 @@ data Inst
     | Label LabelId
     | Jmp Text LabelId
     | Call Var
+    | ResizeStack StackDirection Int
     deriving (Show, Eq)
 
 jmp :: LabelId -> Inst
 jmp = Jmp "mp"
+
+ret :: Inst
+ret = NoopOperator "ret"
 
 (?) :: Cons s s Inst Inst => Text -> s -> s
 (?) comment = cons $ Comment comment
@@ -94,8 +105,12 @@ instance Buildable Inst where
         NoopOperator o  -> build o
         Set kind op     -> bprint ("set"%pad%" "%pad) kind op
         Comment d       -> bprint ("\t# "%pad) d
-        Label lid       -> bprint ("L"%F.build%":") lid
-        Jmp kind lid    -> bprint ("j"%pad%" L"%pad) kind lid
+        Label lid       -> bprint (F.build%":") lid
+        Jmp kind lid    -> bprint ("j"%pad%" "%pad) kind lid
+        ResizeStack d k ->
+            let op    = case d of { Backward -> "addl"; Forward -> "subl" }
+                shift = Const . fromIntegral $ k * 4
+            in build $ BinOp op shift esp
       where
         pad :: F.Buildable a => F.Format r (a -> r)
         pad = F.right 6 ' '
@@ -113,7 +128,6 @@ instance Buildable Program where
 .section     .text
 .global      main
 
-main:
 |]
 
 traverseOperands :: Applicative f => (Operand -> f Operand) -> Inst -> f Inst
@@ -128,3 +142,4 @@ traverseOperands f (Set k op)        = Set k <$> f op
 traverseOperands _ o@Comment{}       = pure o
 traverseOperands _ o@Label{}         = pure o
 traverseOperands _ o@Jmp{}           = pure o
+traverseOperands _ o@ResizeStack{}   = pure o

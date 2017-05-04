@@ -17,16 +17,18 @@ type IP = Int
 data LabelId
     = CLabel Int  -- control
     | FLabel Var  -- function
+    | ELabel Var  -- function exit
     deriving (Eq, Ord, Show)
 
 instance Buildable LabelId where
     build (CLabel l) = bprint ("L"%F.build) l
-    build (FLabel n) = bprint ("F"%F.build) n
+    build (FLabel n) = bprint F.build n
+    build (ELabel n) = bprint (F.build%"_exit") n
 
 -- | Statement of a program.
 data Inst
     = Push Value
-    | Pop
+    | Drop
     | Bin BinOp
     | Load Var
     | Store Var
@@ -38,7 +40,7 @@ data Inst
     | Call FunSign
     | Ret
     | Nop
-    | Enter [Var]  -- separates functions
+    | Enter Var [Var]
     deriving (Eq, Show)
 
 type Insts = V.Vector Inst
@@ -65,3 +67,6 @@ makeLenses ''ExecState
 
 instance Default ExecState where
     def = ExecState M.empty [] 0
+
+initFunName :: Var
+initFunName = "main"

@@ -24,11 +24,22 @@ optimize = fromList . optimizeTillCan . toList
         let matchedRule = foldr (<|>) Nothing $ ($ insts) <$> rules
         in  maybe ((i:) <$> tryOptimize is) (Any True, ) matchedRule
 
+    -- TODO: local rules
     rules =
         [ pushPop
+        , movRevMov
         ]
 
-    pushPop (Push a : Pop b : is)
-        | a == b    = Just is
-        | otherwise = Nothing
-    pushPop _       = Nothing
+    pushPop insts
+        | Push a : Pop b : is <- insts
+        , a == b
+            = Just is
+        | otherwise
+            = Nothing
+
+    movRevMov insts
+        | Mov a b : Mov c d : is <- insts
+        , a == d && b == c
+            = Just $ Mov a b : is
+        | otherwise
+            = Nothing

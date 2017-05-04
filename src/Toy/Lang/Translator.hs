@@ -17,6 +17,7 @@ import qualified Data.DList           as D
 import qualified Data.Map             as M
 import           Data.Monoid          ((<>))
 import qualified Data.Vector          as V
+import           Formatting           (build, formatToString, (%))
 import           Universum            (type ($), whenNothingM)
 
 import           Toy.Exp.Data         (Exp (..), FunSign (..), Var)
@@ -33,13 +34,13 @@ toIntermediate :: L.Program -> SM.Insts
 toIntermediate (L.ProgramG funcs main) =
     V.fromList . D.toList . flip evalState 0 . flip runReaderT funcs $ do
         funcsC <- mapM convertFun $ snd <$> M.toList funcs
-        mainC  <- convertFun (FunSign "main" [], main)
+        mainC  <- convertFun (FunSign SM.initFunName [], main)
         return $ mconcat funcsC <> mainC
   where
     convertFun (FunSign name args, stmt) = fmap mconcat $ sequence
-        [ pure [ SM.Enter args, SM.Label $ SM.FLabel name ]
+        [ pure [ SM.Enter name args, SM.Label $ SM.FLabel name ]
         , convert stmt
-        , pure [ SM.Push 0, SM.Ret ]
+        , pure [ SM.Push 0, SM.Ret, SM.Label (SM.ELabel name) ]
         ]
 
 convert :: L.Stmt -> ReaderT L.FunDecls (State Int) $ D.DList SM.Inst
@@ -50,7 +51,7 @@ convert (n L.:= e)     = fmap mconcat $ sequence
     ]
 convert (L.Write e)    = fmap mconcat $ sequence
     [ pushExp e
-    , pure [SM.Write]
+    , pure [SM.Write, SM.Drop]
     ]
 convert (L.Seq s1 s2)  = (<>) <$> convert s1 <*> convert s2
 convert (L.If c s1 s2) =
@@ -71,7 +72,7 @@ convert (L.DoWhile s c)  =
         ]
 convert (L.FunCall name args) = fmap mconcat $ sequence
     [ callFun name args
-    , pure [SM.Pop]
+    , pure [SM.Drop]
     ]
 convert (L.Return e) = fmap mconcat $ sequence
     [ pushExp e
@@ -98,8 +99,8 @@ pushExp (FunE n args) = callFun n args
 -- TODO: nice error processing
 callFun :: MonadReader L.FunDecls m => Var -> [Exp] -> m (D.DList SM.Inst)
 callFun name (D.fromList . reverse -> args) = do
-    sign <- preview (ix name . _1) `whenNothingM` error "No such function"
+    sign <- preview (ix name . _1) `whenNothingM`
+                error (formatToString ("No such function: "%build) name)
     exps <- join <$> mapM pushExp args
     return $ exps
           <> [SM.Call sign]
-          <> (SM.Pop <$ args)  -- TODO: optimize

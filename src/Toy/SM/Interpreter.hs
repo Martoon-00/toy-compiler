@@ -7,8 +7,8 @@ module Toy.SM.Interpreter
     ( execute
     ) where
 
-import           Control.Lens               (at, use, uses, (%=), (+=), (.=), (<<.=),
-                                             (?=), (^.))
+import           Control.Lens               (at, use, (%=), (+=), (.=), (<<.=), (?=),
+                                             (^.))
 import           Control.Monad              (forever, mzero, replicateM, void, when)
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.Morph        (hoist)
@@ -23,25 +23,30 @@ import qualified Data.Map                   as M
 import           Data.Maybe                 (fromMaybe)
 import qualified Data.Vector                as V
 import           Formatting                 (formatToString, int, string, (%))
-import           Universum                  (type ($))
+import           Universum                  (type ($), whenNothing)
 
 import           Toy.Exp                    (Exec, ExecInOut, FunSign (..), arithspoon,
                                              binOp)
 import           Toy.SM.Data                (ExecState (..), IP, Inst (..), Insts,
-                                             LabelId (..), esIp, esLocals, esStack)
+                                             LabelId (..), esIp, esLocals, esStack,
+                                             initFunName)
 
 type ExecProcess m = ExecInOut $ StateT ExecState $ EitherT String m
 
 execute :: Monad m => Insts -> Exec m ()
-execute = evalStateC def . executeDo
+execute insts = evalStateC def{ _esIp = findEntry insts } $ executeDo insts
 
 executeDo :: Monad m => Insts -> ExecProcess m ()
 executeDo insts = void . runMaybeC . forever $
-    uses esIp (insts V.!) >>= step >> esIp += 1
+    getCurInst >>= step >> esIp += 1
   where
+    getCurInst = do
+        i <- use esIp
+        insts V.!? i `whenNothing` throwError "To the space and further! >>>"
+
     step = \case
         Push v     -> push v
-        Pop        -> void pop
+        Drop       -> void pop
         Bin op     -> do
             [b, a] <- replicateM 2 pop
             push =<< arithspoon (binOp op a b)
@@ -50,7 +55,7 @@ executeDo insts = void . runMaybeC . forever $
             Just var -> push var
         Store n    -> pop >>= (esLocals . at n ?= )
         Read       -> await >>= maybe (throwError "No input") push
-        Write      -> pop >>= yield
+        Write      -> pop >>= yield >> push 0
         Label{}    -> step Nop
         Jmp lid    -> do
             ensureStackSize 0 "jump"
@@ -59,8 +64,8 @@ executeDo insts = void . runMaybeC . forever $
             cond <- pop
             when (cond /= 0) $ step (Jmp lid)
         Call (FunSign name args) -> do
-            stack <- esStack <<.= []
             ensureStackSize (length args) "function call"
+            stack <- esStack <<.= []
             let funExecState = ExecState
                     { _esLocals = M.fromList (zip args stack)
                     , _esStack  = []
@@ -74,7 +79,7 @@ executeDo insts = void . runMaybeC . forever $
             esStack .= _esStack funEndExecState
             ensureStackSize 1 "function end"
         Ret        -> lift mzero
-        Enter _    -> throwError "Got into out of nowhere"
+        Enter{}    -> throwError "Got into out of nowhere"
         Nop        -> return ()
 
     push v = esStack %= (v:)
@@ -96,3 +101,6 @@ buildLabelsMap (V.toList -> insts) =
         labelsMap = foldr addLabel M.empty $ zip [0..] insts
     in  \labelId -> fromMaybe (error $ "No label " ++ show labelId) $
                     labelsMap ^. at labelId
+
+findEntry :: Insts -> IP
+findEntry = (`buildLabelsMap` FLabel initFunName)

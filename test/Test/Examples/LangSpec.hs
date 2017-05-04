@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists  #-}
 {-# LANGUAGE RecordWildCards  #-}
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
@@ -17,7 +18,7 @@ import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Execution   (ExecWay (..), asIs, defCompileX86, translateLang,
                                   (<~~>))
 import           Toy.Exp
-import           Toy.Lang        (Stmt (..), readS)
+import           Toy.Lang        (Stmt (..))
 import qualified Toy.Lang        as L
 
 
@@ -75,7 +76,7 @@ ioTest :: ExecWay Stmt -> Property
 ioTest = sample ~*~ id @Value
   where
     sample = mconcat
-        [ readS "a"
+        [ L.readS "a"
         , Write "a"
         ]
 
@@ -93,7 +94,7 @@ whileTest = sample & [] >-*-> [0 .. 4]
 errorsTest :: Property
 errorsTest = conjoin $
     [ Write (5 /: 0)
-    , readS "x"
+    , L.readS "x"
     , Write "x"
     ] <&> [] >--> X
 
@@ -103,7 +104,7 @@ fibTest = sample ~*~ fib . getNonNegative
     sample = mconcat
         [ "a" := 0
         , "b" := 1
-        , readS "i"
+        , L.readS "i"
         , L.whileS ("i" >: 0) $ mconcat
             [ "c" := "b"
             , "b" := "a" +: "b"
@@ -121,8 +122,8 @@ gcdTest :: ExecWay Stmt -> Property
 gcdTest = sample ~*~ gcd'
   where
     sample = mconcat
-        [ readS "a"
-        , readS "b"
+        [ L.readS "a"
+        , L.readS "b"
         , L.whileS ("b" >: 0) $ mconcat
             [ "r" := "a" %: "b"
             , "a" := "b"
@@ -137,8 +138,8 @@ minTest :: ExecWay Stmt -> Property
 minTest = sample ~*~ min @Value
   where
     sample = mconcat
-        [ readS "a"
-        , readS "b"
+        [ L.readS "a"
+        , L.readS "b"
         , If ("a" <: "b")
             ("c" := "a")
             ("c" := "b")

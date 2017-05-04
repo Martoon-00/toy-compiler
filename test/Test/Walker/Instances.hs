@@ -10,7 +10,7 @@ import           Toy.Exp               (Value)
 import qualified Toy.Lang              as L
 
 data ProgramTestData = ProgramTestData
-    { ptdProgram :: L.Stmt
+    { ptdProgram :: L.Program
     } deriving (Show)
 
 instance TestCaseData ProgramTestData where
@@ -18,7 +18,7 @@ instance TestCaseData ProgramTestData where
         ProgramTestData <$> file ".prog"
 
 data FullTestData = FullTestData
-    { ftdProgram :: L.Stmt
+    { ftdProgram :: L.Program
     , ftdInput   :: [Value]
     , ftdOutput  :: [Value]
     } deriving (Show)

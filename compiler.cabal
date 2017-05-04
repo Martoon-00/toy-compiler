@@ -94,9 +94,9 @@ test-suite tests
                        Test.Execution
                        Test.Examples.ControlSpec
                        Test.Examples.ExpSpec
+                       Test.Examples.FunSpec
                        Test.Examples.LangSpec
                        Test.Examples.ParserSpec
-                       Test.Examples.SMSpec
                        Test.Walker
                        Test.Walker.Extractor
                        Test.Walker.FileReader
@@ -124,6 +124,7 @@ test-suite tests
                      , text-format
                      , transformers
                      , QuickCheck
+                     , universum
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded -Wall -fno-warn-orphans
