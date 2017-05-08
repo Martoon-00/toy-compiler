@@ -37,7 +37,6 @@ type Exec m = ExecInOut $ EitherT String m
 data Exp
     = ValueE Value
     | VarE Var
-    | ReadE
     | UnaryE UnaryOp Exp
     | BinE BinOp Exp Exp
     | FunE Var [Exp]
@@ -53,3 +52,8 @@ instance Num Exp where
     abs = undefined
     signum = undefined
     fromInteger = ValueE . fromInteger
+
+
+-- | @read@ expression.
+readE :: Exp
+readE = FunE "read" []

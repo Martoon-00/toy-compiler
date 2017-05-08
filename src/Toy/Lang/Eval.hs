@@ -24,15 +24,15 @@ eval
     :: MonadExec m
     => FunExecutor m -> Exp -> ExecInOut m Value
 eval executor = \case
-    ValueE v    -> return v
-    VarE v      ->
+    ValueE v      -> return v
+    VarE v        ->
         let err = Error $ "No variable " ++ show v ++ " defined"
         in  use (at v) `whenNothingM` throwError err
-    ReadE       -> await `whenNothingM` throwError "No input"
-    UnaryE op v -> arithspoon =<< (unaryOp op <$> evalRec v)
-    BinE op a b -> arithspoon =<< (binOp op <$> evalRec a <*> evalRec b)
-    FunE n args -> callFun executor n args  `whenNothingM`
-                   throwError "Function didn't return anything"
+    UnaryE op v   -> arithspoon =<< (unaryOp op <$> evalRec v)
+    BinE op a b   -> arithspoon =<< (binOp op <$> evalRec a <*> evalRec b)
+    FunE "read" _ -> await `whenNothingM` throwError "No input"
+    FunE n args   -> callFun executor n args  `whenNothingM`
+                     throwError "Function didn't return anything"
   where
     evalRec = eval executor
 

@@ -18,7 +18,7 @@ import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Execution   (ExecWay (..), asIs, defCompileX86, translateLang,
                                   (<~~>))
 import           Toy.Exp
-import           Toy.Lang        (Stmt (..))
+import           Toy.Lang        (Stmt (..), writeS)
 import qualified Toy.Lang        as L
 
 
@@ -65,19 +65,19 @@ noActions = mempty & [] >-*-> []
 ifTrueTest :: ExecWay Stmt -> Property
 ifTrueTest = sample & [] >-*-> [0]
   where
-    sample = If 1 (Write 0) (Write 1)
+    sample = If 1 (writeS 0) (writeS 1)
 
 ifFalseTest :: ExecWay Stmt -> Property
 ifFalseTest = sample & [] >-*-> [1]
   where
-    sample = If 0 (Write 0) (Write 1)
+    sample = If 0 (writeS 0) (writeS 1)
 
 ioTest :: ExecWay Stmt -> Property
 ioTest = sample ~*~ id @Value
   where
     sample = mconcat
         [ L.readS "a"
-        , Write "a"
+        , writeS "a"
         ]
 
 whileTest :: ExecWay Stmt -> Property
@@ -86,16 +86,16 @@ whileTest = sample & [] >-*-> [0 .. 4]
     sample = mconcat
         [ "i" := 0
         , L.whileS ("i" <: 5) $ mconcat
-            [ Write "i"
+            [ writeS "i"
             , "i" := "i" +: 1
             ]
         ]
 
 errorsTest :: Property
 errorsTest = conjoin $
-    [ Write (5 /: 0)
+    [ writeS (5 /: 0)
     , L.readS "x"
-    , Write "x"
+    , writeS "x"
     ] <&> [] >--> X
 
 fibTest :: ExecWay Stmt -> Property
@@ -111,7 +111,7 @@ fibTest = sample ~*~ fib . getNonNegative
             , "a" := "c"
             , "i" := "i" -: 1
             ]
-        , Write "a"
+        , writeS "a"
         ]
     fibs :: [Value]
     fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
@@ -129,7 +129,7 @@ gcdTest = sample ~*~ gcd'
             , "a" := "b"
             , "b" := "r"
             ]
-        , Write "a"
+        , writeS "a"
         ]
     gcd' :: NonNegative Value -> NonNegative Value -> Value
     gcd' (NonNegative a) (NonNegative b) = gcd a b
@@ -143,7 +143,7 @@ minTest = sample ~*~ min @Value
         , If ("a" <: "b")
             ("c" := "a")
             ("c" := "b")
-        , Write "c"
+        , writeS "c"
         ]
 
 fileTest :: Either String FullTestData -> Property

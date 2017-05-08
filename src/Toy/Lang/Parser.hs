@@ -16,8 +16,9 @@ import qualified Data.Map                   as M
 import           Data.Maybe                 (fromMaybe)
 import           Data.Text                  (Text)
 
-import           Toy.Exp                    (Exp (..), Var (..))
-import           Toy.Lang.Data              (Program, ProgramG (..), Stmt (..), whileS)
+import           Toy.Exp                    (Exp (..), Var (..), readE)
+import           Toy.Lang.Data              (Program, ProgramG (..), Stmt (..), whileS,
+                                             writeS)
 import           Toy.Util                   (Parsable (..))
 
 -- * Util parsers
@@ -47,7 +48,7 @@ elemP :: Parser Exp -> Parser Exp
 elemP p = sp $
         char '(' *> p <* char ')'
     <|> ValueE <$> signed decimal
-    <|> ReadE  <$  asciiCI "read()"
+    <|> readE  <$  asciiCI "read()"
     <|> VarE   <$> varP
 
 expP :: Parser Exp
@@ -77,7 +78,7 @@ keywordP t = () <$ asciiCI t <* lookAhead (satisfy $ not . isAlphaNum)
 
 stmtP :: Parser Stmt
 stmtP = sp $
-        Write  <$> (keywordP "Write" *> expP )
+        writeS <$> (keywordP "Write" *> expP )
     <|> If     <$> (keywordP "If"    *> expP )
                <*> (keywordP "then"  *> progP)
                <*> (keywordP "else"  *> progP)

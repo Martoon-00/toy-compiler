@@ -9,16 +9,19 @@ module Toy.Lang.Translator
     ( toIntermediate
     ) where
 
+import           Control.Applicative  ((<|>))
 import           Control.Lens         (Snoc (..), ix, preview, prism, (<<+=), _1)
 import           Control.Monad        (join, replicateM)
 import           Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import           Control.Monad.State  (MonadState, State, evalState)
 import qualified Data.DList           as D
+import           Data.Foldable        (find)
 import qualified Data.Map             as M
+import           Data.Maybe           (fromMaybe)
 import           Data.Monoid          ((<>))
 import qualified Data.Vector          as V
 import           Formatting           (build, formatToString, (%))
-import           Universum            (type ($), whenNothingM)
+import           Universum            (type ($))
 
 import           Toy.Exp.Data         (Exp (..), FunSign (..), Var)
 import qualified Toy.Lang.Data        as L
@@ -48,10 +51,6 @@ convert L.Skip         = return [SM.Nop]
 convert (n L.:= e)     = fmap mconcat $ sequence
     [ pushExp e
     , pure [SM.Store n]
-    ]
-convert (L.Write e)    = fmap mconcat $ sequence
-    [ pushExp e
-    , pure [SM.Write, SM.Drop]
     ]
 convert (L.Seq s1 s2)  = (<>) <$> convert s1 <*> convert s2
 convert (L.If c s1 s2) =
@@ -87,7 +86,6 @@ genLabel = id <<+= 1
 pushExp :: MonadReader L.FunDecls m => Exp -> m (D.DList SM.Inst)
 pushExp (ValueE k)    = return [SM.Push k]
 pushExp (VarE n)      = return [SM.Load n]
-pushExp ReadE         = return [SM.Read]
 pushExp (UnaryE _ _)  = error "SM doesn't support unary operations for now"
 pushExp (BinE op a b) = fmap mconcat $ sequence
     [ pushExp a
@@ -99,8 +97,9 @@ pushExp (FunE n args) = callFun n args
 -- TODO: nice error processing
 callFun :: MonadReader L.FunDecls m => Var -> [Exp] -> m (D.DList SM.Inst)
 callFun name (D.fromList . reverse -> args) = do
-    sign <- preview (ix name . _1) `whenNothingM`
-                error (formatToString ("No such function: "%build) name)
+    msign <- preview (ix name . _1)
+    let mesign = find (\(FunSign n _) -> n == name) SM.externalFuns
+        sign = fromMaybe (error $ formatToString ("No such function: "%build) name) $
+               msign <|> mesign
     exps <- join <$> mapM pushExp args
-    return $ exps
-          <> [SM.Call sign]
+    return $ exps <> [SM.Call sign]

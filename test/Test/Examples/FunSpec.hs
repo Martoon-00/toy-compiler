@@ -62,13 +62,13 @@ singleRetFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleRetFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body))
-    in  L.ProgramG decl $ L.Write (FunE name args)
+    in  L.ProgramG decl $ L.writeS (FunE name args)
 
 singleRecFunProg :: [Var] -> [Exp] -> (Var -> L.Stmt) -> L.Program
 singleRecFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body name))
-    in  L.ProgramG decl $ L.Write (FunE name args)
+    in  L.ProgramG decl $ L.writeS (FunE name args)
 
 noActionTest :: ExecWay L.Program -> Property
 noActionTest = sample & [] >-*-> []
@@ -78,25 +78,25 @@ noActionTest = sample & [] >-*-> []
 withBodyTest :: ExecWay L.Program -> Property
 withBodyTest = sample & [] >-*-> [1]
   where
-    sample = singleFunProg [] [] $ L.Write 1
+    sample = singleFunProg [] [] $ L.writeS 1
 
 singleArgumentTest :: ExecWay L.Program -> Property
 singleArgumentTest = sample & [] >-*-> [5]
   where
-    sample = singleFunProg ["a"] [5] $ L.Write "a"
+    sample = singleFunProg ["a"] [5] $ L.writeS "a"
 
 argumentsOrderTest :: ExecWay L.Program -> Property
 argumentsOrderTest = sample & [] >-*-> [1]
   where
     sample = singleFunProg ["a", "b"] (ValueE <$> [1, 0]) $
-             L.Write ("a" - "b")
+             L.writeS ("a" - "b")
 
 multipleArgumentsTest :: ExecWay L.Program -> Property
 multipleArgumentsTest = sample & [] >-*-> [22020]
   where
     input  = ValueE . (10 ^) <$> [4 :: Int, 3..0]
     sample = singleFunProg ["a", "b", "c", "d", "e"] input $
-             L.Write ("a" + "b" - "c" + "d" - "e" + 11111)
+             L.writeS ("a" + "b" - "c" + "d" - "e" + 11111)
 
 returnTest :: ExecWay L.Program -> Property
 returnTest = sample & [] >-*-> [7]
@@ -119,7 +119,7 @@ returnInTheMiddleTest = sample & [] >-*-> [15]
 recSimpleTest :: ExecWay L.Program -> Bool -> Property
 recSimpleTest way lol = sample ~*~ fun $ way
   where
-    sample = singleRecFunProg ["a"] [ReadE] $ \funName ->
+    sample = singleRecFunProg ["a"] [readE] $ \funName ->
              L.If ("a" ==: 0) (L.Return 1) $
                 if lol
                 then L.Return (2 * FunE funName ["a" - 1])
@@ -130,7 +130,7 @@ recSimpleTest way lol = sample ~*~ fun $ way
 fibTest :: ExecWay L.Program -> Property
 fibTest = sample ~*~ fun
   where
-    sample = singleRecFunProg ["a"] [ReadE] $ \funName ->
+    sample = singleRecFunProg ["a"] [readE] $ \funName ->
              L.If ("a" <: 2) (L.Return "a") $
                 L.Return (FunE funName ["a" - 1] + FunE funName ["a" - 2])
     fun :: NonNegative (VerySmall Value) -> Value
@@ -140,7 +140,7 @@ fibTest = sample ~*~ fun
 gcdTest :: ExecWay L.Program -> Property
 gcdTest = sample ~*~ fun
   where
-    sample = singleRecFunProg ["a", "b"] [ReadE, ReadE] $ \funName ->
+    sample = singleRecFunProg ["a", "b"] [readE, readE] $ \funName ->
              L.If ("b" ==: 0) (L.Return "a") $
                 L.Return (FunE funName ["b", "a" %: "b"])
     fun :: NonNegative Value -> NonNegative Value -> Value

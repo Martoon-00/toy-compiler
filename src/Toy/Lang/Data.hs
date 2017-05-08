@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TupleSections              #-}
@@ -14,13 +15,13 @@ import           Data.String               (IsString (..))
 import           Formatting                (formatToString, shown, string, (%))
 import           Universum                 ((<<$>>), (<>))
 
-import           Toy.Exp.Data              (Exp (..), FunSign, LocalVars, Value, Var)
+import           Toy.Exp.Data              (Exp (..), FunSign (..), LocalVars, Value,
+                                            Var (..), readE)
 
 
 -- | Statement of a program.
 data Stmt
     = Var := Exp
-    | Write Exp
     | If Exp Stmt Stmt
     | DoWhile Stmt Exp  -- ^ @do .. while@ is the most optimal / easy loop from
                         -- asm point of view
@@ -58,7 +59,7 @@ instance Foldable ProgramG where
         foldMap (foldMap f) funcs <> f main
 
 instance Traversable ProgramG where
-    traverse f (ProgramG funcs main) =
+    traverse f (ProgramG funcs main) = undefined
         ProgramG <$> traverse (traverse f) funcs <*> f main
 
 data ExecInterrupt
@@ -88,4 +89,8 @@ whileS cond stmt = If cond (DoWhile stmt cond) Skip
 
 -- | @read@ to a given variable.
 readS :: Var -> Stmt
-readS v = v := ReadE
+readS v = v := readE
+
+-- | @write@ given expression.
+writeS :: Exp -> Stmt
+writeS = FunCall "write" . pure

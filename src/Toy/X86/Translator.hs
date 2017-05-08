@@ -65,8 +65,6 @@ step calleeName = \case
     SM.Drop       -> popSymStackOp $> []
     SM.Load v     -> allocSymStackOp <&> \op -> [Mov (Local v) eax, Mov eax op]
     SM.Store v    -> popSymStackOp <&> \op -> [Mov op eax, Mov eax (Local v)]
-    SM.Read      -> step calleeName $ SM.Call (FunSign "read" [])
-    SM.Write     -> step calleeName $ SM.Call (FunSign "write" ["ololo"])
     SM.Bin op    -> do
         op2 <- popSymStackOp
         op1 <- popSymStackOp

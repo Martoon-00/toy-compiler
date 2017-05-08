@@ -10,7 +10,7 @@ import qualified Data.Vector         as V
 import           Formatting          (bprint, (%))
 import qualified Formatting          as F
 
-import           Toy.Exp             (BinOp, FunSign, LocalVars, Value, Var)
+import           Toy.Exp             (BinOp, FunSign (..), LocalVars, Value, Var)
 
 type IP = Int
 
@@ -32,8 +32,6 @@ data Inst
     | Bin BinOp
     | Load Var
     | Store Var
-    | Read  -- TODO: to remove
-    | Write  -- TODO: to remove
     | Label LabelId
     | Jmp Int
     | JmpIf Int
@@ -70,3 +68,9 @@ instance Default ExecState where
 
 initFunName :: Var
 initFunName = "main"
+
+externalFuns :: [FunSign]
+externalFuns =
+    [ FunSign "read" []
+    , FunSign "write" ["x"]
+    ]

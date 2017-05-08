@@ -42,16 +42,18 @@ executeDo = \case
         value <- withStmt stmt $ eval expr
         at var ?= value
 
-    stmt@(Write expr) -> do
-        value <- withStmt stmt $ eval expr
-        yield value
-
     stmt@(If cond stmt0 stmt1) -> do
         cond' <- withStmt stmt $ eval cond
         executeDo $ if cond' /= 0 then stmt0 else stmt1
 
     while@(DoWhile body cond) ->
         executeDo $ Seq body (If cond while Skip)
+
+    stmt@(FunCall "write" [expr]) -> do
+        value <- withStmt stmt $ eval expr
+        yield value
+    FunCall "write" _ ->
+        throwError "Wrong number of arguments put to write"
 
     FunCall name args ->
         void $ E.callFun execFun name args

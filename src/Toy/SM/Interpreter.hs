@@ -54,8 +54,8 @@ executeDo insts = void . runMaybeC . forever $
             Nothing  -> throwError $ "No variable " ++ show n ++ " defined"
             Just var -> push var
         Store n    -> pop >>= (esLocals . at n ?= )
-        Read       -> await >>= maybe (throwError "No input") push
-        Write      -> pop >>= yield >> push 0
+        -- Read       ->
+        -- Write      ->
         Label{}    -> step Nop
         Jmp lid    -> do
             ensureStackSize 0 "jump"
@@ -63,6 +63,10 @@ executeDo insts = void . runMaybeC . forever $
         JmpIf lid  -> do
             cond <- pop
             when (cond /= 0) $ step (Jmp lid)
+        Call (FunSign "read" _) ->
+            await >>= maybe (throwError "No input") push
+        Call (FunSign "write" _) ->
+            pop >>= yield >> push 0
         Call (FunSign name args) -> do
             stack <- esStack <<%= drop (length args)
             let funExecState = ExecState

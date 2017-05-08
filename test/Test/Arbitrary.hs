@@ -14,7 +14,7 @@ instance Arbitrary Var where
 instance Arbitrary Exp where
     arbitrary = frequency
         [ (50, ValueE . getSmall <$> arbitrary)
-        , (10, pure ReadE)
+        , (10, pure readE)
 
         , (1, liftM2 (+:) arbitrary arbitrary)
         , (1, liftM2 (-:) arbitrary arbitrary)
@@ -40,7 +40,7 @@ instance Arbitrary Exp where
 instance Arbitrary Stmt where
     arbitrary = frequency
         [ (3, liftM2 (:=) arbitrary arbitrary)
-        , (2, Write <$> arbitrary)
+        , (2, L.writeS <$> arbitrary)
         , (1, If <$> arbitrary <*> arbitrary <*> arbitrary)
         , (1, forLoop <$> (Var . (:"_i") <$> choose ('a', 'z'))
                       <*> elements [0, 1] <*> arbitrary)
