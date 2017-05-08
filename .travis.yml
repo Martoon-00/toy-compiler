@@ -22,4 +22,4 @@ install:
 - cd runtime && make && cd ..
 script:
 - make $TESTS_MODE TEST_RUNS=$TEST_RUNS
-- make clean
+- make clean 1> /dev/null
