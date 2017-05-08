@@ -29,10 +29,6 @@ spec = do
             it "different erroneous scenarios" $
                 errorsTest
 
-        -- TODO: move below
-        describeDir "./test/cases/exec"
-            fileTest
-
     let ways =
             [ Ex asIs
             , Ex translateLang
@@ -58,6 +54,8 @@ spec = do
                 it "gcd" $
                     property $ gcdTest way
 
+    describeDir "./test/cases/exec"
+        fileTest
 
 noActions :: ExecWay Stmt -> Property
 noActions = mempty & [] >-*-> []

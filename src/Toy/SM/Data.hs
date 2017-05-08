@@ -43,14 +43,6 @@ data Inst
 
 type Insts = V.Vector Inst
 
-{-
-controlLabelId :: Prism' Text LabelId
-controlLabelId = prism' (sformat ("L"%F.build)) (getLabelId . unpack)
-  where
-    getLabelId ('L':labelId) = readMaybe labelId
-    getLabelId _             = Nothing
--}
-
 -- | State of execution
 data ExecState = ExecState
     { _esLocals :: LocalVars
