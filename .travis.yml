@@ -1,5 +1,8 @@
 sudo: required
 language: c
+env:
+  - TESTS_MODE=build-in-tests TEST_RUNS=10000
+  - TESTS_MODE=deep-expressions-tests
 cache:
   directories:
   - "$HOME/.stack"
@@ -18,4 +21,5 @@ install:
 - stack --no-terminal --install-ghc build --only-dependencies --jobs=4
 - cd runtime && make && cd ..
 script:
-- stack --no-terminal build --test --jobs=4 --test-arguments --qc-max-success=10000
+- make $TESTS_MODE TEST_RUNS=$TEST_RUNS
+- make clean
