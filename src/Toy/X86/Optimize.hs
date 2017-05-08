@@ -4,31 +4,35 @@ module Toy.X86.Optimize
     ( optimize
     ) where
 
-import           Control.Applicative ((<|>))
-import           Data.Monoid         (Any (..))
-import           GHC.Exts            (fromList, toList)
+import           Control.Monad (guard)
+import           Data.Functor  (($>))
+import           GHC.Exts      (fromList, toList)
 
-import           Toy.X86.Data        (Inst (..), Insts, Operand (..))
+import           Toy.X86.Data  (Inst (..), Insts, Operand (..))
 
 optimize :: Insts -> Insts
 optimize = fromList . optimizeTillCan . toList
   where
     optimizeTillCan :: [Inst] -> [Inst]
-    optimizeTillCan insts =
-        let (cont, insts') = tryOptimize insts
-        in  if getAny cont then optimizeTillCan insts' else insts
+    optimizeTillCan insts = maybe insts optimizeTillCan $ tryOptimize insts
 
-    tryOptimize :: [Inst] -> (Any, [Inst])
-    tryOptimize []           = return []
-    tryOptimize insts@(i:is) =
-        let matchedRule = foldr (<|>) Nothing $ ($ insts) <$> rules
-        in  maybe ((i:) <$> tryOptimize is) (Any True, ) matchedRule
+    tryOptimize :: [Inst] -> Maybe [Inst]
+    tryOptimize insts =
+        let insts' = foldr ($) insts rules
+        in  guard (insts /= insts') $> insts'
 
-    -- TODO: local rules
+    localRule
+        :: ([Inst] -> Maybe [Inst])  -- ^ rule to apply to suffix
+        -> [Inst] -> [Inst]          -- ^ total rule
+    localRule _          []           = []
+    localRule tryLocally insts@(i:is) =
+        let cont = localRule tryLocally
+        in maybe (i : cont is) cont $ tryLocally insts
+
     rules =
-        [ pushPop
-        , movRevMov
-        , noStackResize
+        [ localRule pushPop
+        , localRule movRevMov
+        , localRule noStackResize
         ]
 
     pushPop insts
