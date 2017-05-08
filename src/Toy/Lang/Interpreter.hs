@@ -21,14 +21,14 @@ import           Universum                  (type ($))
 
 import           Toy.Exp                    (Exec, ExecInOut, LocalVars, Value)
 import           Toy.Lang.Data              (ExecInterrupt (..), FunDecls, Program,
-                                             ProgramG (..), Stmt (..), withStmt, _Error)
+                                             Program (..), Stmt (..), withStmt, _Error)
 import qualified Toy.Lang.Eval              as E
 
 
 type ExecProcess m = ExecInOut $ ReaderT FunDecls $ StateT LocalVars $ EitherT ExecInterrupt m
 
 execute :: Monad m => Program -> Exec m ()
-execute (ProgramG funDecls stmt) =
+execute (Program funDecls stmt) =
     hoist simplifyErr . evalStateC def . hoist (`runReaderT` funDecls) $
         executeDo stmt
   where

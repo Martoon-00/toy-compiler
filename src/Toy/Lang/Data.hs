@@ -13,7 +13,6 @@ import           Control.Monad.State       (MonadState)
 import qualified Data.Map                  as M
 import           Data.String               (IsString (..))
 import           Formatting                (formatToString, shown, string, (%))
-import           Universum                 ((<<$>>), (<>))
 
 import           Toy.Exp.Data              (Exp (..), FunSign (..), LocalVars, Value,
                                             Var (..), readE)
@@ -37,30 +36,14 @@ instance Monoid Stmt where
     mempty = Skip
     mappend = Seq
 
-type FunDeclG b = (FunSign, b)
+type FunDecl = (FunSign, Stmt)
 
-type FunDeclsG b = M.Map Var (FunDeclG b)
+type FunDecls = M.Map Var FunDecl
 
-type FunDecls = FunDeclsG Stmt
-
-data ProgramG b = ProgramG
-    { pFunDecls :: FunDeclsG b
-    , pMain     :: b
+data Program = Program
+    { pFunDecls :: FunDecls
+    , pMain     :: Stmt
     } deriving (Show, Eq)
-
-type Program = ProgramG Stmt
-
-instance Functor ProgramG where
-    fmap f (ProgramG funcs main) =
-        ProgramG (f <<$>> funcs) (f main)
-
-instance Foldable ProgramG where
-    foldMap f (ProgramG funcs main) =
-        foldMap (foldMap f) funcs <> f main
-
-instance Traversable ProgramG where
-    traverse f (ProgramG funcs main) = undefined
-        ProgramG <$> traverse (traverse f) funcs <*> f main
 
 data ExecInterrupt
     = Error String

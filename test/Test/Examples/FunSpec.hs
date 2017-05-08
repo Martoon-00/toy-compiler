@@ -56,19 +56,19 @@ singleFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body))
-    in  L.ProgramG decl $ L.FunCall name args
+    in  L.Program decl $ L.FunCall name args
 
 singleRetFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleRetFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body))
-    in  L.ProgramG decl $ L.writeS (FunE name args)
+    in  L.Program decl $ L.writeS (FunE name args)
 
 singleRecFunProg :: [Var] -> [Exp] -> (Var -> L.Stmt) -> L.Program
 singleRecFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body name))
-    in  L.ProgramG decl $ L.writeS (FunE name args)
+    in  L.Program decl $ L.writeS (FunE name args)
 
 noActionTest :: ExecWay L.Program -> Property
 noActionTest = sample & [] >-*-> []

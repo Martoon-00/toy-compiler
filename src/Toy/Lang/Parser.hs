@@ -17,7 +17,7 @@ import           Data.Maybe                 (fromMaybe)
 import           Data.Text                  (Text)
 
 import           Toy.Exp                    (Exp (..), Var (..), readE)
-import           Toy.Lang.Data              (Program, ProgramG (..), Stmt (..), whileS,
+import           Toy.Lang.Data              (Program, Program (..), Stmt (..), whileS,
                                              writeS)
 import           Toy.Util                   (Parsable (..))
 
@@ -97,4 +97,4 @@ progP = sp $
 
 instance Parsable Program where
     -- TODO:
-    parseData = parseOnly $ ProgramG mempty <$> progP <* endOfInput
+    parseData = parseOnly $ Program mempty <$> progP <* endOfInput

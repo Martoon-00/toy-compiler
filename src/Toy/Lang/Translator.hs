@@ -34,7 +34,7 @@ instance Traversable D.DList where
     traverse f l = fmap D.fromList $ traverse f (D.toList l)
 
 toIntermediate :: L.Program -> SM.Insts
-toIntermediate (L.ProgramG funcs main) =
+toIntermediate (L.Program funcs main) =
     V.fromList . D.toList . flip evalState 0 . flip runReaderT funcs $ do
         funcsC <- mapM convertFun $ snd <$> M.toList funcs
         mainC  <- convertFun (FunSign SM.initFunName [], main)
