@@ -7,7 +7,7 @@ module Toy.SM.Interpreter
     ( execute
     ) where
 
-import           Control.Lens               (at, use, (%=), (+=), (.=), (<<.=), (?=),
+import           Control.Lens               (at, use, (%=), (+=), (.=), (<<%=), (?=),
                                              (^.))
 import           Control.Monad              (forever, mzero, replicateM, void, when)
 import           Control.Monad.Error.Class  (throwError)
@@ -64,8 +64,7 @@ executeDo insts = void . runMaybeC . forever $
             cond <- pop
             when (cond /= 0) $ step (Jmp lid)
         Call (FunSign name args) -> do
-            ensureStackSize (length args) "function call"
-            stack <- esStack <<.= []
+            stack <- esStack <<%= drop (length args)
             let funExecState = ExecState
                     { _esLocals = M.fromList (zip args stack)
                     , _esStack  = []
@@ -76,8 +75,7 @@ executeDo insts = void . runMaybeC . forever $
             funEndExecState <-
                 hoist (lift . lift) $ execStateC funExecState $ executeDo insts
 
-            esStack .= _esStack funEndExecState
-            ensureStackSize 1 "function end"
+            esStack %= (_esStack funEndExecState ++)
         Ret        -> lift mzero
         Enter{}    -> throwError "Got into out of nowhere"
         Nop        -> return ()

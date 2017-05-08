@@ -1,14 +1,16 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 
 module Test.Util
     ( Extract (..)
+    , VerySmall (..)
     , instsSM
     ) where
 
 import           Control.Monad.Trans  (MonadIO (..))
 import           Test.Hspec.Core.Spec (SpecM (..))
-import           Test.QuickCheck      (Large (..), NonNegative (..), Property, Small (..),
-                                       conjoin, property, (.&&.))
+import           Test.QuickCheck      (Arbitrary (..), Large (..), NonNegative (..),
+                                       Property, Small (..), conjoin, property, (.&&.))
 
 import qualified Toy.SM               as SM
 
@@ -24,17 +26,28 @@ instance MonadIO (SpecM a) where
     liftIO = SpecM . liftIO
 
 
+newtype VerySmall a = VerySmall
+    { getVerySmall :: a
+    } deriving (Eq, Ord, Show, Num)
+
+instance (Arbitrary a, Integral a) => Arbitrary (VerySmall a) where
+    arbitrary = VerySmall . flip rem 10 <$> arbitrary
+
+
 class Extract a p where
     extract :: p -> a
 
 instance Extract a a where
     extract = id
 
-instance Extract a (NonNegative a) where
-    extract = getNonNegative
-
 instance Extract a (Large a) where
     extract = getLarge
 
-instance Extract a (NonNegative (Small a)) where
-    extract = getSmall . getNonNegative
+instance Extract a b => Extract a (NonNegative b) where
+    extract = extract . getNonNegative
+
+instance Extract a (Small a) where
+    extract = getSmall
+
+instance Extract a (VerySmall a) where
+    extract = getVerySmall

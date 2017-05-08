@@ -9,11 +9,12 @@ import           Control.Category (id, (.))
 import           Control.Lens     ((&))
 import           Prelude          hiding (id, (.))
 import           Test.Hspec       (Spec, describe, it)
-import           Test.QuickCheck  (NonNegative (..), Property, Small (..))
+import           Test.QuickCheck  (NonNegative (..), Property, Small (..), property)
 import           Universum        (one)
 
 import           Test.Arbitrary   ()
 import           Test.Execution   (describeExecWays, (>-*->), (~*~))
+import           Test.Util        (VerySmall (..))
 import           Toy.Execution    (ExecWay (..), defCompileX86, translateLang)
 import           Toy.Exp
 import qualified Toy.Lang         as L
@@ -44,15 +45,12 @@ spec = do
                 it "return in the middle" $
                     returnInTheMiddleTest way
             describe "recursion" $ do
-                return ()
-                -- it "simple" $
-                    -- recSimpleTest way
-                -- it "two arguments" $
-                    -- recTwoArgumentsTest way
-                -- it "gcd" $
-                    -- gcdTest way
-                -- it "fib" $
-                    -- fibTest way
+                it "simple" $
+                    property $ recSimpleTest way
+                it "fib" $
+                    fibTest way
+                it "gcd" $
+                    gcdTest way
 
 singleFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleFunProg argNames args body =
@@ -94,10 +92,11 @@ argumentsOrderTest = sample & [] >-*-> [1]
              L.Write ("a" - "b")
 
 multipleArgumentsTest :: ExecWay L.Program -> Property
-multipleArgumentsTest = sample & [] >-*-> [0]
+multipleArgumentsTest = sample & [] >-*-> [22020]
   where
-    sample = singleFunProg ["a", "b", "c", "d", "e"] (ValueE <$> [2..6]) $
-             L.Write ("a" + "b" - "c" + "d" - "e")
+    input  = ValueE . (10 ^) <$> [4 :: Int, 3..0]
+    sample = singleFunProg ["a", "b", "c", "d", "e"] input $
+             L.Write ("a" + "b" - "c" + "d" - "e" + 11111)
 
 returnTest :: ExecWay L.Program -> Property
 returnTest = sample & [] >-*-> [7]
@@ -117,11 +116,32 @@ returnInTheMiddleTest = sample & [] >-*-> [15]
             ]
         ]
 
-recSimpleTest :: ExecWay L.Program -> Property
-recSimpleTest = sample ~*~ fun
+recSimpleTest :: ExecWay L.Program -> Bool -> Property
+recSimpleTest way lol = sample ~*~ fun $ way
   where
     sample = singleRecFunProg ["a"] [ReadE] $ \funName ->
-             L.If ("a" ==: 0) (L.Return 0) $
-                L.Return (1 + FunE funName ["a" - 1])
+             L.If ("a" ==: 0) (L.Return 1) $
+                if lol
+                then L.Return (2 * FunE funName ["a" - 1])
+                else L.Return (FunE funName ["a" - 1] * 2)
     fun :: NonNegative (Small Value) -> Value
-    fun (NonNegative (Small x)) = x
+    fun (NonNegative (Small x)) = 2 ^ x
+
+fibTest :: ExecWay L.Program -> Property
+fibTest = sample ~*~ fun
+  where
+    sample = singleRecFunProg ["a"] [ReadE] $ \funName ->
+             L.If ("a" <: 2) (L.Return "a") $
+                L.Return (FunE funName ["a" - 1] + FunE funName ["a" - 2])
+    fun :: NonNegative (VerySmall Value) -> Value
+    fun (NonNegative (VerySmall x)) = fibs !! fromIntegral x
+    fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
+
+gcdTest :: ExecWay L.Program -> Property
+gcdTest = sample ~*~ fun
+  where
+    sample = singleRecFunProg ["a", "b"] [ReadE, ReadE] $ \funName ->
+             L.If ("b" ==: 0) (L.Return "a") $
+                L.Return (FunE funName ["b", "a" %: "b"])
+    fun :: NonNegative Value -> NonNegative Value -> Value
+    fun (NonNegative x) (NonNegative y) = gcd x y

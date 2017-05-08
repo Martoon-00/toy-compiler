@@ -8,7 +8,7 @@ import           Control.Applicative ((<|>))
 import           Data.Monoid         (Any (..))
 import           GHC.Exts            (fromList, toList)
 
-import           Toy.X86.Data        (Inst (..), Insts)
+import           Toy.X86.Data        (Inst (..), Insts, Operand (..))
 
 optimize :: Insts -> Insts
 optimize = fromList . optimizeTillCan . toList
@@ -28,6 +28,7 @@ optimize = fromList . optimizeTillCan . toList
     rules =
         [ pushPop
         , movRevMov
+        , noStackResize
         ]
 
     pushPop insts
@@ -41,5 +42,12 @@ optimize = fromList . optimizeTillCan . toList
         | Mov a b : Mov c d : is <- insts
         , a == d && b == c
             = Just $ Mov a b : is
+        | otherwise
+            = Nothing
+
+    noStackResize insts
+        | BinOp op (Const 0) (Reg "esp") : is <- insts
+        , op == "subl" || op == "addl"
+            = Just is
         | otherwise
             = Nothing

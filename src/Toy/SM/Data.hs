@@ -32,8 +32,8 @@ data Inst
     | Bin BinOp
     | Load Var
     | Store Var
-    | Read
-    | Write
+    | Read  -- TODO: to remove
+    | Write  -- TODO: to remove
     | Label LabelId
     | Jmp Int
     | JmpIf Int

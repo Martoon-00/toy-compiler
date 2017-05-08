@@ -37,6 +37,7 @@ library
                        Toy.Util.Parsable
 
                        Toy.X86.Data
+                       Toy.X86.Frame
                        Toy.X86.Optimize
                        Toy.X86.SymStack
                        Toy.X86.Translator

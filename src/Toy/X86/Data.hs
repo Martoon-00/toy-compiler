@@ -9,7 +9,7 @@ module Toy.X86.Data
     , StackDirection (..)
 
     , (?)
-    , traverseOperands
+    , (//)
     , jmp
     , ret
 
@@ -18,9 +18,12 @@ module Toy.X86.Data
     , esi
     , edi
     , esp
+
+    , withStackSpace
+    , traverseOperands
     ) where
 
-import           Control.Lens           (Cons, cons)
+import           Control.Lens           (Cons, Snoc, (<|), (|>))
 import           Data.List              (intersperse)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
@@ -43,8 +46,14 @@ data Operand
     -- ^ Constant
     | Mem Int
     -- ^ Memory reference. This keeps amount of /qword/s to look back on stack
+    | HardMem Int
+    -- ^ Like `Mem`, but won't be moved by 'Toy.X86.Translator.fixMemRefs'
+    | Local Var
+    -- ^ Reerence to local variable
     | Stack Int
     -- ^ Stack reference. Temporally used in conversion from symbolic stack
+    | Backup Int
+    -- ^ Space for registers backup on function call
     deriving (Show, Eq)
 
 eax, edx, esi, edi, esp :: Operand
@@ -55,10 +64,13 @@ edi = Reg "edi"
 esp = Reg "esp"
 
 instance Buildable Operand where
-    build (Reg   r) = "%" <> build r
-    build (Const v) = "$" <> build v
-    build (Mem   i) = bprint (int%"("%F.build%")") (4 * i) esp
-    build (Stack _) = error "Stack reference remains upon compilation"
+    build (Reg   r)   = "%" <> build r
+    build (Const v)   = "$" <> build v
+    build (Mem   i)   = bprint (int%"("%F.build%")") (4 * i) esp
+    build (HardMem i) = build (Mem i)
+    build (Local _)   = error "Local var reference remains upon compilation"
+    build (Stack _)   = error "Stack reference remains upon compilation"
+    build (Backup _)  = error "Backup reference remains upon compilation"
 
 data StackDirection
     = Backward
@@ -86,8 +98,11 @@ jmp = Jmp "mp"
 ret :: Inst
 ret = NoopOperator "ret"
 
-(?) :: Cons s s Inst Inst => Text -> s -> s
-(?) comment = cons $ Comment comment
+(?) :: (Snoc s s Inst Inst, Cons s s Inst Inst) => Text -> s -> s
+(?) comment = (Comment comment <|) . (|> Comment (comment <> " end"))
+
+(//) :: (Snoc s s Inst Inst, Cons s s Inst Inst) => s -> Text -> s
+(//) = flip (?)
 
 buildInst :: Buildable b => Text -> [b] -> Builder
 buildInst name ops =
@@ -104,7 +119,7 @@ instance Buildable Inst where
         UnaryOp o op    -> buildInst o [op]
         NoopOperator o  -> build o
         Set kind op     -> bprint ("set"%pad%" "%pad) kind op
-        Comment d       -> bprint ("\t# "%pad) d
+        Comment d       -> bprint ("# "%pad) d
         Label lid       -> bprint (F.build%":") lid
         Jmp kind lid    -> bprint ("j"%pad%" "%pad) kind lid
         ResizeStack d k ->
@@ -129,6 +144,11 @@ instance Buildable Program where
 .global      main
 
 |]
+
+withStackSpace
+    :: (Snoc s s Inst Inst, Cons s s Inst Inst)
+    => Int -> s -> s
+withStackSpace k = (ResizeStack Forward k <| ) . ( |> ResizeStack Backward k)
 
 traverseOperands :: Applicative f => (Operand -> f Operand) -> Inst -> f Inst
 traverseOperands f (Mov a b)         = Mov <$> f a <*> f b
