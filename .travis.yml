@@ -6,7 +6,7 @@ env:
 cache:
   directories:
   - "$HOME/.stack"
-  - "$HOME/build/compiler/.stack-work"
+  - "$HOME/build/martoon/compiler/.stack-work"
 addons:
   apt:
     packages:
