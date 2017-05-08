@@ -4,7 +4,7 @@ TF=compiler-tests
 CHECK=make -j 4 -C $(TF)
 CLEAN=make clean -C $(TF)
 
-build: src
+build:
 	stack build
 
 build-in-tests: build
@@ -24,9 +24,7 @@ perfomance-tests: build
 
 control-tests: expressions-tests deep-expressions-tests
 
-
 clean:
-	stack clean
 	$(CLEAN)/core
 	$(CLEAN)/expressions
 	$(CLEAN)/deep-expressions
