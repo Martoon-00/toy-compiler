@@ -19,7 +19,6 @@ before_install:
 - sudo apt-get install gcc-multilib
 install:
 - stack --no-terminal --install-ghc build --only-dependencies --jobs=4
-- cd runtime && make && cd ..
 script:
 - make $TESTS_MODE TEST_RUNS=$TEST_RUNS
 - make clean 1> /dev/null
