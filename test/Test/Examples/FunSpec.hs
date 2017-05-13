@@ -56,19 +56,19 @@ singleFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body))
-    in  L.Program decl $ L.FunCall name args
+    in  L.Program decl $ L.FunCall (name, args)
 
 singleRetFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleRetFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body))
-    in  L.Program decl $ L.writeS (FunE name args)
+    in  L.Program decl $ L.writeS (FunE (name, args))
 
 singleRecFunProg :: [Var] -> [Exp] -> (Var -> L.Stmt) -> L.Program
 singleRecFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body name))
-    in  L.Program decl $ L.writeS (FunE name args)
+    in  L.Program decl $ L.writeS (FunE (name, args))
 
 noActionTest :: ExecWay L.Program -> Property
 noActionTest = sample & [] >-*-> []
@@ -122,8 +122,8 @@ recSimpleTest way lol = sample ~*~ fun $ way
     sample = singleRecFunProg ["a"] [readE] $ \funName ->
              L.If ("a" ==: 0) (L.Return 1) $
                 if lol
-                then L.Return (2 * FunE funName ["a" - 1])
-                else L.Return (FunE funName ["a" - 1] * 2)
+                then L.Return (2 * FunE (funName, ["a" - 1]))
+                else L.Return (FunE (funName, ["a" - 1]) * 2)
     fun :: NonNegative (Small Value) -> Value
     fun (NonNegative (Small x)) = 2 ^ x
 
@@ -132,7 +132,7 @@ fibTest = sample ~*~ fun
   where
     sample = singleRecFunProg ["a"] [readE] $ \funName ->
              L.If ("a" <: 2) (L.Return "a") $
-                L.Return (FunE funName ["a" - 1] + FunE funName ["a" - 2])
+                L.Return (FunE (funName, ["a" - 1]) + FunE (funName, ["a" - 2]))
     fun :: NonNegative (VerySmall Value) -> Value
     fun (NonNegative (VerySmall x)) = fibs !! fromIntegral x
     fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
@@ -142,6 +142,6 @@ gcdTest = sample ~*~ fun
   where
     sample = singleRecFunProg ["a", "b"] [readE, readE] $ \funName ->
              L.If ("b" ==: 0) (L.Return "a") $
-                L.Return (FunE funName ["b", "a" %: "b"])
+                L.Return (FunE (funName, ["b", "a" %: "b"]))
     fun :: NonNegative Value -> NonNegative Value -> Value
     fun (NonNegative x) (NonNegative y) = gcd x y

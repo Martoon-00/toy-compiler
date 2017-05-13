@@ -69,7 +69,7 @@ convert (L.DoWhile s c)  =
         , pushExp c
         , pure [SM.JmpIf label]
         ]
-convert (L.FunCall name args) = fmap mconcat $ sequence
+convert (L.FunCall (name, args)) = fmap mconcat $ sequence
     [ callFun name args
     , pure [SM.Drop]
     ]
@@ -92,7 +92,7 @@ pushExp (BinE op a b) = fmap mconcat $ sequence
     , pushExp b
     , pure [SM.Bin op]
     ]
-pushExp (FunE n args) = callFun n args
+pushExp (FunE (n, args)) = callFun n args
 
 -- TODO: nice error processing
 callFun :: MonadReader L.FunDecls m => Var -> [Exp] -> m (D.DList SM.Inst)

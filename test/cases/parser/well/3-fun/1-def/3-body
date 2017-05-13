@@ -1,0 +1,4 @@
+def f() begin
+  x := read();
+  write x
+end

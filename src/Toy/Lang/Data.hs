@@ -1,8 +1,7 @@
-{-# LANGUAGE ConstraintKinds            #-}
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Toy.Lang.Data where
 
@@ -13,9 +12,10 @@ import           Control.Monad.State       (MonadState)
 import qualified Data.Map                  as M
 import           Data.String               (IsString (..))
 import           Formatting                (formatToString, shown, string, (%))
+import           GHC.Exts                  (IsList (..))
 
-import           Toy.Exp.Data              (Exp (..), FunSign (..), LocalVars, Value,
-                                            Var (..), readE)
+import           Toy.Exp.Data              (Exp (..), FunCallParams, FunSign (..),
+                                            LocalVars, Value, Var (..), readE)
 
 
 -- | Statement of a program.
@@ -24,7 +24,7 @@ data Stmt
     | If Exp Stmt Stmt
     | DoWhile Stmt Exp  -- ^ @do .. while@ is the most optimal / easy loop from
                         -- asm point of view
-    | FunCall Var [Exp]
+    | FunCall FunCallParams
     | Return Exp
     | Seq Stmt Stmt
     | Skip
@@ -39,6 +39,11 @@ instance Monoid Stmt where
 type FunDecl = (FunSign, Stmt)
 
 type FunDecls = M.Map Var FunDecl
+
+mkFunDecls :: (IsList l, Item l ~ FunDecl) => l -> FunDecls
+mkFunDecls = fromList . map doLol . toList
+  where
+    doLol d@(FunSign n _, _) = (n, d)
 
 data Program = Program
     { pFunDecls :: FunDecls
@@ -76,4 +81,4 @@ readS v = v := readE
 
 -- | @write@ given expression.
 writeS :: Exp -> Stmt
-writeS = FunCall "write" . pure
+writeS = FunCall . ("write", ) . pure

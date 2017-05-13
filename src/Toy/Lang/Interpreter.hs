@@ -49,13 +49,13 @@ executeDo = \case
     while@(DoWhile body cond) ->
         executeDo $ Seq body (If cond while Skip)
 
-    stmt@(FunCall "write" [expr]) -> do
+    stmt@(FunCall ("write", [expr])) -> do
         value <- withStmt stmt $ eval expr
         yield value
-    FunCall "write" _ ->
+    FunCall ("write", _) ->
         throwError "Wrong number of arguments put to write"
 
-    FunCall name args ->
+    FunCall (name, args) ->
         void $ E.callFun execFun name args
 
     stmt@(Return expr) -> do

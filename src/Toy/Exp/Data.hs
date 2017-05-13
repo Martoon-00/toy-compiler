@@ -33,13 +33,15 @@ type ExecInOut = ConduitM Value Value
 -- | Monad where execution happens
 type Exec m = ExecInOut $ EitherT String m
 
+type FunCallParams = (Var, [Exp])
+
 -- | Expression
 data Exp
     = ValueE Value
     | VarE Var
     | UnaryE UnaryOp Exp
     | BinE BinOp Exp Exp
-    | FunE Var [Exp]
+    | FunE FunCallParams
     deriving (Eq, Show)
 
 instance IsString Exp where
@@ -56,4 +58,4 @@ instance Num Exp where
 
 -- | @read@ expression.
 readE :: Exp
-readE = FunE "read" []
+readE = FunE ("read", [])
