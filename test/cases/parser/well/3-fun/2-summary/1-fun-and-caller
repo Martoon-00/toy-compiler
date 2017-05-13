@@ -1,0 +1,5 @@
+def f (a) begin
+  write a
+end
+
+f(5)

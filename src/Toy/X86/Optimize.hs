@@ -4,31 +4,54 @@ module Toy.X86.Optimize
     ( optimize
     ) where
 
-import           Control.Applicative ((<|>))
-import           Data.Monoid         (Any (..))
-import           GHC.Exts            (fromList, toList)
+import           Control.Monad (guard)
+import           Data.Functor  (($>))
+import           GHC.Exts      (fromList, toList)
 
-import           Toy.X86.Data        (Inst (..), Insts)
+import           Toy.X86.Data  (Inst (..), Insts, Operand (..))
 
 optimize :: Insts -> Insts
 optimize = fromList . optimizeTillCan . toList
   where
     optimizeTillCan :: [Inst] -> [Inst]
-    optimizeTillCan insts =
-        let (cont, insts') = tryOptimize insts
-        in  if getAny cont then optimizeTillCan insts' else insts
+    optimizeTillCan insts = maybe insts optimizeTillCan $ tryOptimize insts
 
-    tryOptimize :: [Inst] -> (Any, [Inst])
-    tryOptimize []           = return []
-    tryOptimize insts@(i:is) =
-        let matchedRule = foldr (<|>) Nothing $ ($ insts) <$> rules
-        in  maybe ((i:) <$> tryOptimize is) (Any True, ) matchedRule
+    tryOptimize :: [Inst] -> Maybe [Inst]
+    tryOptimize insts =
+        let insts' = foldr ($) insts rules
+        in  guard (insts /= insts') $> insts'
+
+    localRule
+        :: ([Inst] -> Maybe [Inst])  -- ^ rule to apply to suffix
+        -> [Inst] -> [Inst]          -- ^ total rule
+    localRule _          []           = []
+    localRule tryLocally insts@(i:is) =
+        let cont = localRule tryLocally
+        in maybe (i : cont is) cont $ tryLocally insts
 
     rules =
-        [ pushPop
+        [ localRule pushPop
+        , localRule movRevMov
+        , localRule noStackResize
         ]
 
-    pushPop (Push a : Pop b : is)
-        | a == b    = Just is
-        | otherwise = Nothing
-    pushPop _       = Nothing
+    pushPop insts
+        | Push a : Pop b : is <- insts
+        , a == b
+            = Just is
+        | otherwise
+            = Nothing
+
+    movRevMov insts
+        | Mov a b : Mov c d : is <- insts
+        , a == d && b == c
+            = Just $ Mov a b : is
+        | otherwise
+            = Nothing
+
+    noStackResize insts
+        | BinOp op (Const 0) (Reg "esp") : is <- insts
+        , op == "subl" || op == "addl"
+            = Just is
+        | otherwise
+            = Nothing

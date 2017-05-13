@@ -6,18 +6,24 @@ module Toy.X86.Data
     , Inst (..)
     , Insts
     , Program (..)
+    , StackDirection (..)
+
     , (?)
-    , traverseOperands
+    , (//)
     , jmp
+    , ret
 
     , eax
     , edx
     , esi
     , edi
     , esp
+
+    , withStackSpace
+    , traverseOperands
     ) where
 
-import           Control.Lens           (Cons, cons)
+import           Control.Lens           (Cons, Snoc, (<|), (|>))
 import           Data.List              (intersperse)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
@@ -30,7 +36,7 @@ import           GHC.Exts               (toList)
 import           Prelude                hiding (unlines)
 import qualified Text.RawString.QQ      as QQ
 
-import           Toy.Exp                (Value)
+import           Toy.Exp                (Value, Var)
 import           Toy.SM                 (LabelId)
 
 data Operand
@@ -40,8 +46,14 @@ data Operand
     -- ^ Constant
     | Mem Int
     -- ^ Memory reference. This keeps amount of /qword/s to look back on stack
+    | HardMem Int
+    -- ^ Like `Mem`, but won't be moved by 'Toy.X86.Translator.fixMemRefs'
+    | Local Var
+    -- ^ Reerence to local variable
     | Stack Int
     -- ^ Stack reference. Temporally used in conversion from symbolic stack
+    | Backup Int
+    -- ^ Space for registers backup on function call
     deriving (Show, Eq)
 
 eax, edx, esi, edi, esp :: Operand
@@ -52,17 +64,23 @@ edi = Reg "edi"
 esp = Reg "esp"
 
 instance Buildable Operand where
-    build (Reg   r) = "%" <> build r
-    build (Const v) = "$" <> build v
-    build (Mem   i) = bprint (int%"("%F.build%")") (4 * i) esp
-    build (Stack _) = error "Stack reference remains upon compilation"
+    build (Reg   r)   = "%" <> build r
+    build (Const v)   = "$" <> build v
+    build (Mem   i)   = bprint (int%"("%F.build%")") (4 * i) esp
+    build (HardMem i) = build (Mem i)
+    build (Local _)   = error "Local var reference remains upon compilation"
+    build (Stack _)   = error "Stack reference remains upon compilation"
+    build (Backup _)  = error "Backup reference remains upon compilation"
 
--- not very beautiful :(
+data StackDirection
+    = Backward
+    | Forward
+    deriving (Show, Eq)
+
 data Inst
     = Mov Operand Operand
     | Push Operand
     | Pop Operand
-    | Call Text
     | BinOp Text Operand Operand
     | UnaryOp Text Operand
     | NoopOperator Text
@@ -70,13 +88,21 @@ data Inst
     | Comment Text
     | Label LabelId
     | Jmp Text LabelId
+    | Call Var
+    | ResizeStack StackDirection Int
     deriving (Show, Eq)
 
 jmp :: LabelId -> Inst
 jmp = Jmp "mp"
 
-(?) :: Cons s s Inst Inst => Text -> s -> s
-(?) comment = cons $ Comment comment
+ret :: Inst
+ret = NoopOperator "ret"
+
+(?) :: (Snoc s s Inst Inst, Cons s s Inst Inst) => Text -> s -> s
+(?) comment = (Comment comment <|) . (|> Comment (comment <> " end"))
+
+(//) :: (Snoc s s Inst Inst, Cons s s Inst Inst) => s -> Text -> s
+(//) = flip (?)
 
 buildInst :: Buildable b => Text -> [b] -> Builder
 buildInst name ops =
@@ -93,9 +119,13 @@ instance Buildable Inst where
         UnaryOp o op    -> buildInst o [op]
         NoopOperator o  -> build o
         Set kind op     -> bprint ("set"%pad%" "%pad) kind op
-        Comment d       -> bprint ("\t# "%pad) d
-        Label lid       -> bprint ("L"%F.build%":") lid
-        Jmp kind lid    -> bprint ("j"%pad%" L"%pad) kind lid
+        Comment d       -> bprint ("# "%pad) d
+        Label lid       -> bprint (F.build%":") lid
+        Jmp kind lid    -> bprint ("j"%pad%" "%pad) kind lid
+        ResizeStack d k ->
+            let op    = case d of { Backward -> "addl"; Forward -> "subl" }
+                shift = Const . fromIntegral $ k * 4
+            in build $ BinOp op shift esp
       where
         pad :: F.Buildable a => F.Format r (a -> r)
         pad = F.right 6 ' '
@@ -113,8 +143,12 @@ instance Buildable Program where
 .section     .text
 .global      main
 
-main:
 |]
+
+withStackSpace
+    :: (Snoc s s Inst Inst, Cons s s Inst Inst)
+    => Int -> s -> s
+withStackSpace k = (ResizeStack Forward k <| ) . ( |> ResizeStack Backward k)
 
 traverseOperands :: Applicative f => (Operand -> f Operand) -> Inst -> f Inst
 traverseOperands f (Mov a b)         = Mov <$> f a <*> f b
@@ -128,3 +162,4 @@ traverseOperands f (Set k op)        = Set k <$> f op
 traverseOperands _ o@Comment{}       = pure o
 traverseOperands _ o@Label{}         = pure o
 traverseOperands _ o@Jmp{}           = pure o
+traverseOperands _ o@ResizeStack{}   = pure o

@@ -32,8 +32,11 @@ condExec ex input =
         remIn <- C.consume
         return (remIn, out)
 
-instance Executable L.Stmt where
+instance Executable L.Program where
     exec = condExec . L.execute
+
+instance Executable L.Stmt where
+    exec = exec . L.Program mempty
 
 instance Executable SM.Insts where
     exec = condExec . SM.execute

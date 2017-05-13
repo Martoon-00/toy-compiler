@@ -5,20 +5,21 @@ module Test.Walker.Instances
     , FullTestData (..)
     ) where
 
-import           Test.Walker.Extractor (TestCaseData (..), file, readWithExtension)
+import           Test.Walker.Extractor (TestCaseData (..), file, readAll,
+                                        readWithExtension)
 import           Toy.Exp               (Value)
 import qualified Toy.Lang              as L
 
 data ProgramTestData = ProgramTestData
-    { ptdProgram :: L.Stmt
+    { ptdProgram :: L.Program
     } deriving (Show)
 
 instance TestCaseData ProgramTestData where
-    tryGetTestCaseData = readWithExtension $
-        ProgramTestData <$> file ".prog"
+    tryGetTestCaseData = readAll $
+        ProgramTestData <$> file ()
 
 data FullTestData = FullTestData
-    { ftdProgram :: L.Stmt
+    { ftdProgram :: L.Program
     , ftdInput   :: [Value]
     , ftdOutput  :: [Value]
     } deriving (Show)

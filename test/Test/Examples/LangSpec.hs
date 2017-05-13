@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists  #-}
 {-# LANGUAGE RecordWildCards  #-}
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
@@ -17,7 +18,7 @@ import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Execution   (ExecWay (..), asIs, defCompileX86, translateLang,
                                   (<~~>))
 import           Toy.Exp
-import           Toy.Lang        (Stmt (..), readS)
+import           Toy.Lang        (Stmt (..), writeS)
 import qualified Toy.Lang        as L
 
 
@@ -27,10 +28,6 @@ spec = do
         describe "examples" $ do
             it "different erroneous scenarios" $
                 errorsTest
-
-        -- TODO: move below
-        describeDir "./test/cases/exec"
-            fileTest
 
     let ways =
             [ Ex asIs
@@ -57,6 +54,8 @@ spec = do
                 it "gcd" $
                     property $ gcdTest way
 
+    describeDir "./test/cases/exec"
+        fileTest
 
 noActions :: ExecWay Stmt -> Property
 noActions = mempty & [] >-*-> []
@@ -64,19 +63,19 @@ noActions = mempty & [] >-*-> []
 ifTrueTest :: ExecWay Stmt -> Property
 ifTrueTest = sample & [] >-*-> [0]
   where
-    sample = If 1 (Write 0) (Write 1)
+    sample = If 1 (writeS 0) (writeS 1)
 
 ifFalseTest :: ExecWay Stmt -> Property
 ifFalseTest = sample & [] >-*-> [1]
   where
-    sample = If 0 (Write 0) (Write 1)
+    sample = If 0 (writeS 0) (writeS 1)
 
 ioTest :: ExecWay Stmt -> Property
 ioTest = sample ~*~ id @Value
   where
     sample = mconcat
-        [ readS "a"
-        , Write "a"
+        [ L.readS "a"
+        , writeS "a"
         ]
 
 whileTest :: ExecWay Stmt -> Property
@@ -85,16 +84,16 @@ whileTest = sample & [] >-*-> [0 .. 4]
     sample = mconcat
         [ "i" := 0
         , L.whileS ("i" <: 5) $ mconcat
-            [ Write "i"
+            [ writeS "i"
             , "i" := "i" +: 1
             ]
         ]
 
 errorsTest :: Property
 errorsTest = conjoin $
-    [ Write (5 /: 0)
-    , readS "x"
-    , Write "x"
+    [ writeS (5 /: 0)
+    , L.readS "x"
+    , writeS "x"
     ] <&> [] >--> X
 
 fibTest :: ExecWay Stmt -> Property
@@ -103,14 +102,14 @@ fibTest = sample ~*~ fib . getNonNegative
     sample = mconcat
         [ "a" := 0
         , "b" := 1
-        , readS "i"
+        , L.readS "i"
         , L.whileS ("i" >: 0) $ mconcat
             [ "c" := "b"
             , "b" := "a" +: "b"
             , "a" := "c"
             , "i" := "i" -: 1
             ]
-        , Write "a"
+        , writeS "a"
         ]
     fibs :: [Value]
     fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
@@ -121,14 +120,14 @@ gcdTest :: ExecWay Stmt -> Property
 gcdTest = sample ~*~ gcd'
   where
     sample = mconcat
-        [ readS "a"
-        , readS "b"
+        [ L.readS "a"
+        , L.readS "b"
         , L.whileS ("b" >: 0) $ mconcat
             [ "r" := "a" %: "b"
             , "a" := "b"
             , "b" := "r"
             ]
-        , Write "a"
+        , writeS "a"
         ]
     gcd' :: NonNegative Value -> NonNegative Value -> Value
     gcd' (NonNegative a) (NonNegative b) = gcd a b
@@ -137,12 +136,12 @@ minTest :: ExecWay Stmt -> Property
 minTest = sample ~*~ min @Value
   where
     sample = mconcat
-        [ readS "a"
-        , readS "b"
+        [ L.readS "a"
+        , L.readS "b"
         , If ("a" <: "b")
             ("c" := "a")
             ("c" := "b")
-        , Write "c"
+        , writeS "c"
         ]
 
 fileTest :: Either String FullTestData -> Property

@@ -10,6 +10,8 @@ module Toy.Execution.Trans
     , translateLang
     , compileX86
     , defCompileX86
+
+    , printMetaSM
     ) where
 
 import qualified Control.Category           as Cat
@@ -48,12 +50,24 @@ instance Cat.Category TranslateWay where
     id = asIs
     (.) = flip (<~~>)
 
-translateLang :: TranslateWay L.Stmt SM.Insts
-translateLang = TranslateWay "Lang to SM" $ \orig -> do
-    let prog = L.toIntermediate orig
-    tell [Meta "Lang" $ F.sformat F.shown orig]
-    tell [Meta "SM" $ T.unlines $ T.pack . show <$> toList prog]
-    return prog
+class TranslateToSM l where
+    translateLang :: TranslateWay l SM.Insts
+
+printMetaSM :: TranslateWay SM.Insts SM.Insts
+printMetaSM = TranslateWay "Log" $ \insts -> do
+    tell [Meta "SM" $ T.unlines $ T.pack . show <$> toList insts]
+    return insts
+
+instance TranslateToSM L.Program where
+    translateLang = TranslateWay "Lang to SM" $ \orig -> do
+        tell [Meta "Lang" $ F.sformat F.shown orig]
+        let prog = L.toIntermediate orig
+        translatingIn printMetaSM prog
+
+instance TranslateToSM L.Stmt where
+    translateLang =
+        let tp = translateLang
+        in  tp { translatingIn = translatingIn tp . L.Program mempty }
 
 mkBinaryUnsafe
     :: (Functor f)

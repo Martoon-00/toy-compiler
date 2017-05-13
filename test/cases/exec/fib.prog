@@ -1,0 +1,6 @@
+fun fib(k) begin
+  if k < 2 then return k else return fib (k - 1) + fib (k - 2) fi
+end
+
+x := read();
+write fib(x)

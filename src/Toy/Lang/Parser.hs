@@ -6,18 +6,21 @@ module Toy.Lang.Parser
 
 import           Control.Applicative        (Alternative (..), optional, (*>), (<*))
 import           Control.Lens               ((&))
-import           Data.Attoparsec.Combinator (lookAhead)
+import           Control.Monad              (void)
+import           Data.Attoparsec.Combinator (lookAhead, sepBy)
 import           Data.Attoparsec.Text       (Parser, asciiCI, char, decimal, decimal,
                                              endOfInput, letter, parseOnly, satisfy,
                                              signed, space, string)
 import           Data.Char                  (isAlphaNum)
-import           Data.Functor               ((<$))
+import           Data.Functor               (($>), (<$))
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromMaybe)
 import           Data.Text                  (Text)
 
-import           Toy.Exp                    (Exp (..), Var (..))
-import           Toy.Lang.Data              (Stmt (..), whileS)
+import           Toy.Exp                    (Exp (..), FunCallParams, FunSign (..),
+                                             Var (..))
+import           Toy.Lang.Data              (FunDecl, Program, Program (..), Stmt (..),
+                                             mkFunDecls, whileS, writeS)
 import           Toy.Util                   (Parsable (..))
 
 -- * Util parsers
@@ -42,12 +45,15 @@ binopLALayerP replacements ops lp = sp $ do
     nexts <- many $ foldr (<|>) mempty $ opParser <$> ops
     return $ foldl (&) first nexts
 
+paren :: Parser a -> Parser a
+paren p = sp $ char '(' *> p <* char ')'
+
 -- atom for this parser is expression parser itself
 elemP :: Parser Exp -> Parser Exp
 elemP p = sp $
-        char '(' *> p <* char ')'
+        paren p
     <|> ValueE <$> signed decimal
-    <|> ReadE  <$  asciiCI "read()"
+    <|> FunE   <$> funCallP
     <|> VarE   <$> varP
 
 expP :: Parser Exp
@@ -72,27 +78,50 @@ varP :: Parser Var
 varP = Var <$> ((:) <$> letter <*> many (satisfy isAlphaNum))
 
 keywordP :: Text -> Parser ()
-keywordP t = () <$ asciiCI t <* lookAhead (satisfy $ not . isAlphaNum)
--- TODO: eof is also ok at the end
+keywordP t = () <$ asciiCI t <* noCont
+  where noCont = lookAhead (void . satisfy $ not . isAlphaNum) <|> endOfInput
+
+enumerationP :: Parser a -> Parser [a]
+enumerationP = sp . (`sepBy` char ',') . sp
+
+functionP :: Parser FunDecl
+functionP = sp $ do
+    keywordP "def" <|> keywordP "fun"
+    name <- sp varP
+    args <- paren $ enumerationP varP
+    _    <- many space
+    keywordP "begin"
+    body <- stmtsP <|> many space $> Skip
+    keywordP "end"
+    return (FunSign name args, body)
+
+funCallP :: Parser FunCallParams
+funCallP = (,) <$> varP <* many space <*> paren (enumerationP expP)
 
 stmtP :: Parser Stmt
 stmtP = sp $
-        Write  <$> (keywordP "Write" *> expP )
-    <|> If     <$> (keywordP "If"    *> expP )
-               <*> (keywordP "then"  *> progP)
-               <*> (keywordP "else"  *> progP)
-               <*   keywordP "fi"
-    <|> whileS <$> (keywordP "While" *> expP )
-               <*> (keywordP "do"    *> progP)
-               <*   keywordP "od"
-    <|> Skip   <$   keywordP "Skip"
-    <|> (:=)   <$> (varP <* sp (string ":=")) <*> expP
+        writeS  <$> (keywordP "Write" *> expP )
+    <|> If      <$> (keywordP "If"    *> expP )
+                <*> (keywordP "then"  *> stmtsP)
+                <*> (keywordP "else"  *> stmtsP)
+                <*   keywordP "fi"
+    <|> whileS  <$> (keywordP "While" *> expP )
+                <*> (keywordP "do"    *> stmtsP)
+                <*   keywordP "od"
+    <|> Return  <$> (keywordP "Return" *> expP)
+    <|> FunCall <$>  funCallP
+    <|> Skip    <$   keywordP "Skip"
+    <|> (:=)    <$> (varP <* sp (string ":=")) <*> expP
 
-progP :: Parser Stmt
-progP = sp $
-        char '{' *> progP <* char '}'
-    <|> Seq <$> stmtP <* char ';' <*> progP
+stmtsP :: Parser Stmt
+stmtsP = sp $
+        char '{' *> stmtsP <* char '}'
+    <|> Seq <$> stmtP <* char ';' <*> stmtsP
     <|> stmtP <* optional (char ';')
 
-instance Parsable Stmt where
-    parseData = parseOnly $ progP <* endOfInput
+instance Parsable Program where
+    parseData = parseOnly $ do
+        funs <- many functionP
+        prog <- stmtsP <|> many space $> Skip
+        endOfInput
+        return $ Program (mkFunDecls funs) prog

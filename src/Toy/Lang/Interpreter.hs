@@ -3,25 +3,37 @@
 {-# LANGUAGE TypeOperators #-}
 
 module Toy.Lang.Interpreter
-    ( eval
-    , execute
+    ( execute
     ) where
 
-import           Control.Lens               (at, (?=))
+import           Control.Lens               (at, (?=), (^?))
+import           Control.Monad              (void)
+import           Control.Monad.Error.Class  (MonadError (..))
+import           Control.Monad.Morph        (hoist)
+import           Control.Monad.Reader       (ReaderT, runReaderT)
 import           Control.Monad.State.Strict (StateT)
-import           Control.Monad.Trans.Either (EitherT)
+import           Control.Monad.Trans.Either (EitherT, bimapEitherT)
 import           Data.Conduit               (yield)
 import           Data.Conduit.Lift          (evalStateC)
 import           Data.Default               (def)
+import           Data.Maybe                 (fromMaybe)
 import           Universum                  (type ($))
 
-import           Toy.Exp                    (Exec, ExecInOut, LocalVars, eval)
-import           Toy.Lang.Data              (Stmt (..), withStmt)
+import           Toy.Exp                    (Exec, ExecInOut, LocalVars, Value)
+import           Toy.Lang.Data              (ExecInterrupt (..), FunDecls, Program,
+                                             Program (..), Stmt (..), withStmt, _Error)
+import qualified Toy.Lang.Eval              as E
 
-type ExecProcess m = ExecInOut $ StateT LocalVars $ EitherT String m
 
-execute :: Monad m => Stmt -> Exec m ()
-execute = evalStateC def . executeDo
+type ExecProcess m = ExecInOut $ ReaderT FunDecls $ StateT LocalVars $ EitherT ExecInterrupt m
+
+execute :: Monad m => Program -> Exec m ()
+execute (Program funDecls stmt) =
+    hoist simplifyErr . evalStateC def . hoist (`runReaderT` funDecls) $
+        executeDo stmt
+  where
+    simplifyErr = bimapEitherT toSimpleErr id
+    toSimpleErr = fromMaybe "Return at global scope" . ( ^? _Error)
 
 -- | Execute given statement.
 executeDo :: Monad m => Stmt -> ExecProcess m ()
@@ -30,10 +42,6 @@ executeDo = \case
         value <- withStmt stmt $ eval expr
         at var ?= value
 
-    stmt@(Write expr) -> do
-        value <- withStmt stmt $ eval expr
-        yield value
-
     stmt@(If cond stmt0 stmt1) -> do
         cond' <- withStmt stmt $ eval cond
         executeDo $ if cond' /= 0 then stmt0 else stmt1
@@ -41,7 +49,28 @@ executeDo = \case
     while@(DoWhile body cond) ->
         executeDo $ Seq body (If cond while Skip)
 
+    stmt@(FunCall ("write", [expr])) -> do
+        value <- withStmt stmt $ eval expr
+        yield value
+    FunCall ("write", _) ->
+        throwError "Wrong number of arguments put to write"
+
+    FunCall (name, args) ->
+        void $ E.callFun execFun name args
+
+    stmt@(Return expr) -> do
+        value <- withStmt stmt $ eval expr
+        throwError $ Returned value
+
     Seq stmt0 stmt1 ->
         mapM_ executeDo [stmt0, stmt1]
 
     Skip -> return ()
+  where
+    eval = E.eval execFun
+
+execFun :: Monad m => Stmt -> ExecProcess m (Maybe Value)
+execFun stmt = (Nothing <$ executeDo stmt) `catchError` handler
+  where
+    handler e@(Error _)  = throwError e
+    handler (Returned v) = return (Just v)

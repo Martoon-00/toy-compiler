@@ -1,0 +1,147 @@
+{-# LANGUAGE OverloadedLists  #-}
+{-# LANGUAGE TypeApplications #-}
+
+module Test.Examples.FunSpec
+    ( spec
+    ) where
+
+import           Control.Category (id, (.))
+import           Control.Lens     ((&))
+import           Prelude          hiding (id, (.))
+import           Test.Hspec       (Spec, describe, it)
+import           Test.QuickCheck  (NonNegative (..), Property, Small (..), property)
+import           Universum        (one)
+
+import           Test.Arbitrary   ()
+import           Test.Execution   (describeExecWays, (>-*->), (~*~))
+import           Test.Util        (VerySmall (..))
+import           Toy.Execution    (ExecWay (..), defCompileX86, translateLang)
+import           Toy.Exp
+import qualified Toy.Lang         as L
+
+
+spec :: Spec
+spec = do
+    let ways =
+            [ Ex id
+            , Ex translateLang
+            , Ex $ defCompileX86 . translateLang
+            ]
+    describe "functions" $ do
+        describeExecWays ways $ \way -> do
+            describe "basic" $ do
+                it "no action" $
+                    noActionTest way
+                it "with body" $
+                    withBodyTest way
+                it "single argument" $
+                    singleArgumentTest way
+                it "arguments order" $
+                    argumentsOrderTest way
+                it "multiple arguments" $
+                    multipleArgumentsTest way
+                it "return" $
+                    returnTest way
+                it "return in the middle" $
+                    returnInTheMiddleTest way
+            describe "recursion" $ do
+                it "simple" $
+                    property $ recSimpleTest way
+                it "fib" $
+                    fibTest way
+                it "gcd" $
+                    gcdTest way
+
+singleFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
+singleFunProg argNames args body =
+    let name = "testfunc"
+        decl = one (name, (FunSign name argNames, body))
+    in  L.Program decl $ L.FunCall (name, args)
+
+singleRetFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
+singleRetFunProg argNames args body =
+    let name = "testfunc"
+        decl = one (name, (FunSign name argNames, body))
+    in  L.Program decl $ L.writeS (FunE (name, args))
+
+singleRecFunProg :: [Var] -> [Exp] -> (Var -> L.Stmt) -> L.Program
+singleRecFunProg argNames args body =
+    let name = "testfunc"
+        decl = one (name, (FunSign name argNames, body name))
+    in  L.Program decl $ L.writeS (FunE (name, args))
+
+noActionTest :: ExecWay L.Program -> Property
+noActionTest = sample & [] >-*-> []
+  where
+    sample = singleFunProg [] [] mempty
+
+withBodyTest :: ExecWay L.Program -> Property
+withBodyTest = sample & [] >-*-> [1]
+  where
+    sample = singleFunProg [] [] $ L.writeS 1
+
+singleArgumentTest :: ExecWay L.Program -> Property
+singleArgumentTest = sample & [] >-*-> [5]
+  where
+    sample = singleFunProg ["a"] [5] $ L.writeS "a"
+
+argumentsOrderTest :: ExecWay L.Program -> Property
+argumentsOrderTest = sample & [] >-*-> [1]
+  where
+    sample = singleFunProg ["a", "b"] (ValueE <$> [1, 0]) $
+             L.writeS ("a" - "b")
+
+multipleArgumentsTest :: ExecWay L.Program -> Property
+multipleArgumentsTest = sample & [] >-*-> [22020]
+  where
+    input  = ValueE . (10 ^) <$> [4 :: Int, 3..0]
+    sample = singleFunProg ["a", "b", "c", "d", "e"] input $
+             L.writeS ("a" + "b" - "c" + "d" - "e" + 11111)
+
+returnTest :: ExecWay L.Program -> Property
+returnTest = sample & [] >-*-> [7]
+  where
+    sample = singleRetFunProg [] [] $ L.Return 7
+
+returnInTheMiddleTest :: ExecWay L.Program -> Property
+returnInTheMiddleTest = sample & [] >-*-> [15]
+  where
+    sample = singleRetFunProg [] [] $ mconcat
+        [ "i" L.:= 0
+        , L.whileS (0 ==: 0) $ mconcat
+            [ L.If ("i" >: 12)
+                (L.Return "i")
+                (L.Skip)
+            , "i" L.:= "i" + 5
+            ]
+        ]
+
+recSimpleTest :: ExecWay L.Program -> Bool -> Property
+recSimpleTest way lol = sample ~*~ fun $ way
+  where
+    sample = singleRecFunProg ["a"] [readE] $ \funName ->
+             L.If ("a" ==: 0) (L.Return 1) $
+                if lol
+                then L.Return (2 * FunE (funName, ["a" - 1]))
+                else L.Return (FunE (funName, ["a" - 1]) * 2)
+    fun :: NonNegative (Small Value) -> Value
+    fun (NonNegative (Small x)) = 2 ^ x
+
+fibTest :: ExecWay L.Program -> Property
+fibTest = sample ~*~ fun
+  where
+    sample = singleRecFunProg ["a"] [readE] $ \funName ->
+             L.If ("a" <: 2) (L.Return "a") $
+                L.Return (FunE (funName, ["a" - 1]) + FunE (funName, ["a" - 2]))
+    fun :: NonNegative (VerySmall Value) -> Value
+    fun (NonNegative (VerySmall x)) = fibs !! fromIntegral x
+    fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
+
+gcdTest :: ExecWay L.Program -> Property
+gcdTest = sample ~*~ fun
+  where
+    sample = singleRecFunProg ["a", "b"] [readE, readE] $ \funName ->
+             L.If ("b" ==: 0) (L.Return "a") $
+                L.Return (FunE (funName, ["b", "a" %: "b"]))
+    fun :: NonNegative Value -> NonNegative Value -> Value
+    fun (NonNegative x) (NonNegative y) = gcd x y

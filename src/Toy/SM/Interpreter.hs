@@ -7,70 +7,102 @@ module Toy.SM.Interpreter
     ( execute
     ) where
 
-import           Control.Lens               (at, use, (%=), (+=), (.=), (?=), (^.))
-import           Control.Monad              (replicateM, unless, when)
+import           Control.Lens               (at, use, (%=), (+=), (.=), (<<%=), (?=),
+                                             (^.))
+import           Control.Monad              (forever, mzero, replicateM, void, when)
 import           Control.Monad.Error.Class  (throwError)
+import           Control.Monad.Morph        (hoist)
 import           Control.Monad.State.Strict (StateT)
+import           Control.Monad.Trans        (lift)
 import           Control.Monad.Trans.Either (EitherT)
 import           Data.Conduit               (await, yield)
-import           Data.Conduit.Lift          (evalStateC)
+import           Data.Conduit.Lift          (evalStateC, execStateC, runMaybeC)
 import           Data.Default               (def)
 import           Data.Functor               (($>))
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromMaybe)
 import qualified Data.Vector                as V
-import           Universum                  (type ($))
+import           Formatting                 (formatToString, int, string, (%))
+import           Universum                  (type ($), whenNothing)
 
-import           Toy.Exp                    (Exec, ExecInOut, arithspoon, binOp)
-import           Toy.SM.Data                (ExecState (..), Inst (..), Insts, LabelId,
-                                             esIp, esLocals, esStack)
+import           Toy.Exp                    (Exec, ExecInOut, FunSign (..), arithspoon,
+                                             binOp)
+import           Toy.SM.Data                (ExecState (..), IP, Inst (..), Insts,
+                                             LabelId (..), esIp, esLocals, esStack,
+                                             initFunName)
 
 type ExecProcess m = ExecInOut $ StateT ExecState $ EitherT String m
 
 execute :: Monad m => Insts -> Exec m ()
-execute = evalStateC def . executeDo
+execute insts = evalStateC def{ _esIp = findEntry insts } $ executeDo insts
 
 executeDo :: Monad m => Insts -> ExecProcess m ()
-executeDo insts = exec
+executeDo insts = void . runMaybeC . forever $
+    getCurInst >>= step >> esIp += 1
   where
-    exec = do
-        ip <- use esIp
-        when (ip /= V.length insts) $ do
-            step (insts V.! ip)
-            esIp += 1
-            exec
+    getCurInst = do
+        i <- use esIp
+        insts V.!? i `whenNothing` throwError "To the space and further! >>>"
 
     step = \case
-        Push v    -> push v
-        Bin op    -> do
+        Push v     -> push v
+        Drop       -> void pop
+        Bin op     -> do
             [b, a] <- replicateM 2 pop
             push =<< arithspoon (binOp op a b)
-        Load n    -> use (esLocals . at n) >>= \case
+        Load n     -> use (esLocals . at n) >>= \case
             Nothing  -> throwError $ "No variable " ++ show n ++ " defined"
             Just var -> push var
-        Store n   -> pop >>= (esLocals . at n ?= )
-        Read      -> await >>= maybe (throwError "No input") push
-        Write     -> pop >>= yield
-        Label{}   -> step Nop
-        Jmp lid   -> ensureEmptyStack >> (esIp .= getLabel lid)
-        JmpIf lid -> do
+        Store n    -> pop >>= (esLocals . at n ?= )
+        -- Read       ->
+        -- Write      ->
+        Label{}    -> step Nop
+        Jmp lid    -> do
+            ensureStackSize 0 "jump"
+            esIp .= getLabel (CLabel lid)
+        JmpIf lid  -> do
             cond <- pop
             when (cond /= 0) $ step (Jmp lid)
-        Nop       -> return ()
+        Call (FunSign "read" _) ->
+            await >>= maybe (throwError "No input") push
+        Call (FunSign "write" _) ->
+            pop >>= yield >> push 0
+        Call (FunSign name args) -> do
+            stack <- esStack <<%= drop (length args)
+            let funExecState = ExecState
+                    { _esLocals = M.fromList (zip args stack)
+                    , _esStack  = []
+                    , _esIp     = getLabel (FLabel name)
+                    }
+            -- run execution with its own `ExecState`, not allowing it to
+            -- infulence on our current state
+            funEndExecState <-
+                hoist (lift . lift) $ execStateC funExecState $ executeDo insts
+
+            esStack %= (_esStack funEndExecState ++)
+        Ret        -> lift mzero
+        Enter{}    -> throwError "Got into out of nowhere"
+        Nop        -> return ()
 
     push v = esStack %= (v:)
     pop = use esStack >>= \case
         []   -> throwError "Empty stack"
         s:ss -> (esStack .= ss) $> s
-    ensureEmptyStack = do
+    ensureStackSize size reason = do
         st <- use esStack
-        unless (null st) $ throwError "Stack expected to be empty"
+        when (length st /= size) . throwError $
+            formatToString ("Stack has size "%int%", but expected to have "%
+                            int%" instead, reason: "%string)
+                           (length st) size reason
     getLabel = buildLabelsMap insts
 
-buildLabelsMap :: Insts -> LabelId -> Int
+buildLabelsMap :: Insts -> LabelId -> IP
 buildLabelsMap (V.toList -> insts) =
     let addLabel (idx, Label li) = M.insert li idx
-        addLabel (_  , _       ) = id
+        addLabel _               = id
         labelsMap = foldr addLabel M.empty $ zip [0..] insts
     in  \labelId -> fromMaybe (error $ "No label " ++ show labelId) $
                     labelsMap ^. at labelId
+
+findEntry :: Insts -> IP
+findEntry = (`buildLabelsMap` FLabel initFunName)

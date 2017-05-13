@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists  #-}
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -17,7 +18,7 @@ import           Test.Arbitrary   ()
 import           Test.Execution   (describeExecWays, (>-*->), (~*~))
 import           Toy.Execution    (ExecWay (..), defCompileX86, translateLang)
 import           Toy.Exp
-import           Toy.Lang         (Stmt (..), readS)
+import qualified Toy.Lang         as L
 
 
 spec :: Spec
@@ -66,16 +67,16 @@ spec = do
 
 
 uniopTest
-    :: ExecWay Stmt
+    :: ExecWay L.Stmt
     -> (Value -> Value)
     -> (Exp -> Exp)
     -> Property
 uniopTest way f1 f2 =
-    let sample = readS "a" <> Write (f2 "a")
+    let sample = L.readS "a" <> L.writeS (f2 "a")
     in  way & sample ~*~ f1
 
 binopTest
-    :: ExecWay Stmt
+    :: ExecWay L.Stmt
     -> (Value -> Value -> Value)
     -> (Exp -> Exp -> Exp)
     -> Property
@@ -86,35 +87,35 @@ binopTest way f1 f2 = head
         way & sample ~*~ \(Large a) (Large b) -> f1 a b
     ]
   where
-    sample = readS "a" <> readS "b" <> Write ("a" `f2` "b")
+    sample = L.readS "a" <> L.readS "b" <> L.writeS ("a" `f2` "b")
 
-complexArithTest :: ExecWay Stmt -> Property
+complexArithTest :: ExecWay L.Stmt -> Property
 complexArithTest = sample ~*~ fun
   where
     sample = mconcat
-        [ readS "a"
-        , readS "b"
-        , readS "c"
-        , Write $ "a" +: "b" *: 10 -: "c" %: 2
+        [ L.readS "a"
+        , L.readS "b"
+        , L.readS "c"
+        , L.writeS $ "a" +: "b" *: 10 -: "c" %: 2
         ]
     fun :: Value -> Value -> Value -> Value
     fun a b c = a + b * 10 - (c `rem` 2)
 
-boolTest :: ExecWay Stmt -> Property
+boolTest :: ExecWay L.Stmt -> Property
 boolTest = sample ~*~ fun
   where
     sample = mconcat
-        [ readS "a"
-        , readS "b"
-        , readS "c"
-        , readS "d"
-        , readS "e"
-        , Write $ "a" ==: "b" &&: "c" <=: "d" ^: "e"
+        [ L.readS "a"
+        , L.readS "b"
+        , L.readS "c"
+        , L.readS "d"
+        , L.readS "e"
+        , L.writeS $ "a" ==: "b" &&: "c" <=: "d" ^: "e"
         ]
     fun :: Value -> Value -> Value -> Value -> Value -> Value
     fun a b c d e = if (a == b) && (c <= xor d e) then 1 else 0
 
-largeTest :: ExecWay Stmt -> Property
+largeTest :: ExecWay L.Stmt -> Property
 largeTest = sample & [] >-*-> [55]
   where
-    sample = Write $ foldr (+) 0 (ValueE <$> [1..10] :: [Exp])
+    sample = L.writeS $ foldr (+) 0 (ValueE <$> [1..10] :: [Exp])

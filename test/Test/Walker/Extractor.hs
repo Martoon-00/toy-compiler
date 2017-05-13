@@ -6,6 +6,7 @@ module Test.Walker.Extractor
     ( TestCaseData (..)
     , TestWalker (..)
     , file
+    , readAll
     , readWithExtension
     , readWithPathNExtension
     , describeDir
@@ -19,6 +20,7 @@ import           Control.Monad.Trans.Either (EitherT (..))
 import           Data.List                  (sort)
 import qualified Data.Set                   as S
 import           Prelude                    hiding (readFile)
+import qualified System.Console.ANSI        as ANSI
 import           System.Directory           (doesDirectoryExist, doesFileExist,
                                              listDirectory)
 import           System.FilePath.Lens       (basename)
@@ -40,6 +42,13 @@ newtype WalkingError = WalkingError String
 
 instance Exception WalkingError
 
+withColor :: ANSI.Color -> String -> String
+withColor sgr str = concat
+    [ ANSI.setSGRCode [ANSI.SetColor ANSI.Foreground ANSI.Vivid sgr]
+    , str
+    , ANSI.setSGRCode [ANSI.Reset]
+    ]
+
 walk :: forall d . TestCaseData d
      => FilePath -> (Either String d -> Property) -> SpecWith ()
 walk path apply = do
@@ -58,19 +67,20 @@ walk path apply = do
     forM_ contents $ \dirname -> do
         let dir = path </> dirname
         exists <- liftIO $ doesDirectoryExist dir
-        when exists $ describe dirname $ walk dir apply
+        when exists $ describe (withColor ANSI.Blue dirname) $ walk dir apply
   where
     unique = S.toList . mconcat . map S.fromList
 
     collectTestCase basename' = do
         edata <- liftIO $ tryGetTestCaseData path basename'
+        let cbasename = withColor ANSI.Magenta basename'
         case edata of
             Left r -> do
                 when (_readSuccess r) $
-                    it basename' $ property $
+                    it cbasename $ property $
                         failed { reason = "Incomplete test data!\n"
                                  ++ show r ++ "\n" }
-            Right d -> it basename' $ apply d
+            Right d -> it cbasename $ apply d
 
 data TestWalker d = TestWalker
     { twRoot  :: FilePath
@@ -81,7 +91,7 @@ describeDir
     :: TestCaseData d
     => FilePath -> (Either String d -> Property) -> SpecWith ()
 describeDir path apply =
-    describe path $ walk path $ once . apply
+    describe (withColor ANSI.Cyan path) $ walk path $ once . apply
 
 file :: Show b => Parsable a => b -> EitherT String (FileReader b) a
 file path = do
@@ -89,6 +99,14 @@ file path = do
     EitherT . return $ (_Left %~ withDesc) $ parseData rd
   where
     withDesc err = "(" ++ show path ++ ") " ++ err
+
+readAll
+    :: EitherT String (FileReader ()) a
+    -> FilePath
+    -> String
+    -> IO (Either Reads (Either String a))
+readAll action path name =
+    runFileReader (runEitherT action) (\_ -> path </> name)
 
 readWithExtension
     :: EitherT String (FileReader FilePath) a

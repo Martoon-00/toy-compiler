@@ -1,99 +1,185 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TypeFamilies    #-}
-{-# LANGUAGE ViewPatterns    #-}
 
 module Toy.X86.Translator
     ( compile
     , produceBinary
     ) where
 
-import           Control.Lens          (at, (%~), (&), (<&>), (^.))
-import           Control.Monad         (join)
+import           Control.Lens          (Lens', ix, (%~), (&), (+=), (-=), (<&>), (^?))
+import           Control.Monad         (forM, join)
+import           Control.Monad.State   (get, runState)
 import           Control.Monad.Trans   (MonadIO (..))
-import qualified Data.Map              as M
+import           Data.Functor          (($>))
+import           Data.Maybe            (fromMaybe)
 import           Data.Monoid           ((<>))
 import qualified Data.Set              as S
 import           Data.Text             (Text)
+import qualified Data.Vector           as V
+import           Formatting            (build, formatToString, int, shown, (%))
 import qualified Formatting            as F
 import           GHC.Exts              (fromList)
 import           System.FilePath.Posix ((</>))
 import           System.Process        (proc)
 
-import           Toy.Exp               (Var)
+import           Toy.Exp               (FunSign (..), Var)
 import qualified Toy.SM                as SM
-import           Toy.X86.Data          (Inst (..), Insts, Operand (..), Program (..), eax,
-                                        edx, esp, jmp, traverseOperands, (?))
+import           Toy.X86.Data          (Inst (..), Insts, Operand (..), Program (..),
+                                        StackDirection (..), eax, edx, jmp, ret,
+                                        withStackSpace, (//), (?))
+import           Toy.X86.Frame         (evalStackShift, mkFrame, resolveMemRefs)
 import           Toy.X86.Optimize      (optimize)
-import           Toy.X86.SymStack      (SymStackHolder, SymStackSize, allocSymStackOp,
+import           Toy.X86.SymStack      (SymStackHolder, allocSymStackOp, occupiedRegs,
                                         popSymStackOp, runSymStackHolder)
 import           Toy.X86.Util          (readCreateProcess)
 
 compile :: SM.Insts -> Insts
-compile insts =
-    let locals  = foldMap gatherLocals insts
-        ilocals = M.fromList $ flip zip [0..] $ S.toList locals
-        (symStackSize, body) = fmap (join . fmap fromList)
-                             $ runSymStackHolder $ mapM (step ilocals) insts
-        post    = [ resolveStackRefs symStackSize
-                  , mkStackShift $ length locals + fromIntegral symStackSize
-                  , correctExit
-                  , optimize
-                  ] :: [Insts -> Insts]
-    in  foldl (&) body post
+compile = mconcat . map compileFun . separateFuns
+
+compileFun :: SM.Insts -> Insts
+compileFun insts =
+    let (name, args) = case insts ^? ix 0 of
+            Just (SM.Enter n ai) -> (n, reverse ai)  -- TODO: ???
+            _                    -> error "Where is my Enter?!"
+        vars  = foldMap gatherLocals insts
+        ((symStSpace, symStackSizeAtEnd), body) = runSymStackHolder $
+            join . fmap fromList <$> mapM (step name) insts
+        check = if symStackSizeAtEnd == 0 then id
+                else error . formatToString ("Wrong sym stack size at end: "%
+                     int%"\n"%build) symStackSizeAtEnd . Program
+        frame = mkFrame args vars symStSpace
+        post  = [ resolveMemRefs frame
+                , fixMemRefs
+                , insertExit
+                , mkStackShift (evalStackShift frame)
+                , optimize
+                ] :: [Insts -> Insts]
+    in check $ foldl (&) body post
 
 -- TODO: correct errors processing
-step :: M.Map Var Int -> SM.Inst -> SymStackHolder [Inst]
-step locals = \case
+step :: Var -> SM.Inst -> SymStackHolder [Inst]
+step calleeName = \case
     SM.Nop        -> pure []
     SM.Push v     -> allocSymStackOp <&> \op -> [Mov (Const v) op]
-    SM.Load v     ->
-        case locals ^. at v of
-            Nothing  -> error "No such variable"
-            Just idx -> allocSymStackOp <&> \op -> [Mov (Mem idx) eax, Mov eax op]
-    SM.Store v    ->
-        case locals ^. at v of
-            Nothing  -> error "undetected variable!"
-            Just idx -> popSymStackOp <&> \op -> [Mov op eax, Mov eax (Mem idx)]
-    SM.Read      -> allocSymStackOp <&> \op -> [Call "read", Mov eax op]
-    SM.Write     -> popSymStackOp <&> \op -> [Mov op eax, Mov eax (Stack 0), Call "write"]
+    SM.Drop       -> popSymStackOp $> []
+    SM.Load v     -> allocSymStackOp <&> \op -> [Mov (Local v) eax, Mov eax op]
+    SM.Store v    -> popSymStackOp <&> \op -> [Mov op eax, Mov eax (Local v)]
     SM.Bin op    -> do
         op2 <- popSymStackOp
         op1 <- popSymStackOp
         resOp <- allocSymStackOp
         return $ binop op1 op2 op <> [Mov op2 eax, Mov eax resOp]
     SM.Label lid -> pure [Label lid]
-    SM.Jmp   lid -> pure [jmp lid]
-    SM.JmpIf lid -> popSymStackOp <&> \op -> [Mov op eax, BinOp "cmp" (Const 0) eax, Jmp "ne" lid]
+    SM.Jmp   lid -> pure [jmp (SM.CLabel lid)]
+    SM.JmpIf lid -> popSymStackOp <&> \op ->
+        [ Mov op eax
+        , BinOp "cmp" (Const 0) eax
+        , Jmp "ne" (SM.CLabel lid)
+        ]
+    SM.Call (FunSign name args) -> do
+        part1 <- rolloutSymStackOps (length args) [Call name]
+        part2 <- allocSymStackOp <&> \op -> [Mov eax op]
+        return $ part1 <> part2
+    SM.Ret       -> do
+        p1 <- popSymStackOp <&> \op -> [Mov op eax]
+        return $ p1 <> [jmp (SM.ELabel calleeName)]
+    SM.Enter{}   -> pure [NoopOperator "int3"]
+
+separateFuns :: SM.Insts -> [SM.Insts]
+separateFuns insts =
+    case V.findIndex (\(i, v) -> isEnter v && i > 0) $ V.indexed insts of
+        Nothing -> [insts]
+        Just k  -> let (funInsts, remaining) = V.splitAt k insts
+                   in  funInsts : separateFuns remaining
+  where
+    isEnter SM.Enter{} = True
+    isEnter _          = False
 
 gatherLocals :: SM.Inst -> S.Set Var
 gatherLocals (SM.Store v) = [v]
 gatherLocals _            = []
 
-mkStackShift :: Int -> Insts -> Insts
-mkStackShift shift insts =
-    let stackSh = Const . fromIntegral $ 4 * shift
-        prefix = BinOp "subl" stackSh esp
-        suffix = BinOp "addl" stackSh esp
-    in  [prefix] <> insts <> [suffix]
-
-correctExit :: Insts -> Insts
-correctExit = (<> [BinOp "xorl" eax eax, NoopOperator "ret"])
-
-resolveStackRefs :: Traversable f => SymStackSize -> f Inst -> f Inst
-resolveStackRefs (fromIntegral -> s) = fmap $ traverseOperands %~ resolve
+funBodyInsts :: Lens' Insts Insts
+funBodyInsts f insts =
+    let funLabelPos = fromMaybe (error "No fun label!")
+                    $ V.findIndex isFunLabel insts
+        (prelude, postlude) = V.splitAt (funLabelPos + 1) insts
+        (body   , end)      = cutLast postlude
+    in  if V.last insts /= ret then noRetAtEnd
+        else f body <&> \body' -> prelude <> body' <> end
   where
-    resolve (Mem a  ) = Mem (a + s)
-    resolve (Stack a) = Mem a
-    resolve other     = other
+    cutLast v = V.splitAt (V.length v - 1) v
+
+    isFunLabel (Label (SM.FLabel _)) = True
+    isFunLabel _                     = False
+
+    noRetAtEnd = -- TODO: simplify
+        error $ formatToString ("No 'Ret' at the end of function:\n"%shown)
+        insts
+
+insertExit :: Insts -> Insts
+insertExit = (<> [ret])
+
+mkStackShift :: Int -> Insts -> Insts
+mkStackShift shift = funBodyInsts %~ withStackSpace shift
+
+-- | Function 'step', when sets `Mem` indices, doesn't take into account
+-- possible @Push@es and @Pop@s to stack. This functions fixes it.
+--
+-- This is done as post-processing because, unlike SM, in X86 (real) stack is
+-- influenced by not many operations.
+fixMemRefs :: Traversable f => f Inst -> f Inst
+fixMemRefs insts =
+    let (res, finalStackShift) = flip runState 0 $ forM insts $ \case
+            op@(Push _)    -> (id += 1) $> op
+            op@(Pop  _)    -> (id -= 1) $> op
+            op@(ResizeStack Forward k)
+                           -> (id += k) $> op
+            op@(ResizeStack Backward k)
+                           -> (id -= k) $> op
+            (Mov o1 o2)    -> Mov <$> fixMemRef o1 <*> fixMemRef o2
+            op             -> return op
+    in  case finalStackShift of
+        0     -> res
+        extra -> error $ "Detected extra values at stack at the end: "
+                       ++ show extra
+
+  where
+    fixMemRef (Mem i) = Mem . (i +) <$> get
+    fixMemRef other   = return other
+
+-- | Puts symbolic stack on real stack. Symbolic stack becomes empty
+rolloutSymStackOps :: Int -> [Inst] -> SymStackHolder [Inst]
+rolloutSymStackOps argsNum insts = do
+    rolling <- fmap mconcat . forM [1 .. argsNum] $ \i ->
+        popSymStackOp <&> \op ->
+            [ Mov op eax                       -- TODO: with nice 'inRegs' :()
+            , Mov eax (HardMem $ argsNum - i)
+            ]
+    toBackup <- occupiedRegs
+    return . backupingOps toBackup $ withStackSpace argsNum $
+        rolling <> insts
+
+backupingOps :: [Operand] -> [Inst] -> [Inst]
+backupingOps ops insts =
+    let assoc = zip ops (Backup <$> [0..])
+        backup  = map (uncurry Mov) assoc
+        restore = map (uncurry $ flip Mov) assoc
+    in  mconcat
+        [ backup  // "buckup"
+        , insts
+        , restore  // "restore"
+        ]
 
 inRegsWith
     :: Operand              -- operand to temporally store argument in
     -> Operand              -- argument
     -> (Operand -> [Inst])  -- action with given argument, placed in register
     -> [Inst]
-inRegsWith _   op@(Reg _) f = f op
-inRegsWith aux op         f = [Mov op aux] <> f aux <> [Mov aux op]
+inRegsWith _   op@(Reg _)   f = f op
+inRegsWith aux op@(Const _) f = [Mov op aux] <> f aux
+inRegsWith aux op           f = [Mov op aux] <> f aux <> [Mov aux op]
 
 inRegs1 :: Operand -> (Operand -> [Inst]) -> [Inst]
 inRegs1 = inRegsWith eax

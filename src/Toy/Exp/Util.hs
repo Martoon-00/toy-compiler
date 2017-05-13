@@ -11,6 +11,7 @@ import           Control.Lens              (Iso', from, iso, (^.))
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Spoon             (spoonWithHandles)
 import           Data.Maybe                (fromJust)
+import           Data.String               (IsString (..))
 
 import           Toy.Exp.Data              (Value)
 
@@ -26,8 +27,8 @@ binResToBool f a b = f a b ^. from bool
 
 -- | Like `teaspoon`, but for `ArithException` only and reports details
 -- in case of error
-arithspoon :: (MonadError String m, NFData a) => a -> m a
-arithspoon = either throwError return
+arithspoon :: (MonadError e m, IsString e, NFData a) => a -> m a
+arithspoon = either (throwError . fromString) return
            . fromJust . spoonWithHandles [Handler handler] . Right
   where
     handler = return . Just . Left . (show :: ArithException -> String)

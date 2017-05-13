@@ -22,11 +22,11 @@ library
                        Toy.Execution.Trans
 
                        Toy.Exp.Data
-                       Toy.Exp.Eval
                        Toy.Exp.Operations
                        Toy.Exp.Util
 
                        Toy.Lang.Data
+                       Toy.Lang.Eval
                        Toy.Lang.Interpreter
                        Toy.Lang.Parser
                        Toy.Lang.Translator
@@ -37,6 +37,7 @@ library
                        Toy.Util.Parsable
 
                        Toy.X86.Data
+                       Toy.X86.Frame
                        Toy.X86.Optimize
                        Toy.X86.SymStack
                        Toy.X86.Translator
@@ -94,16 +95,17 @@ test-suite tests
                        Test.Execution
                        Test.Examples.ControlSpec
                        Test.Examples.ExpSpec
+                       Test.Examples.FunSpec
                        Test.Examples.LangSpec
                        Test.Examples.ParserSpec
-                       Test.Examples.SMSpec
                        Test.Walker
                        Test.Walker.Extractor
                        Test.Walker.FileReader
                        Test.Walker.Instances
                        Test.Util
   type:                exitcode-stdio-1.0
-  build-depends:       attoparsec
+  build-depends:       ansi-terminal
+                     , attoparsec
                      , base >= 4.7 && < 5
                      , containers
                      , compiler
@@ -124,10 +126,10 @@ test-suite tests
                      , text-format
                      , transformers
                      , QuickCheck
+                     , universum
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded -Wall -fno-warn-orphans
   default-extensions:  FlexibleContexts
                        FlexibleInstances
-                       OverloadedLists
                        OverloadedStrings

@@ -31,7 +31,7 @@ spec = do
             describeDir "./test/cases/control/" (controlTest way)
 
 data ControlTestData = ControlTestData
-    { ctdProgram :: L.Stmt
+    { ctdProgram :: L.Program
     , ctdInput   :: [Value]
     , ctdOutput  :: OutputValues
     } deriving (Show)
@@ -43,7 +43,7 @@ instance TestCaseData ControlTestData where
         ctdOutput  <- file ".log"
         return ControlTestData{..}
 
-controlTest :: ExecWay L.Stmt -> Either String ControlTestData -> Property
+controlTest :: ExecWay L.Program -> Either String ControlTestData -> Property
 controlTest _ (Left err) =
     counterexample ("Parse failed: " ++ err) False
 controlTest way (Right ControlTestData{..}) =
