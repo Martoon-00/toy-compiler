@@ -10,12 +10,14 @@ import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Reader      (MonadReader)
 import           Control.Monad.State       (MonadState)
 import qualified Data.Map                  as M
+import           Data.Monoid               ((<>))
 import           Data.String               (IsString (..))
 import           Formatting                (formatToString, shown, string, (%))
 import           GHC.Exts                  (IsList (..))
 
 import           Toy.Exp.Data              (Exp (..), FunCallParams, FunSign (..),
                                             LocalVars, Value, Var (..), readE)
+import           Toy.Exp.Operations        ((==:))
 
 
 -- | Statement of a program.
@@ -74,6 +76,14 @@ withStmt stmt =
 -- | @while@ loop in terms of `Stmt`.
 whileS :: Exp -> Stmt -> Stmt
 whileS cond stmt = If cond (DoWhile stmt cond) Skip
+
+-- | @repeat@ loop in terms of `Stmt`.
+repeatS :: Stmt -> Exp -> Stmt
+repeatS stmt stop = DoWhile stmt (stop ==: 0)
+
+-- | @repeat@ loop in terms of `Stmt`.
+forS :: Stmt -> Exp -> Stmt -> Stmt -> Stmt
+forS s1 cond sr body = s1 <> whileS cond (body <> sr)
 
 -- | @read@ to a given variable.
 readS :: Var -> Stmt

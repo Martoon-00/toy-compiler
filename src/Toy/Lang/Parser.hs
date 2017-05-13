@@ -20,7 +20,7 @@ import           Data.Text                  (Text)
 import           Toy.Exp                    (Exp (..), FunCallParams, FunSign (..),
                                              Var (..))
 import           Toy.Lang.Data              (FunDecl, Program, Program (..), Stmt (..),
-                                             mkFunDecls, whileS, writeS)
+                                             forS, mkFunDecls, repeatS, whileS, writeS)
 import           Toy.Util                   (Parsable (..))
 
 -- * Util parsers
@@ -75,7 +75,10 @@ expP = foldr ($) expP $
 -- * Program parser
 
 varP :: Parser Var
-varP = Var <$> ((:) <$> letter <*> many (satisfy isAlphaNum))
+varP = Var <$> do
+    l1 <- letter <|> char '_'
+    ls <- many $ satisfy isAlphaNum <|> char '_'
+    return (l1 : ls)
 
 keywordP :: Text -> Parser ()
 keywordP t = () <$ asciiCI t <* noCont
@@ -91,27 +94,43 @@ functionP = sp $ do
     args <- paren $ enumerationP varP
     _    <- many space
     keywordP "begin"
-    body <- stmtsP <|> many space $> Skip
+    body <- stmtsP <|> skipP
     keywordP "end"
     return (FunSign name args, body)
 
 funCallP :: Parser FunCallParams
 funCallP = (,) <$> varP <* many space <*> paren (enumerationP expP)
 
+skipP :: Parser Stmt
+skipP = many space $> Skip
+
 stmtP :: Parser Stmt
 stmtP = sp $
-        writeS  <$> (keywordP "Write" *> expP )
-    <|> If      <$> (keywordP "If"    *> expP )
-                <*> (keywordP "then"  *> stmtsP)
-                <*> (keywordP "else"  *> stmtsP)
-                <*   keywordP "fi"
-    <|> whileS  <$> (keywordP "While" *> expP )
-                <*> (keywordP "do"    *> stmtsP)
+        writeS  <$> (keywordP "Write"  *> expP  )
+    <|> If      <$> (keywordP "If"     *> expP  )
+                <*> (keywordP "then"   *> stmtsP)
+                <*> ifContP
+                <*  keywordP "fi"
+    <|> whileS  <$> (keywordP "While"  *> expP  )
+                <*> (keywordP "do"     *> stmtsP)
+                <*   keywordP "od"
+    <|> repeatS <$> (keywordP "Repeat" *> stmtsP)
+                <*> (keywordP "until"  *> expP  )
+    <|> forS    <$> (keywordP "for"    *> stmtP )
+                <*> (char ','          *> expP  )
+                <*> (char ','          *> stmtP )
+                <*> (keywordP "do"     *> stmtsP)
                 <*   keywordP "od"
     <|> Return  <$> (keywordP "Return" *> expP)
     <|> FunCall <$>  funCallP
     <|> Skip    <$   keywordP "Skip"
     <|> (:=)    <$> (varP <* sp (string ":=")) <*> expP
+  where
+    ifContP = If <$> (keywordP "elif" *> expP  )
+                 <*> (keywordP "then" *> stmtsP)
+                 <*> ifContP
+          <|>         keywordP "else" *> stmtsP
+          <|>         skipP
 
 stmtsP :: Parser Stmt
 stmtsP = sp $
@@ -122,6 +141,6 @@ stmtsP = sp $
 instance Parsable Program where
     parseData = parseOnly $ do
         funs <- many functionP
-        prog <- stmtsP <|> many space $> Skip
+        prog <- stmtsP <|> skipP
         endOfInput
         return $ Program (mkFunDecls funs) prog
