@@ -6,6 +6,7 @@ module Test.Walker.Extractor
     ( TestCaseData (..)
     , TestWalker (..)
     , file
+    , readAll
     , readWithExtension
     , readWithPathNExtension
     , describeDir
@@ -89,6 +90,14 @@ file path = do
     EitherT . return $ (_Left %~ withDesc) $ parseData rd
   where
     withDesc err = "(" ++ show path ++ ") " ++ err
+
+readAll
+    :: EitherT String (FileReader ()) a
+    -> FilePath
+    -> String
+    -> IO (Either Reads (Either String a))
+readAll action path name =
+    runFileReader (runEitherT action) (\_ -> path </> name)
 
 readWithExtension
     :: EitherT String (FileReader FilePath) a
