@@ -104,7 +104,8 @@ test-suite tests
                        Test.Walker.Instances
                        Test.Util
   type:                exitcode-stdio-1.0
-  build-depends:       attoparsec
+  build-depends:       ansi-terminal
+                     , attoparsec
                      , base >= 4.7 && < 5
                      , containers
                      , compiler
