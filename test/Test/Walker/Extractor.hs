@@ -73,14 +73,13 @@ walk path apply = do
 
     collectTestCase basename' = do
         edata <- liftIO $ tryGetTestCaseData path basename'
-        let cbasename = withColor ANSI.Magenta basename'
         case edata of
             Left r -> do
                 when (_readSuccess r) $
-                    it cbasename $ property $
+                    it basename' $ property $
                         failed { reason = "Incomplete test data!\n"
                                  ++ show r ++ "\n" }
-            Right d -> it cbasename $ apply d
+            Right d -> it basename' $ apply d
 
 data TestWalker d = TestWalker
     { twRoot  :: FilePath
