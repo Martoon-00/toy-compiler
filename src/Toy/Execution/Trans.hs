@@ -16,6 +16,8 @@ module Toy.Execution.Trans
 
 import qualified Control.Category           as Cat
 import           Control.Monad              ((>=>))
+import           Control.Monad.Morph        (hoist)
+import           Control.Monad.Trans        (lift)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Writer       (Writer, tell)
 import           Data.Functor               (($>))
@@ -61,7 +63,7 @@ printMetaSM = TranslateWay "Log" $ \insts -> do
 instance TranslateToSM L.Program where
     translateLang = TranslateWay "Lang to SM" $ \orig -> do
         tell [Meta "Lang" $ F.sformat F.shown orig]
-        let prog = L.toIntermediate orig
+        prog <- hoist lift $ EitherT . return $ L.toIntermediate orig
         translatingIn printMetaSM prog
 
 instance TranslateToSM L.Stmt where

@@ -30,9 +30,9 @@ launch [mode, inputFile] = do
     prog <- either parseError id . parseData <$> T.readFile inputFile
     case mode of
         "-i" -> interact $ L.execute prog
-        "-s" -> interact $ SM.execute (L.toIntermediate prog)
+        "-s" -> interact $ SM.execute $ either error id (L.toIntermediate prog)
         "-o" -> do
-            let insts      = X86.compile $ L.toIntermediate prog
+            let insts      = X86.compile $ either error id $ L.toIntermediate prog
                 outputPath = inputFile & filename %~ view basename
             runtimePath <- fromMaybe "./runtime" <$> lookupEnv "RC_RUNTIME"
             X86.produceBinary runtimePath outputPath insts

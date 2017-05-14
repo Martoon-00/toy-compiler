@@ -57,7 +57,6 @@ compileFun insts =
                 ] :: [Insts -> Insts]
     in check $ foldl (&) body post
 
--- TODO: correct errors processing
 step :: Var -> SM.Inst -> SymStackHolder [Inst]
 step calleeName = \case
     SM.Nop        -> pure []
