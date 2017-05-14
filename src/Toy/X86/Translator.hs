@@ -114,6 +114,7 @@ insertExit :: Insts -> Insts
 insertExit = (<> [ret])
 
 mkStackShift :: Int -> Insts -> Insts
+mkStackShift 0     = id
 mkStackShift shift = afterFunBeginning %~ withStackSpace shift
 
 -- | Function 'step', when sets `Mem` indices, doesn't take into account
@@ -154,6 +155,7 @@ rolloutSymStackOps argsNum insts = do
         rolling <> insts
 
 backupingOps :: [Operand] -> [Inst] -> [Inst]
+backupingOps []  insts = insts
 backupingOps ops insts =
     let assoc = zip ops (Backup <$> [0..])
         backup  = map (uncurry Mov) assoc
@@ -182,15 +184,15 @@ inRegs1 = inRegsWith eax
 binop :: Operand -> Operand -> Text -> [Inst]
 binop op1 op2 = \case
     "+" -> inRegs1 op1 $ \op1' -> [BinOp "addl" op1' op2]
-    "-" -> inRegs1 op1 $ \op1' -> [BinOp "subl" op2 op1', Mov op1' op2]  -- TODO: ???
+    "-" -> inRegs1 op1 $ \op1' -> [BinOp "subl" op2 op1', Mov op1' op2]
     "*" -> inRegs1 op2 $ \op2' -> [BinOp "imull" op1 op2']
     "/" -> idiv eax
     "%" -> idiv edx
 
-    "<"  -> cmp "g"  -- TODO: ?????
-    ">"  -> cmp "l"
-    "<=" -> cmp "ge"
-    ">=" -> cmp "le"
+    "<"  -> cmp "l"
+    ">"  -> cmp "g"
+    "<=" -> cmp "le"
+    ">=" -> cmp "ge"
     "==" -> cmp "e"
     "!=" -> cmp "ne"
 
@@ -226,7 +228,7 @@ binop op1 op2 = \case
         ]
     cmp kind = inRegsWith edx op2 $ \op2' -> "cmp" ?
         [ BinOp "xor" eax eax
-        , BinOp "cmp" op1 op2'
+        , BinOp "cmp" op2' op1
         , Set kind (Reg "al")
         , Mov eax op2'
         ]
