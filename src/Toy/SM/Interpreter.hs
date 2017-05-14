@@ -22,7 +22,7 @@ import           Data.Functor               (($>))
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromMaybe)
 import qualified Data.Vector                as V
-import           Formatting                 (formatToString, int, string, (%))
+import           Formatting                 (formatToString, int, shown, string, (%))
 import           Universum                  (type ($), whenNothing)
 
 import           Toy.Exp                    (Exec, ExecInOut, FunSign (..), arithspoon,
@@ -54,8 +54,6 @@ executeDo insts = void . runMaybeC . forever $
             Nothing  -> throwError $ "No variable " ++ show n ++ " defined"
             Just var -> push var
         Store n    -> pop >>= (esLocals . at n ?= )
-        -- Read       ->
-        -- Write      ->
         Label{}    -> step Nop
         Jmp lid    -> do
             ensureStackSize 0 "jump"
@@ -79,7 +77,9 @@ executeDo insts = void . runMaybeC . forever $
             funEndExecState <-
                 hoist (lift . lift) $ execStateC funExecState $ executeDo insts
 
-            esStack %= (_esStack funEndExecState ++)
+            case _esStack funEndExecState of
+                [x]   -> esStack %= (x:)
+                other -> throwError $ badStackAtFunEnd other
         Ret        -> lift mzero
         Enter{}    -> throwError "Got into out of nowhere"
         Nop        -> return ()
@@ -94,6 +94,7 @@ executeDo insts = void . runMaybeC . forever $
             formatToString ("Stack has size "%int%", but expected to have "%
                             int%" instead, reason: "%string)
                            (length st) size reason
+    badStackAtFunEnd = formatToString ("Not 1 argument on function end: "%shown)
     getLabel = buildLabelsMap insts
 
 buildLabelsMap :: Insts -> LabelId -> IP
@@ -104,5 +105,6 @@ buildLabelsMap (V.toList -> insts) =
     in  \labelId -> fromMaybe (error $ "No label " ++ show labelId) $
                     labelsMap ^. at labelId
 
+-- TODO: don't recalculate labels map
 findEntry :: Insts -> IP
 findEntry = (`buildLabelsMap` FLabel initFunName)

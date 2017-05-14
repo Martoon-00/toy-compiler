@@ -25,7 +25,11 @@ import           Toy.Lang.Data              (ExecInterrupt (..), FunDecls, Progr
 import qualified Toy.Lang.Eval              as E
 
 
-type ExecProcess m = ExecInOut $ ReaderT FunDecls $ StateT LocalVars $ EitherT ExecInterrupt m
+type ExecProcess m =
+    ExecInOut $
+    ReaderT FunDecls $
+    StateT LocalVars $
+    EitherT ExecInterrupt m
 
 execute :: Monad m => Program -> Exec m ()
 execute (Program funDecls stmt) =

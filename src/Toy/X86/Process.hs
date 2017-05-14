@@ -1,6 +1,8 @@
-module Toy.X86.Util
+module Toy.X86.Process
     ( readCreateProcess
     ) where
+
+-- | This module contains utils to work with OS processes.
 
 import           Control.Concurrent      (forkIO, killThread)
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)

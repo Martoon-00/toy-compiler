@@ -2,6 +2,8 @@
 {-# LANGUAGE OverloadedLists            #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
+-- | This module contains operations related to symbolic stack.
+
 module Toy.X86.SymStack
     ( regSymStack
     , atSymStack

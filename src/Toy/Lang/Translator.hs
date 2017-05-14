@@ -11,11 +11,11 @@ module Toy.Lang.Translator
 
 import           Control.Applicative  ((<|>))
 import           Control.Lens         (Snoc (..), ix, preview, prism, (<<+=), _1)
-import           Control.Monad        (join, replicateM)
+import           Control.Monad        (replicateM)
 import           Control.Monad.Reader (MonadReader, ReaderT, runReaderT)
 import           Control.Monad.State  (MonadState, State, evalState)
 import qualified Data.DList           as D
-import           Data.Foldable        (find)
+import           Data.Foldable        (find, fold)
 import qualified Data.Map             as M
 import           Data.Maybe           (fromMaybe)
 import           Data.Monoid          ((<>))
@@ -101,5 +101,5 @@ callFun name (D.fromList . reverse -> args) = do
     let mesign = find (\(FunSign n _) -> n == name) SM.externalFuns
         sign = fromMaybe (error $ formatToString ("No such function: "%build) name) $
                msign <|> mesign
-    exps <- join <$> mapM pushExp args
+    exps <- fold <$> mapM pushExp args
     return $ exps <> [SM.Call sign]

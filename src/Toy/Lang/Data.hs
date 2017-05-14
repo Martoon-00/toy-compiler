@@ -42,6 +42,7 @@ type FunDecl = (FunSign, Stmt)
 
 type FunDecls = M.Map Var FunDecl
 
+-- | Builds function declarations map
 mkFunDecls :: (IsList l, Item l ~ FunDecl) => l -> FunDecls
 mkFunDecls = fromList . map doLol . toList
   where
@@ -53,8 +54,8 @@ data Program = Program
     } deriving (Show, Eq)
 
 data ExecInterrupt
-    = Error String
-    | Returned Value
+    = Error String    -- ^ Execution exception
+    | Returned Value  -- ^ Function returns
     deriving (Eq, Show)
 makePrisms ''ExecInterrupt
 

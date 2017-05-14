@@ -1,5 +1,8 @@
 {-# LANGUAGE TupleSections #-}
 
+-- | The module contains some optimization rules which tend to decrease
+-- number of instructions to reach better readability.
+
 module Toy.X86.Optimize
     ( optimize
     ) where
@@ -21,37 +24,51 @@ optimize = fromList . optimizeTillCan . toList
         let insts' = foldr ($) insts rules
         in  guard (insts /= insts') $> insts'
 
-    localRule
-        :: ([Inst] -> Maybe [Inst])  -- ^ rule to apply to suffix
-        -> [Inst] -> [Inst]          -- ^ total rule
-    localRule _          []           = []
-    localRule tryLocally insts@(i:is) =
-        let cont = localRule tryLocally
-        in maybe (i : cont is) cont $ tryLocally insts
-
+    rules :: [TotalRule]
     rules =
         [ localRule pushPop
         , localRule movRevMov
         , localRule noStackResize
         ]
 
-    pushPop insts
-        | Push a : Pop b : is <- insts
-        , a == b
-            = Just is
-        | otherwise
-            = Nothing
+-- | Some rule which /perhaps/ optimizes given program
+type TotalRule = [Inst] -> [Inst]
 
-    movRevMov insts
-        | Mov a b : Mov c d : is <- insts
-        , a == d && b == c
-            = Just $ Mov a b : is
-        | otherwise
-            = Nothing
 
-    noStackResize insts
-        | BinOp op (Const 0) (Reg "esp") : is <- insts
-        , op == "subl" || op == "addl"
-            = Just is
-        | otherwise
-            = Nothing
+-- * Local rules
+
+-- | Local rule is rule which looks at some suffix of instructions list
+-- and tries to optimize it.
+-- This may be more convinient than defining 'TotalRule' from scratch.
+type LocalRule = [Inst] -> Maybe [Inst]
+
+localRule
+    :: LocalRule -> TotalRule
+localRule _          []           = []
+localRule tryLocally insts@(i:is) =
+    let cont = localRule tryLocally
+    in maybe (i : cont is) cont $ tryLocally insts
+
+pushPop :: LocalRule
+pushPop insts
+    | Push a : Pop b : is <- insts
+    , a == b
+        = Just is
+    | otherwise
+        = Nothing
+
+movRevMov :: LocalRule
+movRevMov insts
+    | Mov a b : Mov c d : is <- insts
+    , a == d && b == c
+        = Just $ Mov a b : is
+    | otherwise
+        = Nothing
+
+noStackResize :: LocalRule
+noStackResize insts
+    | BinOp op (Const 0) (Reg "esp") : is <- insts
+    , op == "subl" || op == "addl"
+        = Just is
+    | otherwise
+        = Nothing

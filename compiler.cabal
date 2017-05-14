@@ -39,9 +39,9 @@ library
                        Toy.X86.Data
                        Toy.X86.Frame
                        Toy.X86.Optimize
+                       Toy.X86.Process
                        Toy.X86.SymStack
                        Toy.X86.Translator
-                       Toy.X86.Util
 
   build-depends:       attoparsec
                      , base >= 4.7 && < 5

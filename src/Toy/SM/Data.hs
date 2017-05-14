@@ -15,9 +15,10 @@ import           Toy.Exp             (BinOp, FunSign (..), LocalVars, Value, Var
 type IP = Int
 
 data LabelId
-    = CLabel Int  -- control
-    | FLabel Var  -- function
-    | ELabel Var  -- function exit
+    = CLabel Int  -- ^ control
+    | FLabel Var  -- ^ function
+    | ELabel Var  -- ^ function exit, used for correct `return`s in the middle
+                  -- of the code
     deriving (Eq, Ord, Show)
 
 instance Buildable LabelId where
@@ -50,7 +51,7 @@ data ExecState = ExecState
     , _esStack  :: [Value]
       -- ^ current stack
     , _esIp     :: IP
-      -- ^ instruction pointer, no of command to execute next
+      -- ^ instruction pointer, number of command to execute next
     } deriving (Eq, Show)
 
 makeLenses ''ExecState

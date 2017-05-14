@@ -30,9 +30,9 @@ import           Toy.X86.Data          (Inst (..), Insts, Operand (..), Program 
                                         withStackSpace, (//), (?))
 import           Toy.X86.Frame         (evalStackShift, mkFrame, resolveMemRefs)
 import           Toy.X86.Optimize      (optimize)
+import           Toy.X86.Process       (readCreateProcess)
 import           Toy.X86.SymStack      (SymStackHolder, allocSymStackOp, occupiedRegs,
                                         popSymStackOp, runSymStackHolder)
-import           Toy.X86.Util          (readCreateProcess)
 
 compile :: SM.Insts -> Insts
 compile = mconcat . map compileFun . separateFuns

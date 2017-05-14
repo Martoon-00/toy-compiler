@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Toy.Exp.Util
     ( arithspoon
     , bool
@@ -31,4 +33,4 @@ arithspoon :: (MonadError e m, IsString e, NFData a) => a -> m a
 arithspoon = either (throwError . fromString) return
            . fromJust . spoonWithHandles [Handler handler] . Right
   where
-    handler = return . Just . Left . (show :: ArithException -> String)
+    handler = return . Just . Left . show @ArithException

@@ -137,7 +137,7 @@ newtype Program = Program Insts
 
 instance Buildable Program where
     build (Program insts) =
-        prefix <> mconcat (("\t" <>) . (<> "\n") . build <$> (toList insts))
+        prefix <> mconcat (("\t" <>) . (<> "\n") . build <$> toList insts)
       where
         prefix = [QQ.r|
 .section     .text

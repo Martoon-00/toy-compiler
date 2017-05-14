@@ -20,6 +20,7 @@ type Value = Int32
 
 type LocalVars = M.Map Var Value
 
+-- | Function signature
 data FunSign = FunSign Var [Var]
     deriving (Show, Eq)
 
@@ -33,6 +34,8 @@ type ExecInOut = ConduitM Value Value
 -- | Monad where execution happens
 type Exec m = ExecInOut $ EitherT String m
 
+-- | Parameters of function call. Appears in many types, so extracted to
+-- separate type alias.
 type FunCallParams = (Var, [Exp])
 
 -- | Expression
