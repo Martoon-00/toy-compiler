@@ -25,7 +25,9 @@ import           Toy.X86.SymStack    (SymStackSpace, regSymStack)
 ---------------------------
 ------ Frame layout -------
 ---------------------------
--- Arguments
+-- Argument n
+-- ...
+-- Argument 1
 -- --- <return address> ---
 -- Registers backup space
 -- Local variables

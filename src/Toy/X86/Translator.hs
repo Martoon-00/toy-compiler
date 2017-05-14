@@ -40,7 +40,7 @@ compile = mconcat . map compileFun . separateFuns
 compileFun :: SM.Insts -> Insts
 compileFun insts =
     let (name, args) = case insts ^? ix 0 of
-            Just (SM.Enter n ai) -> (n, reverse ai)  -- TODO: ???
+            Just (SM.Enter n ai) -> (n, ai)
             _                    -> error "Where is my Enter?!"
         vars  = foldMap gatherLocals insts
         ((symStSpace, symStackSizeAtEnd), body) = runSymStackHolder $
@@ -144,10 +144,10 @@ fixMemRefs insts =
 -- | Puts symbolic stack on real stack. Symbolic stack becomes empty
 rolloutSymStackOps :: Int -> [Inst] -> SymStackHolder [Inst]
 rolloutSymStackOps argsNum insts = do
-    rolling <- fmap mconcat . forM [1 .. argsNum] $ \i ->
+    rolling <- fmap mconcat . forM [0 .. argsNum - 1] $ \i ->
         popSymStackOp <&> \op ->
             [ Mov op eax                       -- TODO: with nice 'inRegs' :()
-            , Mov eax (HardMem $ argsNum - i)
+            , Mov eax (HardMem i)
             ]
     toBackup <- occupiedRegs
     return . backupingOps toBackup $ withStackSpace argsNum $
