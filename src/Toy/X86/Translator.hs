@@ -17,7 +17,7 @@ import           Data.Monoid           ((<>))
 import qualified Data.Set              as S
 import           Data.Text             (Text)
 import qualified Data.Vector           as V
-import           Formatting            (build, formatToString, int, shown, (%))
+import           Formatting            (build, formatToString, int, (%))
 import qualified Formatting            as F
 import           GHC.Exts              (fromList)
 import           System.FilePath.Posix ((</>))
@@ -51,8 +51,8 @@ compileFun insts =
         frame = mkFrame args vars symStSpace
         post  = [ resolveMemRefs frame
                 , fixMemRefs
-                , insertExit
                 , mkStackShift (evalStackShift frame)
+                , insertExit
                 , optimize
                 ] :: [Insts -> Insts]
     in check $ foldl (&) body post
@@ -100,29 +100,21 @@ gatherLocals :: SM.Inst -> S.Set Var
 gatherLocals (SM.Store v) = [v]
 gatherLocals _            = []
 
-funBodyInsts :: Lens' Insts Insts
-funBodyInsts f insts =
+afterFunBeginning :: Lens' Insts Insts
+afterFunBeginning f insts =
     let funLabelPos = fromMaybe (error "No fun label!")
                     $ V.findIndex isFunLabel insts
-        (prelude, postlude) = V.splitAt (funLabelPos + 1) insts
-        (body   , end)      = cutLast postlude
-    in  if V.last insts /= ret then noRetAtEnd
-        else f body <&> \body' -> prelude <> body' <> end
+        (prelude, body) = V.splitAt (funLabelPos + 1) insts
+    in  f body <&> \body' -> prelude <> body'
   where
-    cutLast v = V.splitAt (V.length v - 1) v
-
     isFunLabel (Label (SM.FLabel _)) = True
     isFunLabel _                     = False
-
-    noRetAtEnd = -- TODO: simplify
-        error $ formatToString ("No 'Ret' at the end of function:\n"%shown)
-        insts
 
 insertExit :: Insts -> Insts
 insertExit = (<> [ret])
 
 mkStackShift :: Int -> Insts -> Insts
-mkStackShift shift = funBodyInsts %~ withStackSpace shift
+mkStackShift shift = afterFunBeginning %~ withStackSpace shift
 
 -- | Function 'step', when sets `Mem` indices, doesn't take into account
 -- possible @Push@es and @Pop@s to stack. This functions fixes it.
