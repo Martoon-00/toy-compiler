@@ -6,6 +6,7 @@ CHECK=make -j 4 -C $(TF)
 CLEAN=make clean -C $(TF)
 TEST_RUNS=100
 
+# up to functions
 CORE_TESTS=test001 test002 test003 test004 test005 test006 test007 test008 test009 test010 test011 test012 test013 test014 test015 test016 test017 test018 test019 test020 test021 test022 test023 test024 test025 test026 #test027 test028 test029 test030
 
 build:
@@ -28,6 +29,9 @@ perfomance-tests: build
 	$(CHECK)/performance
 
 control-tests: core-tests expressions-tests deep-expressions-tests
+
+# this is separated because travis can't handle amount of 'expressions' tests
+travis-tests: core-tests deep-expressions-tests
 
 clean:
 	make clean -C $(RUNTIME)

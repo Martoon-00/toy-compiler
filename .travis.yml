@@ -2,7 +2,7 @@ sudo: required
 language: c
 env:
   - TESTS_MODE=build-in-tests TEST_RUNS=10000
-  - TESTS_MODE=deep-expressions-tests
+  - TESTS_MODE=travis-tests
 cache:
   directories:
   - "$HOME/.stack"
