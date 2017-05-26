@@ -21,7 +21,6 @@ import qualified Data.DList                 as D
 import           Data.Foldable              (find)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
-import           Data.Maybe                 (fromMaybe)
 import qualified Data.Vector                as V
 import           Formatting                 (build, formatToString, (%))
 import           Universum                  (type ($), Identity (..))

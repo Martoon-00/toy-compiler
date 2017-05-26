@@ -9,6 +9,7 @@ module Test.Examples.ParserSpec
 import           Control.Lens    (has, _Left)
 import           Test.Hspec      (Spec, describe)
 import           Test.QuickCheck (Property, counterexample, property)
+import           Universum       (Text, toString)
 
 import           Test.Walker     (ProgramTestData (..), describeDir)
 
@@ -17,10 +18,10 @@ spec = describe "parser" $ do
     describeDir "test/cases/parser/well" parseWellTest
     describeDir "test/cases/parser/bad"  parseBadTest
 
-type TestData = Either String ProgramTestData
+type TestData = Either Text ProgramTestData
 
 parseWellTest :: TestData -> Property
-parseWellTest (Left err) = counterexample ("Parse failed: " ++ err) False
+parseWellTest (Left err) = counterexample ("Parse failed: " ++ toString err) False
 parseWellTest _          = property True
 
 parseBadTest :: TestData -> Property

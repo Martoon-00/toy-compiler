@@ -11,6 +11,7 @@ import           Control.Lens    ((&), (<&>))
 import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (NonNegative (..), Property, Small (..), conjoin,
                                   counterexample, property)
+import           Universum       (Text, toString)
 
 import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->), (>-->), (~*~))
@@ -144,8 +145,8 @@ minTest = sample ~*~ min @Value
         , writeS "c"
         ]
 
-fileTest :: Either String FullTestData -> Property
+fileTest :: Either Text FullTestData -> Property
 fileTest (Left err) =
-    counterexample ("Parse failed: " ++ err) False
+    counterexample ("Parse failed: " ++ toString err) False
 fileTest (Right FullTestData{..}) =
     ftdProgram & ftdInput >--> TestRes ftdOutput

@@ -43,8 +43,7 @@ library
                        Toy.X86.SymStack
                        Toy.X86.Translator
 
-  build-depends:       attoparsec
-                     , base >= 4.7 && < 5
+  build-depends:       base >= 4.7 && < 5
                      , conduit
                      , conduit-combinators
                      , containers
@@ -56,6 +55,7 @@ library
                      , formatting
                      , filepath
                      , lens
+                     , megaparsec
                      , mmorph
                      , mtl
                      , process

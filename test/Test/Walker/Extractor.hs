@@ -19,6 +19,7 @@ import           Control.Monad.Trans        (MonadIO (..), lift)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Data.List                  (sort)
 import qualified Data.Set                   as S
+import           Formatting                 (sformat, shown, stext, (%))
 import           Prelude                    hiding (readFile)
 import qualified System.Console.ANSI        as ANSI
 import           System.Directory           (doesDirectoryExist, doesFileExist,
@@ -28,14 +29,15 @@ import           System.FilePath.Posix      ((</>))
 import           Test.Hspec                 (SpecWith, describe, it)
 import           Test.QuickCheck            (Property, once, property)
 import           Test.QuickCheck.Property   (failed, reason)
+import           Universum                  (Text)
 
 import           Test.Util                  ()
 import           Test.Walker.FileReader     (FileReader, Reads (..), readFile,
                                              runFileReader)
-import           Toy.Util                   (Parsable (..))
+import           Toy.Util                   (Parsable (..), parseData)
 
 class Show d => TestCaseData d where
-    tryGetTestCaseData :: FilePath -> String -> IO (Either Reads (Either String d))
+    tryGetTestCaseData :: FilePath -> String -> IO (Either Reads (Either Text d))
 
 newtype WalkingError = WalkingError String
     deriving (Show, Eq)
@@ -50,7 +52,7 @@ withColor sgr str = concat
     ]
 
 walk :: forall d . TestCaseData d
-     => FilePath -> (Either String d -> Property) -> SpecWith ()
+     => FilePath -> (Either Text d -> Property) -> SpecWith ()
 walk path apply = do
     validPath <- liftIO $
         (||) <$> doesDirectoryExist path <*> doesFileExist path
@@ -83,43 +85,43 @@ walk path apply = do
 
 data TestWalker d = TestWalker
     { twRoot  :: FilePath
-    , twApply :: Either String d -> Property
+    , twApply :: Either Text d -> Property
     }
 
 describeDir
     :: TestCaseData d
-    => FilePath -> (Either String d -> Property) -> SpecWith ()
+    => FilePath -> (Either Text d -> Property) -> SpecWith ()
 describeDir path apply =
     describe (withColor ANSI.Cyan path) $ walk path $ once . apply
 
-file :: Show b => Parsable a => b -> EitherT String (FileReader b) a
+file :: Show b => Parsable a => b -> EitherT Text (FileReader b) a
 file path = do
     rd <- lift $ readFile path
     EitherT . return $ (_Left %~ withDesc) $ parseData rd
   where
-    withDesc err = "(" ++ show path ++ ") " ++ err
+    withDesc = sformat ("("%shown%") "%stext) path
 
 readAll
-    :: EitherT String (FileReader ()) a
+    :: EitherT Text (FileReader ()) a
     -> FilePath
     -> String
-    -> IO (Either Reads (Either String a))
+    -> IO (Either Reads (Either Text a))
 readAll action path name =
     runFileReader (runEitherT action) (\_ -> path </> name)
 
 readWithExtension
-    :: EitherT String (FileReader FilePath) a
+    :: EitherT Text (FileReader FilePath) a
     -> FilePath
     -> String
-    -> IO (Either Reads (Either String a))
+        -> IO (Either Reads (Either Text a))
 readWithExtension action path basename' =
     runFileReader (runEitherT action) (\ext -> path </> basename' ++ ext)
 
 readWithPathNExtension
-    :: EitherT String (FileReader (FilePath, FilePath)) a
+    :: EitherT Text (FileReader (FilePath, FilePath)) a
     -> FilePath
     -> String
-    -> IO (Either Reads (Either String a))
+    -> IO (Either Reads (Either Text a))
 readWithPathNExtension action path basename' =
     runFileReader (runEitherT action) $
     \(subpath, ext) -> path </> subpath </> basename' ++ ext

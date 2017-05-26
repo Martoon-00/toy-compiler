@@ -4,29 +4,34 @@ module Toy.Lang.Parser
     (
     ) where
 
-import           Control.Applicative        (Alternative (..), optional, (*>), (<*))
-import           Control.Lens               ((&))
-import           Control.Monad              (void)
-import           Data.Attoparsec.Combinator (lookAhead, sepBy)
-import           Data.Attoparsec.Text       (Parser, asciiCI, char, decimal, decimal,
-                                             endOfInput, letter, parseOnly, satisfy,
-                                             signed, space, string)
-import           Data.Char                  (isAlphaNum)
-import           Data.Functor               (($>), (<$))
-import qualified Data.Map                   as M
-import           Data.Maybe                 (fromMaybe)
-import           Data.Text                  (Text)
+import           Control.Applicative   (Alternative (..), optional, (*>), (<*))
+import           Control.Lens          ((&))
+import           Control.Monad         (void)
+import           Data.Char             (isAlphaNum)
+import           Data.Functor          (($>), (<$))
+import qualified Data.Map              as M
+import           Data.Maybe            (fromMaybe)
+import           Data.Text             (Text)
+import           Text.Megaparsec       (char, eof, letterChar, notFollowedBy, satisfy,
+                                        sepBy, space)
+import           Text.Megaparsec.Lexer (symbol, symbol')
+import           Universum             (toString)
 
-import           Toy.Exp                    (Exp (..), FunCallParams, FunSign (..),
-                                             Var (..))
-import           Toy.Lang.Data              (FunDecl, Program, Program (..), Stmt (..),
-                                             forS, mkFunDecls, repeatS, whileS, writeS)
-import           Toy.Util                   (Parsable (..))
+import           Toy.Exp               (Exp (..), FunCallParams, FunSign (..), Var (..))
+import           Toy.Lang.Data         (FunDecl, Program, Program (..), Stmt (..), forS,
+                                        mkFunDecls, repeatS, whileS, writeS)
+import           Toy.Util              (Parsable (..), Parser)
 
 -- * Util parsers
 
 sp :: Parser a -> Parser a
 sp p = many space *> p <* many space
+
+string :: Text -> Parser ()
+string = void . symbol space . toString
+
+stringCI :: Text -> Parser ()
+stringCI = void . symbol' space . toString
 
 -- * Expression parser
 
@@ -42,7 +47,7 @@ binopLALayerP replacements ops lp = sp $ do
     let replace op = fromMaybe op $ M.lookup op replacements
     let opParser op = flip (BinE (replace op)) <$> (sp (string op) *> lp)
     first <- lp
-    nexts <- many $ foldr (<|>) mempty $ opParser <$> ops
+    nexts <- many $ foldr (<|>) (pure id) $ opParser <$> ops
     return $ foldl (&) first nexts
 
 paren :: Parser a -> Parser a
@@ -52,7 +57,7 @@ paren p = sp $ char '(' *> p <* char ')'
 elemP :: Parser Exp -> Parser Exp
 elemP p = sp $
         paren p
-    <|> ValueE <$> signed decimal
+    <|> ValueE <$> mkParser
     <|> FunE   <$> funCallP
     <|> VarE   <$> varP
 
@@ -76,13 +81,13 @@ expP = foldr ($) expP $
 
 varP :: Parser Var
 varP = Var <$> do
-    l1 <- letter <|> char '_'
+    l1 <- letterChar <|> char '_'
     ls <- many $ satisfy isAlphaNum <|> char '_'
     return (l1 : ls)
 
 keywordP :: Text -> Parser ()
-keywordP t = () <$ asciiCI t <* noCont
-  where noCont = lookAhead (void . satisfy $ not . isAlphaNum) <|> endOfInput
+keywordP t = () <$ stringCI t <* noCont
+  where noCont = notFollowedBy (satisfy isAlphaNum)
 
 enumerationP :: Parser a -> Parser [a]
 enumerationP = sp . (`sepBy` char ',') . sp
@@ -139,8 +144,9 @@ stmtsP = sp $
     <|> stmtP <* optional (char ';')
 
 instance Parsable Program where
-    parseData = parseOnly $ do
+    parserName _ = "Program"
+    mkParser = do
         funs <- many functionP
         prog <- stmtsP <|> skipP
-        endOfInput
+        eof
         return $ Program (mkFunDecls funs) prog

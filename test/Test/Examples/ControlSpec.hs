@@ -8,6 +8,7 @@ module Test.Examples.ControlSpec
 
 import           Test.Hspec      (Spec, describe)
 import           Test.QuickCheck (Property, counterexample)
+import           Universum       (Text, toString)
 
 import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->))
@@ -43,8 +44,8 @@ instance TestCaseData ControlTestData where
         ctdOutput  <- file ".log"
         return ControlTestData{..}
 
-controlTest :: ExecWay L.Program -> Either String ControlTestData -> Property
+controlTest :: ExecWay L.Program -> Either Text ControlTestData -> Property
 controlTest _ (Left err) =
-    counterexample ("Parse failed: " ++ err) False
+    counterexample ("Parse failed: " ++ toString err) False
 controlTest way (Right ControlTestData{..}) =
     (ctdInput >-*-> TestRes (getOutputValues ctdOutput)) ctdProgram way
