@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies     #-}
 
-module Test.Examples.ControlSpec
+module Test.Examples.ZControlSpec
     ( spec
     ) where
 

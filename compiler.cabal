@@ -93,11 +93,11 @@ test-suite tests
   other-modules:       Spec
                        Test.Arbitrary
                        Test.Execution
-                       Test.Examples.ControlSpec
                        Test.Examples.ExpSpec
                        Test.Examples.FunSpec
+                       Test.Examples.KParserSpec
                        Test.Examples.LangSpec
-                       Test.Examples.ParserSpec
+                       Test.Examples.ZControlSpec
                        Test.Walker
                        Test.Walker.Extractor
                        Test.Walker.FileReader

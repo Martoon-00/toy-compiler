@@ -14,12 +14,13 @@ import qualified Data.Conduit.List          as C
 import qualified Data.Text                  as T
 import           GHC.Exts                   (IsString (..))
 import           System.Process             (readProcess)
+import           Universum                  (first, toString)
 
 import           Toy.Execution.Data         (In, InOut, withEmptyInput)
 import           Toy.Exp                    (Value)
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
-import           Toy.Util                   (getOutputValues, parseDataOrFail)
+import           Toy.Util                   (getOutputValues, parseData)
 
 
 class Executable e where
@@ -49,7 +50,8 @@ instance Executable BinaryFile where
         let input = unlines (show <$> is)
         -- TODO: extract errors
         output <- grab $ readProcess path [] input
-        return . withEmptyInput . getOutputValues . parseDataOrFail $ T.pack output
+        EitherT . return . first toString $
+            withEmptyInput . getOutputValues <$> parseData (T.pack output)
       where
         showError :: SomeException -> String
         showError = show

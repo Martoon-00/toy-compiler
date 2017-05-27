@@ -1,1 +1,1 @@
-x := read
+x := read()

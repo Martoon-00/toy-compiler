@@ -1,3 +1,4 @@
+{-# LANGUAGE ApplicativeDo   #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies    #-}
 
@@ -28,8 +29,9 @@ data FullTestData = FullTestData
 
 instance TestCaseData FullTestData where
     type PathDiffObj FullTestData = Extension
-    mkTestCollector = readTestCase $
-        FullTestData
-        <$> gatherFile ".prog"
-        <*> gatherFile ".in"
-        <*> gatherFile ".out"
+    mkTestCollector = readTestCase $ do
+        ftdProgram <- gatherFile ".prog"
+        ftdInput   <- gatherFile ".in"
+        ftdOutput  <- gatherFile ".out"
+        return FullTestData{..}
+

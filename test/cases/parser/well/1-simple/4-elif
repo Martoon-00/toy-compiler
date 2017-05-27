@@ -1,0 +1,5 @@
+if 4 then skip
+elif 6 then skip
+elif 7 then skip
+else skip
+fi

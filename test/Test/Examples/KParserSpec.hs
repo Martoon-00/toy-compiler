@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
-module Test.Examples.ParserSpec
+module Test.Examples.KParserSpec
     ( spec
     ) where
 
