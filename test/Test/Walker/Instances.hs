@@ -1,12 +1,13 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Test.Walker.Instances
     ( ProgramTestData (..)
     , FullTestData (..)
     ) where
 
-import           Test.Walker.Extractor (TestCaseData (..), file, readAll,
-                                        readWithExtension)
+import           Test.Walker.Extractor (Extension, TestCaseData (..), gatherFile,
+                                        readTestCase)
 import           Toy.Exp               (Value)
 import qualified Toy.Lang              as L
 
@@ -15,8 +16,9 @@ data ProgramTestData = ProgramTestData
     } deriving (Show)
 
 instance TestCaseData ProgramTestData where
-    tryGetTestCaseData = readAll $
-        ProgramTestData <$> file ()
+    type PathDiffObj ProgramTestData = ()
+    mkTestCollector = readTestCase $
+        ProgramTestData <$> gatherFile ()
 
 data FullTestData = FullTestData
     { ftdProgram :: L.Program
@@ -25,8 +27,9 @@ data FullTestData = FullTestData
     } deriving (Show)
 
 instance TestCaseData FullTestData where
-    tryGetTestCaseData = readWithExtension $ do
-        ftdProgram <- file ".prog"
-        ftdInput   <- file ".in"
-        ftdOutput  <- file ".out"
-        return FullTestData{..}
+    type PathDiffObj FullTestData = Extension
+    mkTestCollector = readTestCase $
+        FullTestData
+        <$> gatherFile ".prog"
+        <*> gatherFile ".in"
+        <*> gatherFile ".out"

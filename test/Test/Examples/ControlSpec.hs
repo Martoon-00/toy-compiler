@@ -1,6 +1,7 @@
 {-# LANGUAGE RecordWildCards  #-}
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies     #-}
 
 module Test.Examples.ControlSpec
     ( spec
@@ -12,7 +13,8 @@ import           Universum       (Text, toString)
 
 import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->))
-import           Test.Walker     (TestCaseData (..), describeDir, file, readWithExtension)
+import           Test.Walker     (Extension, TestCaseData (..), describeDir, gatherFile,
+                                  readTestCase)
 import           Toy.Execution   (ExecWay (..), asIs, defCompileX86, translateLang,
                                   (<~~>))
 import           Toy.Exp
@@ -38,11 +40,12 @@ data ControlTestData = ControlTestData
     } deriving (Show)
 
 instance TestCaseData ControlTestData where
-    tryGetTestCaseData = readWithExtension $ do
-        ctdProgram <- file ".expr"
-        ctdInput   <- file ".input"
-        ctdOutput  <- file ".log"
-        return ControlTestData{..}
+    type PathDiffObj ControlTestData = Extension
+    mkTestCollector = readTestCase $
+        ControlTestData
+        <$> gatherFile ".expr"
+        <*> gatherFile ".input"
+        <*> gatherFile ".log"
 
 controlTest :: ExecWay L.Program -> Either Text ControlTestData -> Property
 controlTest _ (Left err) =

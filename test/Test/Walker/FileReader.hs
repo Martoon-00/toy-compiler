@@ -1,59 +1,90 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE Rank2Types                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE ViewPatterns               #-}
 
 module Test.Walker.FileReader
-    ( FileReader
-    , Reads (..)
-    , runFileReader
-    , readFile
+    ( GatherFile (..)
+
+    , TestFilesPresence (..)
+    , testFilesPresence
+    , collectFiles
+
+    , LoadedFileGatherer (..)
+    , applyFileGatherer
     ) where
 
-import           Control.Applicative       (Alternative)
-import           Control.Lens              (at, makeLenses, (.=))
-import           Control.Monad             (MonadPlus)
-import           Control.Monad.Catch       (MonadCatch, MonadThrow, SomeException,
-                                            handleAll)
-import           Control.Monad.Reader      (ReaderT, ask, runReaderT)
-import           Control.Monad.State       (StateT, mzero, runStateT)
-import           Control.Monad.Trans       (MonadIO (..), lift)
-import           Control.Monad.Trans.Maybe (MaybeT (..))
-import           Data.Default              (Default (..))
-import qualified Data.Map                  as M
-import           Data.Text                 (Text)
-import qualified Data.Text.IO              as TIO
-import           Prelude                   hiding (readFile)
+import           Control.Applicative        (Const (..))
+import           Control.Monad.Reader       (ReaderT (..), runReaderT)
+import           Control.Monad.Trans        (MonadIO (..))
+import           Control.Monad.Trans.Either (EitherT (..), runEitherT)
+import           Data.Default               (Default (..))
+import           Data.Text                  (Text)
+import qualified Data.Text.IO               as TIO
+import           Formatting                 (sformat, shown, stext, (%))
+import           Prelude                    hiding (readFile)
+import           System.Directory           (doesFileExist)
+import           Universum                  (first, (<&>))
 
-data Reads = Reads
-    { _readFails   :: M.Map FilePath (Maybe SomeException)
-    , _readSuccess :: Bool
+import           Toy.Util                   (Parsable, parseData)
+
+class GatherFile m where
+    gatherFile :: Parsable a => u -> m u a
+
+type TestFilesLocation u = u -> FilePath
+
+
+-- * Files presence
+
+newtype TestFilesPresence = TestFilesPresence ([(FilePath, Bool)])
+    deriving (Monoid)
+
+instance Default TestFilesPresence where
+    def = TestFilesPresence def
+
+instance Show TestFilesPresence where
+    show (TestFilesPresence fails) =
+        flip foldMap fails $ \(path, exists) ->
+            let outcome = if exists then "exists" else "absent"
+            in  show path ++ " -> " ++ outcome ++ "\n"
+
+newtype FilesPresenceT u a =
+    FilesPresenceT (Const (TestFilesLocation u -> IO TestFilesPresence) a)
+    deriving (Functor, Applicative)
+
+testFilesPresence :: FilesPresenceT u a -> TestFilesLocation u -> IO TestFilesPresence
+testFilesPresence (FilesPresenceT (Const tc)) loc = tc loc
+
+instance GatherFile FilesPresenceT where
+    gatherFile ext = FilesPresenceT $ Const $ \(($ ext) -> path) ->
+        doesFileExist path <&> \exists -> TestFilesPresence [(path, exists)]
+
+
+-- * Files collection
+
+newtype TestCollector u a = TestCollector
+    (ReaderT (TestFilesLocation u) (EitherT Text IO) a)
+    deriving (Functor, Applicative, Monad, MonadIO)
+
+collectFiles :: TestCollector u a -> TestFilesLocation u -> IO (Either Text a)
+collectFiles (TestCollector tc) loc = runEitherT $ runReaderT tc loc
+
+instance GatherFile TestCollector where
+    gatherFile ext = TestCollector . ReaderT $ \mkPath -> EitherT $
+        let path = mkPath ext
+            withDesc = sformat ("("%shown%") "%stext) path
+        in  first withDesc . parseData <$> TIO.readFile path
+
+
+-- * Semi-applied
+
+data LoadedFileGatherer u a = LoadedFileGatherer
+    { lfgGatherer :: forall m. (GatherFile m, Applicative (m u)) => m u a
+    , lftLocation :: TestFilesLocation u
     }
-makeLenses ''Reads
 
-instance Show Reads where
-    show Reads{..} = flip foldMap (M.toList _readFails) $ \(path, me) ->
-        let outcome = maybe "exists" show me
-        in  show path ++ " -> " ++ outcome ++ "\n"
-
-instance Default Reads where
-    def = Reads def False
-
-newtype FileReader b a = FileReader (ReaderT (b -> FilePath) (MaybeT (StateT Reads IO)) a)
-    deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch,
-              Alternative, MonadPlus)
-
-runFileReader :: FileReader b a -> (b -> FilePath) -> IO (Either Reads a)
-runFileReader (FileReader fr) dataIdToPath = do
-    (mres, fileReads) <- runStateT (runMaybeT (runReaderT fr dataIdToPath)) def
-    return $ case mres of
-        Nothing -> Left fileReads
-        Just x  -> Right x
-
-readFile :: b -> FileReader b Text
-readFile name = FileReader $ do
-    path <- ($ name) <$> ask
-    let onSuccess = do
-            lift . lift $ readSuccess .= True
-            readFails . at path .= Just Nothing
-        handler e = readFails . at path .= Just (Just e) >> mzero
-    handleAll handler $ liftIO (TIO.readFile path) <* onSuccess
+applyFileGatherer
+    :: (GatherFile m, Applicative (m u))
+    => (m u a -> TestFilesLocation u -> r) -> LoadedFileGatherer u a -> r
+applyFileGatherer f LoadedFileGatherer{..} = f lfgGatherer lftLocation
