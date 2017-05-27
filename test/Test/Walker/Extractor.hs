@@ -29,7 +29,8 @@ import           System.Directory         (doesDirectoryExist, doesFileExist,
 import           System.FilePath.Lens     (basename)
 import           System.FilePath.Posix    ((</>))
 import           Test.Hspec               (SpecWith, describe, it)
-import           Test.QuickCheck          (Property, ioProperty, once, property)
+import           Test.Hspec.QuickCheck    (modifyMaxSuccess)
+import           Test.QuickCheck          (Property, ioProperty, property)
 import           Test.QuickCheck.Property (failed, reason)
 import           Universum                (Text, guard, ($>))
 
@@ -99,7 +100,6 @@ walk path apply = do
     basenames <- fmap (ordNub . concat) $ forM contents $ \filename -> do
         let file' = path </> filename
         exists <- liftIO $ doesFileExist file'
-        -- TODO: get general base
         return $ guard exists $> extractBase (Proxy @(PathDiffObj d)) filename
     forM_ basenames collectTestCase
 
@@ -112,18 +112,19 @@ walk path apply = do
         let gatherer = mkTestCollector $ CurLocation path basename'
         presence <- liftIO $ applyFileGatherer testFilesPresence gatherer
         let TestFilesPresence presence' = presence
-        if | all snd presence' -> it basename' . ioProperty $
-            apply <$> applyFileGatherer collectFiles gatherer
+        if | all snd presence' ->
+                 modifyMaxSuccess (const 1) . it basename' . ioProperty $
+                 apply <$> applyFileGatherer collectFiles gatherer
            | any snd presence' -> do
-            it basename' $ property $
-                failed { reason = "Incomplete test data!\n" ++ show presence ++ "\n" }
+                 it basename' $ property $
+                     failed { reason = "Incomplete test data!\n" ++ show presence ++ "\n" }
            | otherwise -> return ()
 
 describeDir
     :: TestCaseData d
     => FilePath -> (Either Text d -> Property) -> SpecWith ()
 describeDir path apply =
-    describe (withColor ANSI.Cyan path) $ walk path $ once . apply
+    describe (withColor ANSI.Cyan path) $ walk path apply
 
 readTestCase
     :: HasPathConstructor u
