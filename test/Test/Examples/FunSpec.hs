@@ -15,6 +15,7 @@ import           Universum        (one)
 import           Test.Arbitrary   ()
 import           Test.Execution   (describeExecWays, (>-*->), (~*~))
 import           Test.Util        (VerySmall (..))
+import           Toy.Base
 import           Toy.Execution    (ExecWay (..), defCompileX86, translateLang)
 import           Toy.Exp
 import qualified Toy.Lang         as L

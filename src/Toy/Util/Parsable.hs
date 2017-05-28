@@ -15,11 +15,11 @@ import           Control.Monad         (void)
 import           Data.Proxy            (Proxy (..))
 import           Data.Text             (Text)
 import           Text.Megaparsec       (Dec, Parsec, char, eof, label, parse,
-                                        parseErrorPretty, space, spaceChar, (<?>))
+                                        parseErrorPretty, space, spaceChar)
 import           Text.Megaparsec.Lexer (integer, signed)
 import           Universum             (first, pass, toText, ($>))
 
-import           Toy.Exp               (Value)
+import           Toy.Base              (Value)
 
 type Parser = Parsec Dec Text
 

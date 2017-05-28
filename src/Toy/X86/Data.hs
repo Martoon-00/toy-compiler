@@ -36,7 +36,7 @@ import           GHC.Exts               (toList)
 import           Prelude                hiding (unlines)
 import qualified Text.RawString.QQ      as QQ
 
-import           Toy.Exp                (Value, Var)
+import           Toy.Base               (Value, Var)
 import           Toy.SM                 (LabelId)
 
 data Operand

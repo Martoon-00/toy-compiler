@@ -1,42 +1,8 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeOperators              #-}
-
 module Toy.Exp.Data where
 
-import           Control.Monad.Trans.Either (EitherT (..))
-import           Data.Conduit               (ConduitM)
-import           Data.Int                   (Int32)
-import qualified Data.Map                   as M
-import           Data.String                (IsString (..))
-import           Data.Text                  (Text)
-import           Universum                  (type ($), Buildable)
+import           Data.String (IsString (..))
 
--- | Variable name
-newtype Var = Var String
-    deriving (Eq, Ord, Show, IsString, Buildable)
-
--- | Expression type
-type Value = Int32
-
-type LocalVars = M.Map Var Value
-
--- | Function signature
-data FunSign = FunSign Var [Var]
-    deriving (Show, Eq)
-
-type UnaryOp = Text
-
-type BinOp = Text
-
--- | Monad with input/output capabilities
-type ExecInOut = ConduitM Value Value
-
--- | Monad where execution happens
-type Exec m = ExecInOut $ EitherT String m
-
--- | Parameters of function call. Appears in many types, so extracted to
--- separate type alias.
-type FunCallParams = (Var, [Exp])
+import           Toy.Base    (BinOp, UnaryOp, Value, Var)
 
 -- | Expression
 data Exp
@@ -62,3 +28,8 @@ instance Num Exp where
 -- | @read@ expression.
 readE :: Exp
 readE = FunE ("read", [])
+
+
+-- | Parameters of function call. Appears in many types, so extracted to
+-- separate type alias.
+type FunCallParams = (Var, [Exp])

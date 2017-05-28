@@ -25,7 +25,8 @@ import qualified Data.Vector                as V
 import           Formatting                 (build, formatToString, (%))
 import           Universum                  (type ($), Identity (..))
 
-import           Toy.Exp.Data               (Exp (..), FunSign (..), Var)
+import           Toy.Base                   (FunSign (..), Var)
+import           Toy.Exp.Data               (Exp (..))
 import qualified Toy.Lang.Data              as L
 import qualified Toy.SM.Data                as SM
 

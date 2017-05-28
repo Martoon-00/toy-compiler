@@ -11,13 +11,16 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Toy.Execution
+  exposed-modules:     Toy.Base
+                       Toy.Execution
                        Toy.Exp
                        Toy.Lang
                        Toy.SM
                        Toy.Util
                        Toy.X86
-  other-modules:       Toy.Execution.Data
+  other-modules:       Toy.Base.Data
+
+                       Toy.Execution.Data
                        Toy.Execution.Exec
                        Toy.Execution.Trans
 
@@ -93,10 +96,10 @@ test-suite tests
   other-modules:       Spec
                        Test.Arbitrary
                        Test.Execution
+                       Test.Examples.BaseSpec
                        Test.Examples.ExpSpec
                        Test.Examples.FunSpec
                        Test.Examples.KParserSpec
-                       Test.Examples.LangSpec
                        Test.Examples.ZControlSpec
                        Test.Walker
                        Test.Walker.Extractor

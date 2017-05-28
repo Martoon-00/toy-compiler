@@ -15,8 +15,8 @@ import           Data.String               (IsString (..))
 import           Formatting                (formatToString, shown, string, (%))
 import           GHC.Exts                  (IsList (..))
 
-import           Toy.Exp.Data              (Exp (..), FunCallParams, FunSign (..),
-                                            LocalVars, Value, Var (..), readE)
+import           Toy.Base                  (FunSign (..), LocalVars, Value, Var (..))
+import           Toy.Exp.Data              (Exp (..), FunCallParams, readE)
 import           Toy.Exp.Operations        ((==:))
 
 

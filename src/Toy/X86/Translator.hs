@@ -23,7 +23,7 @@ import           GHC.Exts              (fromList)
 import           System.FilePath.Posix ((</>))
 import           System.Process        (proc)
 
-import           Toy.Exp               (FunSign (..), Var)
+import           Toy.Base              (FunSign (..), Var)
 import qualified Toy.SM                as SM
 import           Toy.X86.Data          (Inst (..), Insts, Operand (..), Program (..),
                                         StackDirection (..), eax, edx, jmp, ret,

@@ -18,7 +18,7 @@ import           Data.Maybe          (fromMaybe)
 import qualified Data.Set            as S
 import           Formatting          (build, formatToString, (%))
 
-import           Toy.Exp             (Var)
+import           Toy.Base            (Var)
 import           Toy.X86.Data        (Inst, Operand (..), traverseOperands)
 import           Toy.X86.SymStack    (SymStackSpace, regSymStack)
 

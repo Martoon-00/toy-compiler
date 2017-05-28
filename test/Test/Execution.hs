@@ -25,9 +25,9 @@ import           Test.QuickCheck            (Arbitrary, Property, counterexample
 import           Test.QuickCheck.Property   (failed, reason)
 
 import           Test.Util                  (Extract (..))
+import           Toy.Base                   (Value)
 import           Toy.Execution              (ExecWay (..), Executable (..), In, InOut,
                                              Meta, Out, translatingIn, withEmptyInput)
-import           Toy.Exp                    (Value)
 
 data TestRes
     = TestRes Out  -- execution produced given output

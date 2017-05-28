@@ -16,7 +16,8 @@ import           Text.Megaparsec.Expr  (Operator (..), makeExprParser)
 import           Text.Megaparsec.Lexer (symbol, symbol')
 import           Universum             (toString)
 
-import           Toy.Exp               (Exp (..), FunCallParams, FunSign (..), Var (..))
+import           Toy.Base              (FunSign (..), Var (..))
+import           Toy.Exp               (Exp (..), FunCallParams)
 import           Toy.Lang.Data         (FunDecl, Program, Program (..), Stmt (..), forS,
                                         mkFunDecls, repeatS, whileS, writeS)
 import           Toy.Util              (Parsable (..), Parser)

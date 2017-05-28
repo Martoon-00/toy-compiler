@@ -25,8 +25,8 @@ import qualified Data.Vector                as V
 import           Formatting                 (formatToString, int, shown, string, (%))
 import           Universum                  (type ($), whenNothing)
 
-import           Toy.Exp                    (Exec, ExecInOut, FunSign (..), arithspoon,
-                                             binOp)
+import           Toy.Base                   (Exec, ExecInOut, FunSign (..))
+import           Toy.Exp                    (arithspoon, binOp)
 import           Toy.SM.Data                (ExecState (..), IP, Inst (..), Insts,
                                              LabelId (..), esIp, esLocals, esStack,
                                              initFunName)

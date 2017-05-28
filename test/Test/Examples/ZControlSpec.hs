@@ -15,9 +15,9 @@ import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->))
 import           Test.Walker     (Extension, TestCaseData (..), describeDir, gatherFile,
                                   readTestCase)
+import           Toy.Base        (Value)
 import           Toy.Execution   (ExecWay (..), asIs, defCompileX86, translateLang,
                                   (<~~>))
-import           Toy.Exp
 import qualified Toy.Lang        as L
 import           Toy.Util        (OutputValues (..))
 

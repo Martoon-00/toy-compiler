@@ -4,6 +4,7 @@ import           Control.Monad   (liftM2)
 import           Data.String     (fromString)
 import           Test.QuickCheck (Arbitrary (..), choose, elements, frequency, getSmall)
 
+import           Toy.Base        (Var (..))
 import           Toy.Exp
 import           Toy.Lang        (Stmt (..))
 import qualified Toy.Lang        as L

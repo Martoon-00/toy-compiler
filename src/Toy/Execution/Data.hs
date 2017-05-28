@@ -13,7 +13,7 @@ import           Data.Text           (Text)
 import           Data.Text.Buildable (Buildable (..))
 import           Formatting          ((%))
 import qualified Formatting          as F
-import           Toy.Exp             (Value)
+import           Toy.Base            (Value)
 
 type In = [Value]
 type Out = [Value]

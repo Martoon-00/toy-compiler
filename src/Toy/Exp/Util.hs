@@ -15,7 +15,7 @@ import           Control.Spoon             (spoonWithHandles)
 import           Data.Maybe                (fromJust)
 import           Data.String               (IsString (..))
 
-import           Toy.Exp.Data              (Value)
+import           Toy.Base                  (Value)
 
 
 bool :: Iso' Value Bool

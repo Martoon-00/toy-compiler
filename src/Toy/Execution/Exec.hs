@@ -16,8 +16,8 @@ import           GHC.Exts                   (IsString (..))
 import           System.Process             (readProcess)
 import           Universum                  (first, toString)
 
+import           Toy.Base                   (Value)
 import           Toy.Execution.Data         (In, InOut, withEmptyInput)
-import           Toy.Exp                    (Value)
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
 import           Toy.Util                   (getOutputValues, parseData)

@@ -13,8 +13,8 @@ import qualified Data.Map                  as M
 import           Formatting                (formatToString, shown, (%))
 import           Universum                 (whenNothingM)
 
-import           Toy.Exp                   (ExecInOut, Exp (..), FunSign (..), Value, Var,
-                                            arithspoon, binOp, unaryOp)
+import           Toy.Base                  (ExecInOut, FunSign (..), Value, Var)
+import           Toy.Exp                   (Exp (..), arithspoon, binOp, unaryOp)
 import           Toy.Lang.Data             (ExecInterrupt (..), MonadExec, Stmt (..),
                                             withStmt)
 

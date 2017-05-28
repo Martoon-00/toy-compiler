@@ -16,7 +16,7 @@ import           System.Environment         (getArgs, lookupEnv)
 import           System.FilePath.Lens       (basename, filename)
 import           Universum                  (whenLeftM)
 
-import           Toy.Exp                    (Exec)
+import           Toy.Base                   (Exec)
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
 import           Toy.Util                   (parseData)
