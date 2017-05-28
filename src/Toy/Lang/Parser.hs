@@ -34,9 +34,11 @@ string = void . symbol (pure ()) . toString
 stringCI :: Text -> Parser ()
 stringCI = void . symbol' (pure ()) . toString
 
-(<<|>) :: Parser a -> Parser a -> Parser a
-p1 <<|> p2 = try p1 <|> p2
-infixl 1 <<|>
+-- somehow plain `<|>` doesn't work without `try` if second parser
+-- doesn't consume anything, so this operator is introduced
+(?>) :: Parser a -> a -> Parser a
+p1 ?> p2 = try p1 <|> space $> p2
+infixl 1 ?>
 
 -- * Expression parser
 
@@ -58,7 +60,7 @@ elemP = sp $ label "Expression atom" $
   where
     withName = varP >>= \var ->
              FunE <$> funCallP var
-        <<|> pure (VarE var)
+          ?> VarE var
 
 binopLaP' :: Text -> Text -> Operator Parser Exp
 binopLaP' sym op = InfixL $ sp (string sym) $> BinE op
@@ -102,7 +104,7 @@ functionP = sp $ do
     args <- paren (enumerationP varP) <?> "Function arguments"
     _    <- space
     keywordP "begin"
-    body <- stmtsP <<|> skipP
+    body <- stmtsP ?> Skip
     keywordP "end"
     return (FunSign name args, body)
 
@@ -149,13 +151,13 @@ stmtsP :: Parser Stmt
 stmtsP = sp $
         char '{' *> stmtsP <* char '}'
     <|> (stmtP >>= \stmt ->
-             char ';' *> (Seq stmt <$> stmtsP <<|> pure stmt)
+             char ';' *> (Seq stmt <$> stmtsP ?> stmt)
          <|> pure stmt)
 
 instance Parsable Program where
     parserName _ = "Program"
     mkParser = do
         funs <- many functionP
-        prog <- stmtsP <<|> skipP
+        prog <- stmtsP ?> Skip
         eof
         return $ Program (mkFunDecls funs) prog
