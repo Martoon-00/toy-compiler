@@ -44,8 +44,8 @@ launch [mode, inputFile] = do
 
 launch _ = putStrLn $ unlines
     [ "Usage:"
-    , "\t1) mode: -i / -s / -o"
-    , "\t2) path to file with program"
+    , "  1) mode: -i / -s / -o"
+    , "  2) path to file with program"
     ]
 
 interact :: Exec IO () -> IO ()
