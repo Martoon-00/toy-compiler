@@ -10,8 +10,8 @@ import           Control.Monad         (join, void)
 import           Data.Char             (isAlphaNum)
 import           Data.Functor          (($>), (<$))
 import           Data.Text             (Text)
-import           Text.Megaparsec       (char, eof, label, letterChar, notFollowedBy,
-                                        satisfy, sepBy, space, try, (<?>))
+import           Text.Megaparsec       (char, choice, eof, label, letterChar,
+                                        notFollowedBy, satisfy, sepBy, space, try, (<?>))
 import           Text.Megaparsec.Expr  (Operator (..), makeExprParser)
 import           Text.Megaparsec.Lexer (symbol, symbol')
 import           Universum             (toString, toText)
@@ -53,14 +53,12 @@ paren p = sp $ char '(' *> p <* char ')'
 
 -- | Expression atom
 elemP :: Parser Exp
-elemP = sp $ label "Expression atom" $
-        paren expP
-    <|> ValueE <$> mkParser
-    <|> withName
-  where
-    withName = varP >>= \var ->
-             FunE <$> funCallP var
-          ?> VarE var
+elemP = sp $ label "Expression atom" $ choice
+    [ paren expP
+    , ValueE <$> mkParser
+    , do var <- varP
+         FunE <$> funCallP var ?> VarE var
+    ]
 
 binopLaP' :: Text -> Text -> Operator Parser Exp
 binopLaP' sym op = InfixL $ sp (string sym) $> BinE op
@@ -142,17 +140,19 @@ stmtP = sp $
                  <*> ifContP
           <|> keywordP "else" *> stmtsP
           <|> skipP
-    withName = label "Assignment or function" $
-               varP >>= \var ->
-            (var :=) <$> (sp (string ":=") *> expP)
-        <|> FunCall  <$> funCallP var
+    withName = label "Assignment or function" $ do
+        var <- varP
+        choice
+            [ (var :=) <$> (sp (string ":=") *> expP)
+            , FunCall  <$> funCallP var
+            ]
 
 stmtsP :: Parser Stmt
 stmtsP = sp $
         char '{' *> stmtsP <* char '}'
     <|> (stmtP >>= \stmt ->
              char ';' *> (Seq stmt <$> stmtsP ?> stmt)
-         <|> pure stmt)
+          ?> stmt)
 
 instance Parsable Program where
     parserName _ = "Program"
