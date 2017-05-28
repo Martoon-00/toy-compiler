@@ -17,8 +17,8 @@ import           Data.Default              (def)
 import           Data.Functor              (($>))
 import qualified Data.Map                  as M
 import qualified Data.Vector               as V
-import           Formatting                (formatToString, int, shown, string, (%))
-import           Universum                 (whenNothing)
+import           Formatting                (build, int, sformat, shown, string, (%))
+import           Universum                 (Text, whenNothing)
 
 import           Toy.Base                  (Exec, FunSign (..))
 import           Toy.Exp                   (arithspoon, binOp)
@@ -29,7 +29,7 @@ import           Toy.SM.Data               (ExecState (..), IP, Inst (..), Insts
 execute :: Monad m => Insts -> Exec m ()
 execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
   where
-    -- executeDo :: Monad m => ExecInOut $ StateT ExecState $ EitherT String m
+    -- executeDo :: Monad m => ExecInOut $ StateT ExecState $ EitherT Text m
     executeDo = void . runMaybeC . forever $
         getCurInst >>= step >> esIp += 1
 
@@ -44,7 +44,7 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
             [b, a] <- replicateM 2 pop
             push =<< arithspoon (binOp op a b)
         Load n     -> use (esLocals . at n) >>= \case
-            Nothing  -> throwError $ "No variable " ++ show n ++ " defined"
+            Nothing  -> throwError $ sformat ("No variable "%build%" defined") n
             Just var -> push var
         Store n    -> pop >>= (esLocals . at n ?= )
         Label{}    -> step Nop
@@ -85,20 +85,20 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
     ensureStackSize size reason = do
         st <- use esStack
         when (length st /= size) . throwError $
-            formatToString ("Stack has size "%int%", but expected to have "%
+            sformat ("Stack has size "%int%", but expected to have "%
                             int%" instead, reason: "%string)
                            (length st) size reason
-    badStackAtFunEnd = formatToString ("Not 1 argument on function end: "%shown)
-    getLabel :: MonadError String m => LabelId -> m IP
+    badStackAtFunEnd = sformat ("Not 1 argument on function end: "%shown)
+    getLabel :: MonadError Text m => LabelId -> m IP
     getLabel = buildLabelsMap insts
     programEntry =
         either (error "No entry point exists") id $
         getLabel (FLabel initFunName)
 
-buildLabelsMap :: MonadError String m => Insts -> LabelId -> m IP
+buildLabelsMap :: MonadError Text m => Insts -> LabelId -> m IP
 buildLabelsMap (V.toList -> insts) =
     let addLabel (idx, Label li) = M.insert li idx
         addLabel _               = id
         labelsMap = foldr addLabel M.empty $ zip [0..] insts
     in  \labelId -> (labelsMap ^. at labelId) `whenNothing`
-                        throwError ("No label " ++ show labelId)
+                        throwError (sformat ("No label "%build) labelId)

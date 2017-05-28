@@ -82,6 +82,7 @@ executable launch
                       , conduit
                       , compiler
                       , either
+                      , formatting
                       , lens
                       , mtl
                       , text

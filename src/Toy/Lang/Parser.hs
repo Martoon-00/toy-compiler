@@ -14,7 +14,7 @@ import           Text.Megaparsec       (char, eof, label, letterChar, notFollowe
                                         satisfy, sepBy, space, try, (<?>))
 import           Text.Megaparsec.Expr  (Operator (..), makeExprParser)
 import           Text.Megaparsec.Lexer (symbol, symbol')
-import           Universum             (toString)
+import           Universum             (toString, toText)
 
 import           Toy.Base              (FunSign (..), Var (..))
 import           Toy.Exp               (Exp (..), FunCallParams)
@@ -86,7 +86,7 @@ varP :: Parser Var
 varP = sp $ Var <$> do
     l1 <- letterChar
     ls <- many $ satisfy isAlphaNum <|> char '_'
-    return (l1 : ls)
+    return $ toText (l1 : ls)
 
 keywordP :: Text -> Parser ()
 keywordP t = () <$ stringCI t <* noCont

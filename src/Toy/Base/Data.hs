@@ -8,11 +8,10 @@ import           Data.Conduit               (ConduitM)
 import           Data.Int                   (Int32)
 import qualified Data.Map                   as M
 import           Data.String                (IsString (..))
-import           Data.Text                  (Text)
-import           Universum                  (type ($), Buildable)
+import           Universum                  (type ($), Buildable, Text)
 
 -- | Variable name
-newtype Var = Var String
+newtype Var = Var Text
     deriving (Eq, Ord, Show, IsString, Buildable)
 
 -- | Expression type
@@ -32,4 +31,4 @@ type BinOp = Text
 type ExecInOut = ConduitM Value Value
 
 -- | Monad where execution happens
-type Exec m = ExecInOut $ EitherT String m
+type Exec m = ExecInOut $ EitherT Text m

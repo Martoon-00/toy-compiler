@@ -40,7 +40,7 @@ import           Toy.Base               (Value, Var)
 import           Toy.SM                 (LabelId)
 
 data Operand
-    = Reg String
+    = Reg Text
     -- ^ Register
     | Const Value
     -- ^ Constant

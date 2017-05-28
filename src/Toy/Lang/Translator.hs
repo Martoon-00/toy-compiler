@@ -22,8 +22,8 @@ import           Data.Foldable              (find)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
 import qualified Data.Vector                as V
-import           Formatting                 (build, formatToString, (%))
-import           Universum                  (type ($), Identity (..))
+import           Formatting                 (build, sformat, (%))
+import           Universum                  (type ($), Identity (..), Text)
 
 import           Toy.Base                   (FunSign (..), Var)
 import           Toy.Exp.Data               (Exp (..))
@@ -36,12 +36,13 @@ instance Snoc (D.DList a) (D.DList a) a a where
 instance Traversable D.DList where
     traverse f l = fmap D.fromList $ traverse f (D.toList l)
 
-type TransState = RWST L.FunDecls (D.DList SM.Inst) Int $ ExceptT String Identity
+type TransState = RWST L.FunDecls (D.DList SM.Inst) Int $ ExceptT Text Identity
 
-execTransState :: L.FunDecls -> TransState () -> Either String (D.DList SM.Inst)
-execTransState funcs action = runIdentity . runExceptT $ snd <$> evalRWST action funcs 0
+execTransState :: L.FunDecls -> TransState () -> Either Text (D.DList SM.Inst)
+execTransState funcs action =
+    runIdentity . runExceptT $ snd <$> evalRWST action funcs 0
 
-toIntermediate :: L.Program -> Either String SM.Insts
+toIntermediate :: L.Program -> Either Text SM.Insts
 toIntermediate (L.Program funcs main) =
     fmap (V.fromList . D.toList) . execTransState funcs $ do
         mapM_ convertFun $ snd <$> M.toList funcs
@@ -93,7 +94,7 @@ callFun name (D.fromList . reverse -> args) = do
     sign <- fmap fromJust . runMaybeT $
             MaybeT (preview (ix name . _1))
         <|> MaybeT (return $ find (\(FunSign n _) -> n == name) SM.externalFuns)
-        <|> throwError (formatToString ("No such function: "%build) name)
+        <|> throwError (sformat ("No such function: "%build) name)
 
     mapM_ pushExp args
     tell [SM.Call sign]
