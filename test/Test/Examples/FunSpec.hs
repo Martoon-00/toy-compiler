@@ -9,7 +9,7 @@ import           Control.Category (id, (.))
 import           Control.Lens     ((&))
 import           Prelude          hiding (id, (.))
 import           Test.Hspec       (Spec, describe, it)
-import           Test.QuickCheck  (NonNegative (..), Property, Small (..), property)
+import           Test.QuickCheck  (NonNegative (..), Property, property)
 import           Universum        (one)
 
 import           Test.Arbitrary   ()
@@ -117,16 +117,14 @@ returnInTheMiddleTest = sample & [] >-*-> [15]
             ]
         ]
 
-recSimpleTest :: ExecWay L.Program -> Bool -> Property
-recSimpleTest way lol = sample ~*~ fun $ way
+recSimpleTest :: ExecWay L.Program -> Property
+recSimpleTest way = sample ~*~ fun $ way
   where
     sample = singleRecFunProg ["a"] [readE] $ \funName ->
              L.If ("a" ==: 0) (L.Return 1) $
-                if lol
-                then L.Return (2 * FunE (funName, ["a" - 1]))
-                else L.Return (FunE (funName, ["a" - 1]) * 2)
-    fun :: NonNegative (Small Value) -> Value
-    fun (NonNegative (Small x)) = 2 ^ x
+                L.Return (3 * FunE (funName, ["a" - 1]) * 2)
+    fun :: NonNegative (VerySmall Value) -> Value
+    fun (NonNegative (VerySmall x)) = 6 ^ x
 
 fibTest :: ExecWay L.Program -> Property
 fibTest = sample ~*~ fun
