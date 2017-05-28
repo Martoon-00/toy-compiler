@@ -5,21 +5,14 @@
 module Toy.Util.Parsable
     ( Parser
     , Parsable (..)
-    , OutputValues (..)
     , parseData
     , parseDataWith
     ) where
 
-import           Control.Applicative   (many, (<|>))
-import           Control.Monad         (void)
-import           Data.Proxy            (Proxy (..))
-import           Data.Text             (Text)
-import           Text.Megaparsec       (Dec, Parsec, char, eof, label, parse,
-                                        parseErrorPretty, space, spaceChar)
-import           Text.Megaparsec.Lexer (integer, signed)
-import           Universum             (first, pass, toText, ($>))
-
-import           Toy.Base              (Value)
+import           Data.Proxy      (Proxy (..))
+import           Data.Text       (Text)
+import           Text.Megaparsec (Dec, Parsec, parse, parseErrorPretty)
+import           Universum       (first, toText)
 
 type Parser = Parsec Dec Text
 
@@ -34,21 +27,3 @@ parseDataWith name parser =
 
 parseData :: forall a. Parsable a => Text -> Either Text a
 parseData = parseDataWith (parserName $ Proxy @a) mkParser
-
-instance Parsable Value where
-    parserName _ = "Value"
-    mkParser = label "Value" $ fmap fromIntegral $ space *> signed pass integer
-
-instance Parsable [Value] where
-    parserName _ = "Values list"
-    mkParser = many (mkParser <* space) <* eof
-
-newtype OutputValues = OutputValues
-    { getOutputValues :: [Value]
-    } deriving (Show, Eq)
-
-instance Parsable OutputValues where
-    parserName _ = "Output values"
-    mkParser = do
-        let spaces = many (void spaceChar <|> char '>' $> ())
-        OutputValues <$> (spaces *> many (mkParser <* spaces)) <* eof

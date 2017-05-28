@@ -19,6 +19,7 @@ library
                        Toy.Util
                        Toy.X86
   other-modules:       Toy.Base.Data
+                       Toy.Base.Parsable
 
                        Toy.Execution.Data
                        Toy.Execution.Exec
