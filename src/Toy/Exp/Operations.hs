@@ -5,6 +5,7 @@ module Toy.Exp.Operations where
 import           Control.Lens ((%~))
 import           Data.Bits    (xor, (.&.), (.|.))
 
+import           Toy.Base     (BinOp, UnaryOp, Value)
 import           Toy.Exp.Data
 import           Toy.Exp.Util (asToBool, binResToBool, bool)
 

@@ -10,7 +10,7 @@ import qualified Data.Vector         as V
 import           Formatting          (bprint, (%))
 import qualified Formatting          as F
 
-import           Toy.Exp             (BinOp, FunSign (..), LocalVars, Value, Var)
+import           Toy.Base            (BinOp, FunSign (..), LocalVars, Value, Var)
 
 type IP = Int
 

@@ -14,17 +14,17 @@ import qualified Data.Conduit.List          as C
 import qualified Data.Text                  as T
 import           GHC.Exts                   (IsString (..))
 import           System.Process             (readProcess)
-import           Universum                  (first, toString)
+import           Universum                  (Text, toText)
 
+import           Toy.Base                   (Value, getOutputValues)
 import           Toy.Execution.Data         (In, InOut, withEmptyInput)
-import           Toy.Exp                    (Value)
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
-import           Toy.Util                   (getOutputValues, parseData)
+import           Toy.Util                   (parseData)
 
 
 class Executable e where
-    exec :: e -> In -> EitherT String IO InOut
+    exec :: e -> In -> EitherT Text IO InOut
 
 condExec :: Monad m => ConduitM Value Value m () -> In -> m InOut
 condExec ex input =
@@ -50,10 +50,10 @@ instance Executable BinaryFile where
         let input = unlines (show <$> is)
         -- TODO: extract errors
         output <- grab $ readProcess path [] input
-        EitherT . return . first toString $
+        EitherT . return $
             withEmptyInput . getOutputValues <$> parseData (T.pack output)
       where
-        showError :: SomeException -> String
-        showError = show
+        showError :: SomeException -> Text
+        showError = toText . show
 
         grab = EitherT . fmap (_Left %~ showError) . try

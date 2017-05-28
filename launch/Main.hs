@@ -9,14 +9,15 @@ import           Control.Monad.Trans.Either (EitherT (..))
 import           Data.Conduit               (awaitForever, yield, ($$), (=$=))
 import           Data.Maybe                 (fromMaybe)
 import qualified Data.Text.IO               as T
+import           Formatting                 (sformat, string, (%))
 import           GHC.IO.Handle              (hFlush)
 import           GHC.IO.Handle.FD           (stdout)
-import           Prelude                    hiding (interact)
+import           Prelude                    hiding (error, interact)
 import           System.Environment         (getArgs, lookupEnv)
 import           System.FilePath.Lens       (basename, filename)
-import           Universum                  (whenLeftM)
+import           Universum                  (error, whenLeftM, (<>))
 
-import           Toy.Exp                    (Exec)
+import           Toy.Base                   (Exec)
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
 import           Toy.Util                   (parseData)
@@ -36,10 +37,10 @@ launch [mode, inputFile] = do
                 outputPath = inputFile & filename %~ view basename
             runtimePath <- fromMaybe "./runtime" <$> lookupEnv "RC_RUNTIME"
             X86.produceBinary runtimePath outputPath insts
-                `whenLeftM` \err -> error $ "Compilation error: " ++ err
-        other -> error $ "Unrecognised mode: " ++ other
+                `whenLeftM` \err -> error $ "Compilation error: " <> err
+        other -> error $ sformat ("Unrecognised mode: "%string) other
   where
-    parseError err = error $ "Parse error: " ++ show err
+    parseError err = error $ "Parse error: " <> err
 
 launch _ = putStrLn $ unlines
     [ "Usage:"
@@ -54,4 +55,4 @@ interact executor = handleRes $ readInput =$= executor $$ writeOutput
     readValue        = liftIO $ putStr "> " >> hFlush stdout >> readLn
     writeOutput      = awaitForever $ liftIO . print
     handleRes action = runEitherT action `whenLeftM` printError
-    printError err   = error $ "Execution failed: " ++ err
+    printError err   = error $ "Execution failed: " <> err

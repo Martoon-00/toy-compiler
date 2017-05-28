@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Test.Examples.LangSpec
+module Test.Examples.BaseSpec
     ( spec
     ) where
 
@@ -16,6 +16,7 @@ import           Universum       (Text, toString)
 import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->), (>-->), (~*~))
 import           Test.Walker     (FullTestData (..), describeDir)
+import           Toy.Base
 import           Toy.Execution   (ExecWay (..), asIs, defCompileX86, translateLang,
                                   (<~~>))
 import           Toy.Exp

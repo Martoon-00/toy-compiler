@@ -17,17 +17,20 @@ import           Control.Monad              (forM_)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Writer       (runWriter)
 import           Control.Spoon              (teaspoon)
+import           Formatting                 (formatToString, stext, (%))
 import qualified Formatting                 as F
 import           GHC.Exts                   (IsList (..))
+import           Prelude                    hiding (show)
 import           Test.Hspec.Core.Spec       (SpecWith, describe)
 import           Test.QuickCheck            (Arbitrary, Property, counterexample,
                                              ioProperty, once, property, within, (===))
 import           Test.QuickCheck.Property   (failed, reason)
+import           Universum                  (Text, show, toString, (<>))
 
 import           Test.Util                  (Extract (..))
+import           Toy.Base                   (Value)
 import           Toy.Execution              (ExecWay (..), Executable (..), In, InOut,
                                              Meta, Out, translatingIn, withEmptyInput)
-import           Toy.Exp                    (Value)
 
 data TestRes
     = TestRes Out  -- execution produced given output
@@ -38,12 +41,13 @@ instance IsList TestRes where
     fromList = TestRes
     toList _ = error "toList: impossible for TestRes"
 
-assess :: (Eq a, Show a) => Either String a -> Maybe a -> Property
+assess :: (Eq a, Show a) => Either Text a -> Maybe a -> Property
 assess result expected =
     let dispm = maybe "failure" show
-        dispe = either ("failure: " ++) show
+        dispe = either ("failure: " <>) show
     in  counterexample
-        ("Expected " ++ dispm expected ++ ", got " ++ dispe result)
+        (formatToString ("Expected "%stext%", got "%stext)
+            (dispm expected) (dispe result))
         (expected == result ^? _Right)
 
 withTimeout :: Property -> Property
@@ -70,7 +74,7 @@ infix 5 >-*->
     expected X             = Nothing
 
 class Equivalence f where
-    equivalent :: f -> ([Value] -> EitherT String IO Value) -> [Value] -> Property
+    equivalent :: f -> ([Value] -> EitherT Text IO Value) -> [Value] -> Property
 
 instance Equivalence Value where
     equivalent r f0 args = withTimeout . ioProperty $ do
@@ -124,6 +128,6 @@ propTranslating (Ex way) prog testExec =
     let (eExec, metas) = runWriter . runEitherT $ translatingIn way prog
     in  metaCounterexample metas $
         case eExec of
-            Left err -> property
-                        failed { reason = "Translation failed: " ++ err }
+            Left err -> property failed
+                        { reason = "Translation failed: " ++ toString err }
             Right e  -> testExec e

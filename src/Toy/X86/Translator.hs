@@ -15,15 +15,15 @@ import           Data.Functor          (($>))
 import           Data.Maybe            (fromMaybe)
 import           Data.Monoid           ((<>))
 import qualified Data.Set              as S
-import           Data.Text             (Text)
 import qualified Data.Vector           as V
 import           Formatting            (build, formatToString, int, (%))
 import qualified Formatting            as F
 import           GHC.Exts              (fromList)
 import           System.FilePath.Posix ((</>))
 import           System.Process        (proc)
+import           Universum             (Text, first, toText)
 
-import           Toy.Exp               (FunSign (..), Var)
+import           Toy.Base              (FunSign (..), Var)
 import qualified Toy.SM                as SM
 import           Toy.X86.Data          (Inst (..), Insts, Operand (..), Program (..),
                                         StackDirection (..), eax, edx, jmp, ret,
@@ -237,7 +237,7 @@ produceBinary
     => FilePath
     -> FilePath
     -> Insts
-    -> m (Either String ())
+    -> m (Either Text ())
 produceBinary runtimePath outputPath insts = liftIO $ do
     let cmd = proc "gcc"
             ["-m32"                        -- for x32
@@ -246,4 +246,5 @@ produceBinary runtimePath outputPath insts = liftIO $ do
             , "-"                          -- take source from stdin
             , "-o", outputPath
             ]
-    readCreateProcess cmd $ F.formatToString F.build (Program insts)
+    res <- readCreateProcess cmd $ F.formatToString F.build (Program insts)
+    return $ first toText res

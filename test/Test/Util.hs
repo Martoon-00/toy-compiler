@@ -31,7 +31,7 @@ newtype VerySmall a = VerySmall
     } deriving (Eq, Ord, Show, Num)
 
 instance (Arbitrary a, Integral a) => Arbitrary (VerySmall a) where
-    arbitrary = VerySmall . flip rem 10 <$> arbitrary
+    arbitrary = VerySmall . flip rem 5 <$> arbitrary
 
 
 class Extract a p where

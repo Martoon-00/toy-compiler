@@ -16,6 +16,7 @@ import           Test.QuickCheck  (Large (..), Property, counterexample)
 
 import           Test.Arbitrary   ()
 import           Test.Execution   (describeExecWays, (>-*->), (~*~))
+import           Toy.Base
 import           Toy.Execution    (ExecWay (..), defCompileX86, translateLang)
 import           Toy.Exp
 import qualified Toy.Lang         as L

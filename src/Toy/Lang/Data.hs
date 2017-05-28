@@ -12,11 +12,12 @@ import           Control.Monad.State       (MonadState)
 import qualified Data.Map                  as M
 import           Data.Monoid               ((<>))
 import           Data.String               (IsString (..))
-import           Formatting                (formatToString, shown, string, (%))
+import           Formatting                (sformat, sformat, shown, stext, (%))
 import           GHC.Exts                  (IsList (..))
+import           Universum                 (Text)
 
-import           Toy.Exp.Data              (Exp (..), FunCallParams, FunSign (..),
-                                            LocalVars, Value, Var (..), readE)
+import           Toy.Base                  (FunSign (..), LocalVars, Value, Var (..))
+import           Toy.Exp.Data              (Exp (..), FunCallParams, readE)
 import           Toy.Exp.Operations        ((==:))
 
 
@@ -54,13 +55,13 @@ data Program = Program
     } deriving (Show, Eq)
 
 data ExecInterrupt
-    = Error String    -- ^ Execution exception
+    = Error Text      -- ^ Execution exception
     | Returned Value  -- ^ Function returns
     deriving (Eq, Show)
 makePrisms ''ExecInterrupt
 
 instance IsString ExecInterrupt where
-    fromString = Error
+    fromString = Error . fromString
 
 type MonadExec m =
     ( MonadError ExecInterrupt m
@@ -72,7 +73,7 @@ type MonadExec m =
 withStmt :: MonadError ExecInterrupt m => Stmt -> m a -> m a
 withStmt stmt =
     flip catchError $
-    throwError . (_Error %~ formatToString (shown%": "%string) stmt)
+    throwError . (_Error %~ sformat (shown%": "%stext) stmt)
 
 -- | @while@ loop in terms of `Stmt`.
 whileS :: Exp -> Stmt -> Stmt

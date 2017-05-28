@@ -9,7 +9,7 @@ module Test.Walker.Instances
 
 import           Test.Walker.Extractor (Extension, TestCaseData (..), gatherFile,
                                         readTestCase)
-import           Toy.Exp               (Value)
+import           Toy.Base              (Value)
 import qualified Toy.Lang              as L
 
 data ProgramTestData = ProgramTestData
@@ -34,4 +34,3 @@ instance TestCaseData FullTestData where
         ftdInput   <- gatherFile ".in"
         ftdOutput  <- gatherFile ".out"
         return FullTestData{..}
-

@@ -3,7 +3,9 @@ module Test.Arbitrary where
 import           Control.Monad   (liftM2)
 import           Data.String     (fromString)
 import           Test.QuickCheck (Arbitrary (..), choose, elements, frequency, getSmall)
+import           Universum       (toText)
 
+import           Toy.Base        (Var (..))
 import           Toy.Exp
 import           Toy.Lang        (Stmt (..))
 import qualified Toy.Lang        as L
@@ -42,7 +44,7 @@ instance Arbitrary Stmt where
         [ (3, liftM2 (:=) arbitrary arbitrary)
         , (2, L.writeS <$> arbitrary)
         , (1, If <$> arbitrary <*> arbitrary <*> arbitrary)
-        , (1, forLoop <$> (Var . (:"_i") <$> choose ('a', 'z'))
+        , (1, forLoop <$> (Var . toText . (:"_i") <$> choose ('a', 'z'))
                       <*> elements [0, 1] <*> arbitrary)
         , (4, Seq <$> arbitrary <*> arbitrary)
         , (8, pure Skip)

@@ -22,9 +22,11 @@ import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Writer       (Writer, tell)
 import           Data.Functor               (($>))
 import qualified Data.Text                  as T
+import           Data.Text.Buildable        (Buildable (..))
 import qualified Formatting                 as F
 import           GHC.Exts                   (toList)
 import           System.IO.Unsafe           (unsafeInterleaveIO, unsafePerformIO)
+import           Universum                  (Text, (<>))
 
 import           Toy.Execution.Data         (Meta, Meta (..))
 import           Toy.Execution.Exec         (BinaryFile (..), Executable (..))
@@ -33,16 +35,19 @@ import qualified Toy.SM                     as SM
 import qualified Toy.X86                    as X86
 
 data TranslateWay src dist = TranslateWay
-    { showTranslateWay :: String
-    , translatingIn    :: src -> EitherT String (Writer [Meta]) dist
+    { showTranslateWay :: Text
+    , translatingIn    :: src -> EitherT Text (Writer [Meta]) dist
     }
 
+instance Buildable (TranslateWay a b) where
+    build TranslateWay{..} = build showTranslateWay
+
 instance Show (TranslateWay a b) where
-    show TranslateWay{..} = showTranslateWay
+    show = F.formatToString F.build
 
 (<~~>) :: TranslateWay a b -> TranslateWay b c -> TranslateWay a c
 tw1 <~~> tw2 =
-    TranslateWay (showTranslateWay tw1 ++ " ~> " ++ showTranslateWay tw2)
+    TranslateWay (showTranslateWay tw1 <> " ~> " <> showTranslateWay tw2)
                  (translatingIn tw1 >=> translatingIn tw2)
 
 asIs :: TranslateWay a a
@@ -92,5 +97,8 @@ defCompileX86 = compileX86 "./runtime/" "./tmp/prog"
 
 data ExecWay l = forall e . Executable e => Ex (TranslateWay l e)
 
+instance Buildable (ExecWay l) where
+    build (Ex way) = build way
+
 instance Show (ExecWay l) where
-    show (Ex way) = show way
+    show = F.formatToString F.build

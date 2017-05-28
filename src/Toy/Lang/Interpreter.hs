@@ -19,7 +19,7 @@ import           Data.Default               (def)
 import           Data.Maybe                 (fromMaybe)
 import           Universum                  (type ($))
 
-import           Toy.Exp                    (Exec, ExecInOut, LocalVars, Value)
+import           Toy.Base                   (Exec, ExecInOut, LocalVars, Value)
 import           Toy.Lang.Data              (ExecInterrupt (..), FunDecls, Program,
                                              Program (..), Stmt (..), withStmt, _Error)
 import qualified Toy.Lang.Eval              as E
