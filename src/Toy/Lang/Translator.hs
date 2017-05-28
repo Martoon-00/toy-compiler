@@ -71,7 +71,6 @@ convert (L.DoWhile s c) = do
     convert s
     pushExp c
     tell [SM.JmpIf label]
-convert (L.FunCall (name, args)) = callFun name args >> tell [SM.Drop]
 convert (L.Return e) = pushExp e >> tell [SM.Ret]
 
 genLabel :: MonadState Int m => m Int
@@ -87,7 +86,7 @@ pushExp (BinE op a b) = do
     pushExp a
     pushExp b
     tell [SM.Bin op]
-pushExp (FunE (n, args)) = callFun n args
+pushExp (FunE n args) = callFun n args
 
 callFun :: Var -> [Exp] -> TransState ()
 callFun name (D.fromList . reverse -> args) = do

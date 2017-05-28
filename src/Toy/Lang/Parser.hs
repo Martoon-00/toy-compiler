@@ -17,9 +17,9 @@ import           Text.Megaparsec.Lexer (symbol, symbol')
 import           Universum             (toString, toText)
 
 import           Toy.Base              (FunSign (..), Var (..))
-import           Toy.Exp               (Exp (..), FunCallParams)
+import           Toy.Exp               (Exp (..))
 import           Toy.Lang.Data         (FunDecl, Program, Program (..), Stmt (..), forS,
-                                        mkFunDecls, repeatS, whileS, writeS)
+                                        funCallS, mkFunDecls, repeatS, whileS, writeS)
 import           Toy.Util              (Parsable (..), Parser)
 
 
@@ -57,7 +57,7 @@ elemP = sp $ label "Expression atom" $ choice
     [ paren expP
     , ValueE <$> mkParser
     , do var <- varP
-         FunE <$> funCallP var ?> VarE var
+         FunE var <$> funCallArgsP ?> VarE var
     ]
 
 binopLaP' :: Text -> Text -> Operator Parser Exp
@@ -106,10 +106,10 @@ functionP = sp $ do
     keywordP "end"
     return (FunSign name args, body)
 
-funCallP :: Var -> Parser FunCallParams
-funCallP name =
+funCallArgsP :: Parser [Exp]
+funCallArgsP =
     label "Function call arguments" $
-    sp $ (name, ) <$> paren (enumerationP expP)
+    sp $ paren (enumerationP expP)
 
 skipP :: Parser Stmt
 skipP = space $> Skip
@@ -143,8 +143,8 @@ stmtP = sp $
     withName = label "Assignment or function" $ do
         var <- varP
         choice
-            [ (var :=) <$> (sp (string ":=") *> expP)
-            , FunCall  <$> funCallP var
+            [ (var :=)     <$> (sp (string ":=") *> expP)
+            , funCallS var <$> funCallArgsP
             ]
 
 stmtsP :: Parser Stmt

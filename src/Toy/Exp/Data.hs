@@ -1,8 +1,8 @@
 module Toy.Exp.Data where
 
-import           Data.String (IsString (..))
+import           Data.String   (IsString (..))
 
-import           Toy.Base    (BinOp, UnaryOp, Value, Var)
+import           Toy.Base.Data (BinOp, UnaryOp, Value, Var)
 
 -- | Expression
 data Exp
@@ -10,7 +10,7 @@ data Exp
     | VarE Var
     | UnaryE UnaryOp Exp
     | BinE BinOp Exp Exp
-    | FunE FunCallParams
+    | FunE Var [Exp]
     deriving (Eq, Show)
 
 instance IsString Exp where
@@ -27,9 +27,8 @@ instance Num Exp where
 
 -- | @read@ expression.
 readE :: Exp
-readE = FunE ("read", [])
-
+readE = FunE "read" []
 
 -- | Parameters of function call. Appears in many types, so extracted to
 -- separate type alias.
-type FunCallParams = (Var, [Exp])
+-- type FunCallParams = (Var, [Exp])

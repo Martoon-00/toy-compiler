@@ -7,13 +7,11 @@ module Toy.Lang.Interpreter
     ) where
 
 import           Control.Lens               (at, (?=), (^?))
-import           Control.Monad              (void)
 import           Control.Monad.Error.Class  (MonadError (..))
 import           Control.Monad.Morph        (hoist)
 import           Control.Monad.Reader       (ReaderT, runReaderT)
 import           Control.Monad.State.Strict (StateT)
 import           Control.Monad.Trans.Either (EitherT, bimapEitherT)
-import           Data.Conduit               (yield)
 import           Data.Conduit.Lift          (evalStateC)
 import           Data.Default               (def)
 import           Data.Maybe                 (fromMaybe)
@@ -52,15 +50,6 @@ executeDo = \case
 
     while@(DoWhile body cond) ->
         executeDo $ Seq body (If cond while Skip)
-
-    stmt@(FunCall ("write", [expr])) -> do
-        value <- withStmt stmt $ eval expr
-        yield value
-    FunCall ("write", _) ->
-        throwError "Wrong number of arguments put to write"
-
-    FunCall (name, args) ->
-        void $ E.callFun execFun name args
 
     stmt@(Return expr) -> do
         value <- withStmt stmt $ eval expr

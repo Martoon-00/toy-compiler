@@ -17,7 +17,7 @@ import           GHC.Exts                  (IsList (..))
 import           Universum                 (Text)
 
 import           Toy.Base                  (FunSign (..), LocalVars, Value, Var (..))
-import           Toy.Exp.Data              (Exp (..), FunCallParams, readE)
+import           Toy.Exp.Data              (Exp (..), readE)
 import           Toy.Exp.Operations        ((==:))
 
 
@@ -27,13 +27,12 @@ data Stmt
     | If Exp Stmt Stmt
     | DoWhile Stmt Exp  -- ^ @do .. while@ is the most optimal / easy loop from
                         -- asm point of view
-    | FunCall FunCallParams
     | Return Exp
     | Seq Stmt Stmt
     | Skip
     deriving (Eq, Show)
 
-infix 0 :=
+infix 2 :=
 
 instance Monoid Stmt where
     mempty = Skip
@@ -75,6 +74,13 @@ withStmt stmt =
     flip catchError $
     throwError . (_Error %~ sformat (shown%": "%stext) stmt)
 
+
+-- TODO: move to separate module and remove suffix @s@
+
+-- | Drops diven expression
+dropS :: Exp -> Stmt
+dropS e = "_" := e
+
 -- | @while@ loop in terms of `Stmt`.
 whileS :: Exp -> Stmt -> Stmt
 whileS cond stmt = If cond (DoWhile stmt cond) Skip
@@ -91,6 +97,10 @@ forS s1 cond sr body = s1 <> whileS cond (body <> sr)
 readS :: Var -> Stmt
 readS v = v := readE
 
+-- | Function call in terms of `Stmt`.
+funCallS :: Var -> [Exp] -> Stmt
+funCallS name args = dropS $ FunE name args
+
 -- | @write@ given expression.
 writeS :: Exp -> Stmt
-writeS = FunCall . ("write", ) . pure
+writeS = funCallS "write" . pure

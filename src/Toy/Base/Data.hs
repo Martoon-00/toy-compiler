@@ -19,10 +19,6 @@ type Value = Int32
 
 type LocalVars = M.Map Var Value
 
--- | Function signature
-data FunSign = FunSign Var [Var]
-    deriving (Show, Eq)
-
 type UnaryOp = Text
 
 type BinOp = Text

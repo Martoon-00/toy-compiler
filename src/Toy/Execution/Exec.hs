@@ -30,7 +30,8 @@ condExec :: Monad m => ConduitM Value Value m () -> In -> m InOut
 condExec ex input =
     C.sourceList input $$ do
         out   <- ex $= C.consume
-        remIn <- C.consume
+        remIn <- C.take 100
+        -- ^ don't take too much for the sake of infinite inputs
         return (remIn, out)
 
 instance Executable L.Program where
@@ -57,3 +58,4 @@ instance Executable BinaryFile where
         showError = toText . show
 
         grab = EitherT . fmap (_Left %~ showError) . try
+
