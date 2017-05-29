@@ -24,6 +24,7 @@ import           System.Process        (proc)
 import           Universum             (Text, first, toText)
 
 import           Toy.Base              (FunSign (..), Var)
+import           Toy.Exp               (ExpRes (..))
 import qualified Toy.SM                as SM
 import           Toy.X86.Data          (Inst (..), Insts, Operand (..), Program (..),
                                         StackDirection (..), eax, edx, jmp, ret,
@@ -32,7 +33,7 @@ import           Toy.X86.Frame         (evalStackShift, mkFrame, resolveMemRefs)
 import           Toy.X86.Optimize      (optimize)
 import           Toy.X86.Process       (readCreateProcess)
 import           Toy.X86.SymStack      (SymStackHolder, allocSymStackOp, occupiedRegs,
-                                        popSymStackOp, runSymStackHolder)
+                                        peekSymStackOp, popSymStackOp, runSymStackHolder)
 
 compile :: SM.Insts -> Insts
 compile = mconcat . map compileFun . separateFuns
@@ -46,25 +47,32 @@ compileFun insts =
         ((symStSpace, symStackSizeAtEnd), body) = runSymStackHolder $
             join . fmap fromList <$> mapM (step name) insts
         check = if symStackSizeAtEnd == 0 then id
-                else error . formatToString ("Wrong sym stack size at end: "%
-                     int%"\n"%build) symStackSizeAtEnd . Program
+                else error . badStackAtEnd symStackSizeAtEnd . Program
         frame = mkFrame args vars symStSpace
         post  = [ resolveMemRefs frame
                 , fixMemRefs
                 , mkStackShift (evalStackShift frame)
                 , insertExit
                 , optimize
+                , check
                 ] :: [Insts -> Insts]
-    in check $ foldl (&) body post
+    in foldl (&) body post
+  where
+    badStackAtEnd =
+        formatToString ("Wrong sym stack size at end: "%int%"\n"%build)
 
 step :: Var -> SM.Inst -> SymStackHolder [Inst]
 step calleeName = \case
     SM.Nop        -> pure []
-    SM.Push v     -> allocSymStackOp <&> \op -> [Mov (Const v) op]
+    SM.Push v     -> allocSymStackOp <&> \op -> [Mov (Const $ case v of ValueR v' -> v') op]
     SM.Drop       -> popSymStackOp $> []
+    SM.Dup        -> do
+        from <- peekSymStackOp
+        to <- allocSymStackOp
+        return [Mov from eax, Mov eax to]
     SM.Load v     -> allocSymStackOp <&> \op -> [Mov (Local v) eax, Mov eax op]
     SM.Store v    -> popSymStackOp <&> \op -> [Mov op eax, Mov eax (Local v)]
-    SM.Bin op    -> do
+    SM.Bin op     -> do
         op2 <- popSymStackOp
         op1 <- popSymStackOp
         resOp <- allocSymStackOp

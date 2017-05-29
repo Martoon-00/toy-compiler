@@ -14,6 +14,7 @@ module Toy.X86.SymStack
     , symStackSize
     , allocSymStackOp
     , popSymStackOp
+    , peekSymStackOp
     , occupiedRegs
     ) where
 
@@ -70,6 +71,9 @@ allocSymStackOp = do
 
 popSymStackOp :: SymStackHolder Operand
 popSymStackOp = SymStackHolder $ (symSize <-= 1) <&> atSymStack
+
+peekSymStackOp :: SymStackHolder Operand
+peekSymStackOp = SymStackHolder $ use symSize <&> atSymStack
 
 occupiedRegs :: SymStackHolder [Operand]
 occupiedRegs = symStackSize <&> flip take (V.toList regSymStack)

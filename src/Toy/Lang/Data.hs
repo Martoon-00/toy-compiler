@@ -16,9 +16,8 @@ import           Formatting                (sformat, sformat, shown, stext, (%))
 import           GHC.Exts                  (IsList (..))
 import           Universum                 (Text)
 
-import           Toy.Base                  (FunSign (..), LocalVars, Value, Var (..))
-import           Toy.Exp.Data              (Exp (..), readE)
-import           Toy.Exp.Operations        ((==:))
+import           Toy.Base                  (FunSign (..), Var (..))
+import           Toy.Exp                   (Exp (..), ExpRes, LocalVars, readE, (==:))
 
 
 -- | Statement of a program.
@@ -54,8 +53,8 @@ data Program = Program
     } deriving (Show, Eq)
 
 data ExecInterrupt
-    = Error Text      -- ^ Execution exception
-    | Returned Value  -- ^ Function returns
+    = Error Text       -- ^ Execution exception
+    | Returned ExpRes  -- ^ Function returns
     deriving (Eq, Show)
 makePrisms ''ExecInterrupt
 

@@ -17,7 +17,8 @@ import           Data.Default               (def)
 import           Data.Maybe                 (fromMaybe)
 import           Universum                  (type ($))
 
-import           Toy.Base                   (Exec, ExecInOut, LocalVars, Value)
+import           Toy.Base                   (Exec, ExecInOut)
+import           Toy.Exp                    (ExpRes (..), LocalVars, valueOnly)
 import           Toy.Lang.Data              (ExecInterrupt (..), FunDecls, Program,
                                              Program (..), Stmt (..), withStmt, _Error)
 import qualified Toy.Lang.Eval              as E
@@ -45,7 +46,7 @@ executeDo = \case
         at var ?= value
 
     stmt@(If cond stmt0 stmt1) -> do
-        cond' <- withStmt stmt $ eval cond
+        cond' <- withStmt stmt $ eval cond `valueOnly` "If on reference"
         executeDo $ if cond' /= 0 then stmt0 else stmt1
 
     while@(DoWhile body cond) ->
@@ -62,8 +63,8 @@ executeDo = \case
   where
     eval = E.eval execFun
 
-execFun :: Monad m => Stmt -> ExecProcess m (Maybe Value)
-execFun stmt = (Nothing <$ executeDo stmt) `catchError` handler
+execFun :: Monad m => Stmt -> ExecProcess m ExpRes
+execFun stmt = (ValueR 0 <$ executeDo stmt) `catchError` handler
   where
     handler e@(Error _)  = throwError e
-    handler (Returned v) = return (Just v)
+    handler (Returned v) = return v

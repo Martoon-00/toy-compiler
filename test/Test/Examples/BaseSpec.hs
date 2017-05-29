@@ -15,6 +15,7 @@ import           Universum       (Text, toString)
 
 import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->), (>-->), (~*~))
+import           Test.Util       (VerySmall (..))
 import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Base
 import           Toy.Execution   (ExecWay (..), asIs, defCompileX86, translateLang,
@@ -22,7 +23,6 @@ import           Toy.Execution   (ExecWay (..), asIs, defCompileX86, translateLa
 import           Toy.Exp
 import           Toy.Lang        (Stmt (..), writeS)
 import qualified Toy.Lang        as L
-
 
 spec :: Spec
 spec = do
@@ -34,27 +34,43 @@ spec = do
     let ways =
             [ Ex asIs
             , Ex translateLang
-            , Ex $ translateLang <~~> defCompileX86
+            -- , Ex $ translateLang <~~> defCompileX86
             ]
     describeExecWays ways $ \way -> do
         describe "examples" $ do
             it "no actions" $
                 noActions way
+
             it "io simple" $
                 ioTest way
-            it "If true" $
-                ifTrueTest way
-            it "If false" $
-                ifFalseTest way
-            it "While simple" $
+
+            describe "if" $ do
+                it "true" $
+                    ifTrueTest way
+
+                it "false" $
+                    ifFalseTest way
+
+                it "simple" $
+                    property $ minTest way
+
+            it "while simple" $
                 whileTest way
-            it "If simple" $
-                property $ minTest way
+
+            describe "arrays" $ do
+                it "simple" $
+                    property $ arraySimpleTest way
+
+                it "deep" $
+                    property $ arrayDeepTest way
+
             describe "complex" $ do
                 it "fib" $
                     property $ fibTest way
+
                 it "gcd" $
                     property $ gcdTest way
+
 
     describeDir "./test/cases/exec"
         fileTest
@@ -90,6 +106,31 @@ whileTest = sample & [] >-*-> [0 .. 4]
             , "i" := "i" +: 1
             ]
         ]
+
+arraySimpleTest :: ExecWay Stmt -> Value -> Property
+arraySimpleTest way k = expected sample way
+  where
+    sample = mconcat
+        [ "a" := ArrayE (ValueE <$> range)
+        , "i" := readE
+        , writeS ("a" !!: "i")
+        ]
+    expected = [k] >-*-> if k `elem` range then [k] else X
+    range = [0 .. 5]
+
+arrayDeepTest :: ExecWay Stmt
+              -> NonNegative (VerySmall Value)
+              -> NonNegative (VerySmall Value)
+              -> Property
+arrayDeepTest way (NonNegative (VerySmall k1)) (NonNegative (VerySmall k2)) = expected sample way
+  where
+    sample = mconcat
+        [ "a" := iterate (ArrayE . pure) 1 !! fromIntegral k1  -- {{{... k ...}}}
+        , L.forS ("i" := 0) ("i" <: ValueE k2) ("i" := "i" + 1) $
+              "a" := "a" !!: 0
+        , writeS "a"
+        ]
+    expected = [] >-*-> if k1 == k2 then [1] else X
 
 errorsTest :: Property
 errorsTest = conjoin $

@@ -4,4 +4,5 @@ module Toy.Util
        ( module M
        ) where
 
+import           Toy.Util.Error    as M
 import           Toy.Util.Parsable as M

@@ -1,8 +1,21 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns    #-}
+
 module Toy.Exp.Data where
 
-import           Data.String   (IsString (..))
+import           Control.Lens              (makePrisms, preview)
+import           Control.Monad.Error.Class (MonadError (..))
+import           Data.String               (IsString (..))
+import qualified Data.Vector               as V
+import           Universum                 (Text, toString)
 
-import           Toy.Base.Data (BinOp, UnaryOp, Value, Var)
+import           Toy.Base.Data             (BinOp, UnaryOp, Value, Var)
+
+-- TODO:
+data Boxing
+    = Boxed
+    | Unboxed
+    deriving (Eq, Show, Enum, Bounded)
 
 -- | Expression
 data Exp
@@ -11,6 +24,8 @@ data Exp
     | UnaryE UnaryOp Exp
     | BinE BinOp Exp Exp
     | FunE Var [Exp]
+    | ArrayE (V.Vector Exp)
+    | ArrayAccessE Exp Exp  -- array & index
     deriving (Eq, Show)
 
 instance IsString Exp where
@@ -24,11 +39,32 @@ instance Num Exp where
     signum = undefined
     fromInteger = ValueE . fromInteger
 
-
 -- | @read@ expression.
 readE :: Exp
 readE = FunE "read" []
 
--- | Parameters of function call. Appears in many types, so extracted to
--- separate type alias.
--- type FunCallParams = (Var, [Exp])
+
+-- | Evaluated expression
+data ExpRes
+   = ValueR Value
+   | ArrayR (V.Vector ExpRes)
+   deriving (Eq)
+
+makePrisms ''ExpRes
+
+instance Show ExpRes where
+    show (ValueR n) = show n
+    show (ArrayR v) = show v
+
+
+valueOnly
+    :: (IsString s, MonadError s m)
+    => m ExpRes -> Text -> m Value
+valueOnly action (fromString . toString -> desc) =
+    maybe (throwError desc) pure . preview _ValueR =<< action
+
+arrayOnly
+    :: (IsString s, MonadError s m)
+    => m ExpRes -> Text -> m (V.Vector ExpRes)
+arrayOnly action (fromString . toString -> desc) =
+    maybe (throwError desc) pure . preview _ArrayR =<< action

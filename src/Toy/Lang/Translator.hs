@@ -18,6 +18,7 @@ import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import           Control.Monad.Trans.RWS    (RWST, evalRWST)
 import           Control.Monad.Writer       (tell)
 import qualified Data.DList                 as D
+import           Data.Foldable              (for_)
 import           Data.Foldable              (find)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
@@ -26,7 +27,7 @@ import           Formatting                 (build, sformat, (%))
 import           Universum                  (type ($), Identity (..), Text)
 
 import           Toy.Base                   (FunSign (..), Var)
-import           Toy.Exp.Data               (Exp (..))
+import           Toy.Exp.Data               (Exp (..), ExpRes (..))
 import qualified Toy.Lang.Data              as L
 import qualified Toy.SM.Data                as SM
 
@@ -51,7 +52,7 @@ toIntermediate (L.Program funcs main) =
     convertFun (FunSign name args, stmt) = do
         tell [ SM.Enter name args, SM.Label $ SM.FLabel name ]
         convert stmt
-        tell [ SM.Push 0, SM.Ret, SM.Label (SM.ELabel name) ]
+        tell [ SM.Push (ValueR 0), SM.Ret, SM.Label (SM.ELabel name) ]
 
 convert :: L.Stmt -> TransState ()
 convert L.Skip         = tell [SM.Nop]
@@ -79,7 +80,7 @@ genLabel = id <<+= 1
 -- | Gives instructions which effectively push value equals to given
 -- expression on stack.
 pushExp :: Exp -> TransState ()
-pushExp (ValueE k)    = tell [SM.Push k]
+pushExp (ValueE k)    = tell [SM.Push (ValueR k)]
 pushExp (VarE n)      = tell [SM.Load n]
 pushExp (UnaryE _ _)  = throwError "SM doesn't support unary operations for now"
 pushExp (BinE op a b) = do
@@ -87,6 +88,16 @@ pushExp (BinE op a b) = do
     pushExp b
     tell [SM.Bin op]
 pushExp (FunE n args) = callFun n args
+pushExp (ArrayE v)    = do
+    tell [SM.ArrayMake $ V.length v]
+    for_ (zip [0..] $ V.toList v) $ \(i, e) -> do
+        tell [SM.Dup]
+        pushExp e
+        tell [SM.ArraySet i]
+pushExp (ArrayAccessE a i) = do
+    pushExp a
+    pushExp i
+    tell [SM.ArrayAccess]
 
 callFun :: Var -> [Exp] -> TransState ()
 callFun name (D.fromList . reverse -> args) = do
