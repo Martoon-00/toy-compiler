@@ -1,8 +1,8 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE RecursiveDo     #-}
-{-# LANGUAGE TypeFamilies    #-}
-{-# LANGUAGE ViewPatterns    #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE OverloadedLists  #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE ViewPatterns     #-}
 
 module Toy.X86.Translator
     ( compile
@@ -10,7 +10,8 @@ module Toy.X86.Translator
     ) where
 
 import           Control.Lens          (Lens', ix, (%~), (&), (+=), (-=), (<&>), (^?))
-import           Control.Monad         (forM, void)
+import           Control.Monad         (forM, forM_, void)
+import           Control.Monad.Fix     (mfix)
 import           Control.Monad.State   (get, runState)
 import           Control.Monad.Trans   (MonadIO (..))
 import           Control.Monad.Writer  (MonadWriter, Writer, censor, runWriter, tell)
@@ -37,7 +38,6 @@ import           Toy.X86.Optimize      (optimize)
 import           Toy.X86.Process       (readCreateProcess)
 import           Toy.X86.SymStack      (SymStackHolder, allocSymStackOp, occupiedRegs,
                                         peekSymStackOp, popSymStackOp, runSymStackHolder)
-
 
 
 compile :: SM.Insts -> Insts
@@ -133,21 +133,22 @@ step calleeName = \case
         tell [Mov op eax, jmp (SM.ELabel calleeName)]
     SM.Enter{} -> tell [NoopOperator "int3"]
   where
-    mkCall name argsNum = mdo
-        toBackup <- backupingOps toBackup $ censor (withStackSpace argsNum) $ do
-            rolling <- fmap mconcat . forM [0 .. argsNum - 1] $ \i ->
-                popSymStackOp <&> \op ->
-                    [ Mov op eax                -- TODO: with nice 'inRegs' :()
+    mkCall name argsNum =
+        void . mfix $ \toBackup ->
+        backupingOps toBackup $ censor (withStackSpace argsNum) $ do
+            forM_ @[] [0 .. argsNum - 1] $ \i -> do
+                op <- popSymStackOp
+                tell
+                    [ Mov op eax    -- TODO: with nice 'inRegs' :()
                     , Mov eax (HardMem i)
                     ]
-            tell rolling
-            toBackup' <- occupiedRegs
             tell [Call name]
+
+            toBackup' <- occupiedRegs
 
             op <- allocSymStackOp
             tell [Mov eax op]
             return toBackup'
-        return ()
 
 separateFuns :: SM.Insts -> [SM.Insts]
 separateFuns insts =
