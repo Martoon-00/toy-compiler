@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE RecursiveDo     #-}
 {-# LANGUAGE TypeFamilies    #-}
 {-# LANGUAGE ViewPatterns    #-}
 
@@ -9,10 +10,10 @@ module Toy.X86.Translator
     ) where
 
 import           Control.Lens          (Lens', ix, (%~), (&), (+=), (-=), (<&>), (^?))
-import           Control.Monad         (forM, void)
+import           Control.Monad         (forM, forM_, void)
 import           Control.Monad.State   (get, runState)
 import           Control.Monad.Trans   (MonadIO (..))
-import           Control.Monad.Writer  (Writer, censor, runWriter, tell)
+import           Control.Monad.Writer  (MonadWriter, Writer, censor, runWriter, tell)
 import qualified Data.DList            as D
 import           Data.Functor          (($>))
 import           Data.Maybe            (fromMaybe)
@@ -131,10 +132,16 @@ step calleeName = \case
         tell [Mov op eax, jmp (SM.ELabel calleeName)]
     SM.Enter{} -> tell [NoopOperator "int3"]
   where
-    mkCall name argNum = do
-        prepareFunCall argNum [Call name]
-        op <- allocSymStackOp
-        tell [Mov eax op]
+    mkCall name argsNum = mdo
+        backupingOps toBackup $ censor (withStackSpace argsNum) $ do
+            forM_ ([0 .. argsNum - 1] :: [Int]) $ \i -> do
+                op <- popSymStackOp
+                tell [ Mov op eax, Mov eax (HardMem i) ]
+            tell [Call name]
+        toBackup <- occupiedRegs
+
+        op' <- allocSymStackOp
+        tell [Mov eax op']
 
 separateFuns :: SM.Insts -> [SM.Insts]
 separateFuns insts =
@@ -164,7 +171,6 @@ insertExit :: Insts -> Insts
 insertExit = (<> [ret])
 
 mkStackShift :: Int -> Insts -> Insts
-mkStackShift 0     = id
 mkStackShift shift = afterFunBeginning %~ withStackSpace shift
 
 -- | Function 'step', when sets `Mem` indices, doesn't take into account
@@ -192,26 +198,17 @@ fixMemRefs insts =
     fixMemRef (Mem i) = Mem . (i +) <$> get
     fixMemRef other   = return other
 
--- TODO: inline?
-prepareFunCall :: Int -> D.DList Inst -> TransMonad ()
-prepareFunCall argsNum insts = do
-    rolling <- fmap mconcat . forM [0 .. argsNum - 1] $ \i ->
-        popSymStackOp <&> \op ->
-            [ Mov op eax                       -- TODO: with nice 'inRegs' :()
-            , Mov eax (HardMem i)
-            ]
-    toBackup <- occupiedRegs
-    backupingOps toBackup $ censor (withStackSpace argsNum) $ do
-        tell rolling
-        tell insts
-
-backupingOps :: [Operand] -> TransMonad () -> TransMonad ()
+-- | Copies given operands to backup space.
+-- It's essetial for this operation to not influence on sym stack.
+backupingOps :: MonadWriter (D.DList Inst) m => [Operand] -> m () -> m ()
 backupingOps []  trans = trans
 backupingOps ops trans = do
-    let assoc = D.fromList $ zip ops (Backup <$> [0..])
+    let assoc = D.fromList $ zip ops (Backup <$> enumFrom ops)
     tell $ fmap (uncurry Mov) assoc         // "buckup"
     trans
     tell $ fmap (uncurry $ flip Mov) assoc  // "restore"
+  where
+    enumFrom k = k : enumFrom (k + 1)
 
 inRegsWith
     :: Operand                    -- ^ operand to temporally store argument in
