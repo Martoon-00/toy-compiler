@@ -9,6 +9,7 @@ import           Control.Lens              (makePrisms, (%~))
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Reader      (MonadReader)
 import           Control.Monad.State       (MonadState)
+import           Control.Monad.Trans       (MonadIO)
 import qualified Data.Map                  as M
 import           Data.Monoid               ((<>))
 import           Data.String               (IsString (..))
@@ -27,9 +28,10 @@ data Stmt
     | DoWhile Stmt Exp  -- ^ @do .. while@ is the most optimal / easy loop from
                         -- asm point of view
     | Return Exp
+    | ArrayAssign Exp Int Exp
     | Seq Stmt Stmt
     | Skip
-    deriving (Eq, Show)
+    deriving (Show)
 
 infix 2 :=
 
@@ -50,19 +52,20 @@ mkFunDecls = fromList . map doLol . toList
 data Program = Program
     { pFunDecls :: FunDecls
     , pMain     :: Stmt
-    } deriving (Show, Eq)
+    } deriving (Show)
 
 data ExecInterrupt
     = Error Text       -- ^ Execution exception
     | Returned ExpRes  -- ^ Function returns
-    deriving (Eq, Show)
+    deriving (Show)
 makePrisms ''ExecInterrupt
 
 instance IsString ExecInterrupt where
     fromString = Error . fromString
 
 type MonadExec m =
-    ( MonadError ExecInterrupt m
+    ( MonadIO m
+    , MonadError ExecInterrupt m
     , MonadState LocalVars m
     , MonadReader FunDecls m
     )
@@ -103,3 +106,11 @@ funCallS name args = dropS $ FunE name args
 -- | @write@ given expression.
 writeS :: Exp -> Stmt
 writeS = funCallS "write" . pure
+
+-- | Array initializer.
+arrayS :: (Exp -> Stmt) -> [Exp] -> Stmt
+arrayS f exps = mconcat
+    [ "_" := ArrayUninitE (length exps)
+    , uncurry (ArrayAssign "_") `foldMap` (zip [0..] exps)
+    , f "_"
+    ]

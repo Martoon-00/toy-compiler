@@ -111,7 +111,7 @@ arraySimpleTest :: ExecWay Stmt -> Value -> Property
 arraySimpleTest way k = expected sample way
   where
     sample = mconcat
-        [ "a" := ArrayE (ValueE <$> range)
+        [ ("a" := ) `L.arrayS` (ValueE <$> range)
         , "i" := readE
         , writeS ("a" !!: "i")
         ]
@@ -125,7 +125,9 @@ arrayDeepTest :: ExecWay Stmt
 arrayDeepTest way (NonNegative (VerySmall k1)) (NonNegative (VerySmall k2)) = expected sample way
   where
     sample = mconcat
-        [ "a" := iterate (ArrayE . pure) 1 !! fromIntegral k1  -- {{{... k ...}}}
+        [ "a" := 1
+        , mconcat . replicate (fromIntegral k1) $  -- {{{... 1 ...}}}
+              ("a" := ) `L.arrayS` ["a"]
         , L.forS ("i" := 0) ("i" <: ValueE k2) ("i" := "i" + 1) $
               "a" := "a" !!: 0
         , writeS "a"

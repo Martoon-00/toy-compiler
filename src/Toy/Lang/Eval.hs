@@ -5,17 +5,18 @@ module Toy.Lang.Eval
     ( eval
     ) where
 
-import           Control.Lens              (at, ix, use, view, (.=), (<<.=), (^?))
+import           Control.Lens              (at, use, view, (.=), (<<.=))
 import           Control.Monad             (forM)
 import           Control.Monad.Error.Class (throwError)
 import           Data.Conduit              (await, yield)
 import qualified Data.Map                  as M
 import           Formatting                (build, sformat, shown, (%))
-import           Universum                 (whenNothing, whenNothingM)
+import           Universum                 (whenNothingM)
 
 import           Toy.Base                  (ExecInOut, FunSign (..), Var)
-import           Toy.Exp                   (Exp (..), ExpRes (..), arithspoon, arrayOnly,
-                                            binOp, unaryOp, valueOnly)
+import           Toy.Exp                   (Exp (..), ExpRes (..), arithspoon,
+                                            arrayAccess, arrayMake, binOp, unaryOp,
+                                            valueOnly)
 import           Toy.Lang.Data             (ExecInterrupt (..), MonadExec, Stmt (..))
 
 type FunExecutor m = Stmt -> ExecInOut m ExpRes
@@ -25,21 +26,18 @@ eval
     :: MonadExec m
     => FunExecutor m -> Exp -> ExecInOut m ExpRes
 eval executor = \case
-    ValueE v      -> return (ValueR v)
-    VarE v        ->
+    ValueE v       -> return (ValueR v)
+    VarE v         ->
         let err = Error $ sformat ("No variable "%build%" defined") v
         in  use (at v) `whenNothingM` throwError err
-    UnaryE op v   -> fmap ValueR $ arithspoon =<< (unaryOp op <$> evalRecV v)
-    BinE op a b   -> fmap ValueR $ arithspoon =<< (binOp op <$> evalRecV a <*> evalRecV b)
-    FunE n args   -> callFun executor n args
-    ArrayE v      -> ArrayR <$> mapM evalRec v
+    UnaryE op v    -> fmap ValueR $ arithspoon =<< (unaryOp op <$> evalRecV v)
+    BinE op a b    -> fmap ValueR $ arithspoon =<< (binOp op <$> evalRecV a <*> evalRecV b)
+    FunE n args    -> callFun executor n args
+    ArrayUninitE k -> arrayMake k
     ArrayAccessE a i -> do
-        a' <- evalRec a `arrayOnly` "[]: expected array"
-        i' <- evalRec i `valueOnly` "[]: expected array"
-        let i'' = fromIntegral i'
-        let outOfBounds = sformat ("Array index out of bounds:"
-                                   %build%", "%shown) i' a'
-        (a' ^? ix i'') `whenNothing` throwError (Error outOfBounds)
+        ar <- evalRec a
+        ir <- evalRec i
+        arrayAccess ar ir
   where
     evalRec = eval executor
     evalRecV e = evalRec e `valueOnly` "Arithmetic operation on reference"

@@ -11,6 +11,7 @@ import           Control.Monad.Error.Class  (MonadError (..))
 import           Control.Monad.Morph        (hoist)
 import           Control.Monad.Reader       (ReaderT, runReaderT)
 import           Control.Monad.State.Strict (StateT)
+import           Control.Monad.Trans        (MonadIO)
 import           Control.Monad.Trans.Either (EitherT, bimapEitherT)
 import           Data.Conduit.Lift          (evalStateC)
 import           Data.Default               (def)
@@ -18,7 +19,7 @@ import           Data.Maybe                 (fromMaybe)
 import           Universum                  (type ($))
 
 import           Toy.Base                   (Exec, ExecInOut)
-import           Toy.Exp                    (ExpRes (..), LocalVars, valueOnly)
+import           Toy.Exp                    (ExpRes (..), LocalVars, arraySet, valueOnly)
 import           Toy.Lang.Data              (ExecInterrupt (..), FunDecls, Program,
                                              Program (..), Stmt (..), withStmt, _Error)
 import qualified Toy.Lang.Eval              as E
@@ -30,7 +31,7 @@ type ExecProcess m =
     StateT LocalVars $
     EitherT ExecInterrupt m
 
-execute :: Monad m => Program -> Exec m ()
+execute :: MonadIO m => Program -> Exec m ()
 execute (Program funDecls stmt) =
     hoist simplifyErr . evalStateC def . hoist (`runReaderT` funDecls) $
         executeDo stmt
@@ -39,7 +40,7 @@ execute (Program funDecls stmt) =
     toSimpleErr = fromMaybe "Return at global scope" . ( ^? _Error)
 
 -- | Execute given statement.
-executeDo :: Monad m => Stmt -> ExecProcess m ()
+executeDo :: MonadIO m => Stmt -> ExecProcess m ()
 executeDo = \case
     stmt@(var := expr) -> do
         value <- withStmt stmt $ eval expr
@@ -56,6 +57,12 @@ executeDo = \case
         value <- withStmt stmt $ eval expr
         throwError $ Returned value
 
+    ArrayAssign a i e -> do
+        -- TODO: do smth with 'withStmt' everywhere
+        ar <- eval a
+        er <- eval e
+        arraySet ar i er
+
     Seq stmt0 stmt1 ->
         mapM_ executeDo [stmt0, stmt1]
 
@@ -63,7 +70,7 @@ executeDo = \case
   where
     eval = E.eval execFun
 
-execFun :: Monad m => Stmt -> ExecProcess m ExpRes
+execFun :: MonadIO m => Stmt -> ExecProcess m ExpRes
 execFun stmt = (ValueR 0 <$ executeDo stmt) `catchError` handler
   where
     handler e@(Error _)  = throwError e

@@ -5,6 +5,7 @@ module Toy.Exp.Data where
 
 import           Control.Lens              (makePrisms, preview)
 import           Control.Monad.Error.Class (MonadError (..))
+import           Data.IORef                (IORef)
 import           Data.String               (IsString (..))
 import qualified Data.Vector               as V
 import           Universum                 (Text, toString)
@@ -17,6 +18,8 @@ data Boxing
     | Unboxed
     deriving (Eq, Show, Enum, Bounded)
 
+type MRef = IORef
+
 -- | Expression
 data Exp
     = ValueE Value
@@ -24,9 +27,9 @@ data Exp
     | UnaryE UnaryOp Exp
     | BinE BinOp Exp Exp
     | FunE Var [Exp]
-    | ArrayE (V.Vector Exp)
+    | ArrayUninitE Int  -- ^ uninitialized array
     | ArrayAccessE Exp Exp  -- array & index
-    deriving (Eq, Show)
+    deriving (Show)
 
 instance IsString Exp where
     fromString = VarE . fromString
@@ -47,14 +50,15 @@ readE = FunE "read" []
 -- | Evaluated expression
 data ExpRes
    = ValueR Value
-   | ArrayR (V.Vector ExpRes)
-   deriving (Eq)
+   | ArrayR (MRef (V.Vector ExpRes))
+   | NotInitR
 
 makePrisms ''ExpRes
 
 instance Show ExpRes where
     show (ValueR n) = show n
-    show (ArrayR v) = show v
+    show (ArrayR _) = "<array>"
+    show NotInitR   = "<undefined>"
 
 
 valueOnly
@@ -65,6 +69,6 @@ valueOnly action (fromString . toString -> desc) =
 
 arrayOnly
     :: (IsString s, MonadError s m)
-    => m ExpRes -> Text -> m (V.Vector ExpRes)
+    => m ExpRes -> Text -> m (MRef (V.Vector ExpRes))
 arrayOnly action (fromString . toString -> desc) =
     maybe (throwError desc) pure . preview _ArrayR =<< action

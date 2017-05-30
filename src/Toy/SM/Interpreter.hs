@@ -6,12 +6,12 @@ module Toy.SM.Interpreter
     ( execute
     ) where
 
-import           Control.Lens              (at, has, ix, use, (%=), (&), (+=), (.=), (.~),
-                                            (<<%=), (?=), (^.), (^?))
-import           Control.Monad             (forever, mzero, replicateM, replicateM_,
-                                            unless, void, when)
+import           Control.Lens              (at, use, (%=), (+=), (.=), (<<%=), (?=), (^.))
+import           Control.Monad             (forever, mzero, replicateM, replicateM_, void,
+                                            when)
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Morph       (hoist)
+import           Control.Monad.Trans       (MonadIO (..))
 import           Control.Monad.Trans       (lift)
 import           Data.Conduit              (await, yield)
 import           Data.Conduit.Lift         (evalStateC, execStateC, runMaybeC)
@@ -23,14 +23,14 @@ import           Formatting                (build, int, sformat, shown, string, 
 import           Universum                 (Text, whenNothing, (<>))
 
 import           Toy.Base                  (Exec, FunSign (..))
-import           Toy.Exp                   (ExpRes (..), arithspoon, arrayOnly, binOp,
-                                            valueOnly)
+import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess,
+                                            arrayMake, arraySet, binOp, valueOnly)
 import           Toy.SM.Data               (ExecState (..), IP, Inst (..), Insts,
                                             LabelId (..), esIp, esLocals, esStack,
                                             initFunName)
 import           Toy.Util                  (mapError)
 
-execute :: Monad m => Insts -> Exec m ()
+execute :: MonadIO m => Insts -> Exec m ()
 execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
   where
     -- executeDo :: Monad m => ExecInOut $ StateT ExecState $ EitherT Text m ()
@@ -53,19 +53,16 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
             Nothing  -> throwError $ sformat ("No variable "%build%" defined") n
             Just var -> push var
         Store n     -> pop >>= (esLocals . at n ?= )
-        ArrayMake k ->
-            push (ArrayR $ V.replicate k (ValueR 0))
-        ArrayAccess -> mapError ("array access: " <>) $ do
-            i <- pop `valueOnly` "index is not a number"
-            let i' = fromIntegral i
-            a <- pop `arrayOnly` "array expected"
-            e <- (a ^? ix i') `whenNothing` throwError "index out of bounds"
+        ArrayMake k -> arrayMake k >>= push
+        ArrayAccess -> do
+            i <- pop
+            a <- pop
+            e <- mapError ("array access: " <>) $ arrayAccess a i
             push e
-        ArraySet k -> mapError ("array set: " <>) $ do
+        ArraySet k -> do
             e <- pop
-            a <- pop `arrayOnly` "array expected"
-            unless (ix k `has` a) $ throwError "index out of bounds"
-            push (ArrayR $ a & ix k .~ e)  -- FIXME: ololo bad
+            a <- pop
+            mapError ("array set: " <>) $ arraySet a k e
         Label{}     -> step Nop
         Jmp lid     -> do
             ensureStackSize 0 "jump"

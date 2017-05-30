@@ -45,7 +45,7 @@ data Inst
     | Ret
     | Nop
     | Enter Var [Var]
-    deriving (Eq, Show)
+    deriving (Show)
 
 type Insts = V.Vector Inst
 
@@ -57,7 +57,7 @@ data ExecState = ExecState
       -- ^ current stack
     , _esIp     :: IP
       -- ^ instruction pointer, number of command to execute next
-    } deriving (Eq, Show)
+    } deriving (Show)
 
 makeLenses ''ExecState
 

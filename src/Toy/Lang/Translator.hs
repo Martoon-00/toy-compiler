@@ -18,7 +18,6 @@ import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import           Control.Monad.Trans.RWS    (RWST, evalRWST)
 import           Control.Monad.Writer       (tell)
 import qualified Data.DList                 as D
-import           Data.Foldable              (for_)
 import           Data.Foldable              (find)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
@@ -73,6 +72,10 @@ convert (L.DoWhile s c) = do
     pushExp c
     tell [SM.JmpIf label]
 convert (L.Return e) = pushExp e >> tell [SM.Ret]
+convert (L.ArrayAssign a i e) = do
+    pushExp a
+    pushExp e
+    tell [SM.ArraySet i]
 
 genLabel :: MonadState Int m => m Int
 genLabel = id <<+= 1
@@ -88,12 +91,7 @@ pushExp (BinE op a b) = do
     pushExp b
     tell [SM.Bin op]
 pushExp (FunE n args) = callFun n args
-pushExp (ArrayE v)    = do
-    tell [SM.ArrayMake $ V.length v]
-    for_ (zip [0..] $ V.toList v) $ \(i, e) -> do
-        tell [SM.Dup]
-        pushExp e
-        tell [SM.ArraySet i]
+pushExp (ArrayUninitE k) = tell [SM.ArrayMake k]
 pushExp (ArrayAccessE a i) = do
     pushExp a
     pushExp i
