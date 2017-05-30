@@ -1,5 +1,6 @@
-{-# LANGUAGE LambdaCase  #-}
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE LambdaCase   #-}
+{-# LANGUAGE QuasiQuotes  #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Toy.X86.Data
     ( Operand (..)
@@ -23,7 +24,7 @@ module Toy.X86.Data
     , traverseOperands
     ) where
 
-import           Control.Lens           (Cons, Snoc, (<|), (|>))
+import           Control.Monad.Writer   (MonadWriter (..))
 import           Data.List              (intersperse)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
@@ -32,6 +33,7 @@ import           Data.Text.Lazy.Builder (Builder)
 import qualified Data.Vector            as V
 import           Formatting             (bprint, int, stext, (%))
 import qualified Formatting             as F
+import           GHC.Exts               (IsList (..))
 import           GHC.Exts               (toList)
 import           Prelude                hiding (unlines)
 import qualified Text.RawString.QQ      as QQ
@@ -105,10 +107,14 @@ jmp = Jmp "mp"
 ret :: Inst
 ret = NoopOperator "ret"
 
-(?) :: (Snoc s s Inst Inst, Cons s s Inst Inst) => Text -> s -> s
-(?) comment = (Comment comment <|) . (|> Comment (comment <> " end"))
+(?) :: (Monoid l, IsList l, Item l ~ Inst) => Text -> l -> l
+(?) comment insts = mconcat
+    [ fromList $ [Comment comment]
+    , insts
+    , fromList $ [Comment (comment <> " end")]
+    ]
 
-(//) :: (Snoc s s Inst Inst, Cons s s Inst Inst) => s -> Text -> s
+(//) :: (Monoid l, IsList l, Item l ~ Inst) => l -> Text -> l
 (//) = flip (?)
 
 buildInst :: Buildable b => Text -> [b] -> Builder
@@ -153,10 +159,14 @@ instance Buildable Program where
 |]
 
 withStackSpace
-    :: (Snoc s s Inst Inst, Cons s s Inst Inst)
-    => Int -> s -> s
-withStackSpace 0 = id
-withStackSpace k = (ResizeStack Forward k <| ) . ( |> ResizeStack Backward k)
+    :: (Monoid l, IsList l, Item l ~ Inst)
+    => Int -> l -> l
+withStackSpace 0 insts = insts
+withStackSpace k insts = mconcat
+    [ fromList [ResizeStack Forward k]
+    , insts
+    , fromList [ResizeStack Backward k]
+    ]
 
 traverseOperands :: Applicative f => (Operand -> f Operand) -> Inst -> f Inst
 traverseOperands f (Mov a b)         = Mov <$> f a <*> f b

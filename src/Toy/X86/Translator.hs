@@ -9,9 +9,11 @@ module Toy.X86.Translator
     ) where
 
 import           Control.Lens          (Lens', ix, (%~), (&), (+=), (-=), (<&>), (^?))
-import           Control.Monad         (forM, join)
+import           Control.Monad         (forM, void)
 import           Control.Monad.State   (get, runState)
 import           Control.Monad.Trans   (MonadIO (..))
+import           Control.Monad.Writer  (Writer, censor, runWriter, tell)
+import qualified Data.DList            as D
 import           Data.Functor          (($>))
 import           Data.Maybe            (fromMaybe)
 import           Data.Monoid           ((<>))
@@ -19,7 +21,6 @@ import qualified Data.Set              as S
 import qualified Data.Vector           as V
 import           Formatting            (build, formatToString, int, (%))
 import qualified Formatting            as F
-import           GHC.Exts              (fromList)
 import           System.FilePath.Posix ((</>))
 import           System.Process        (proc)
 import           Universum             (Text, first, toText)
@@ -36,6 +37,7 @@ import           Toy.X86.SymStack      (SymStackHolder, allocSymStackOp, occupie
                                         peekSymStackOp, popSymStackOp, runSymStackHolder)
 
 
+
 compile :: SM.Insts -> Insts
 compile = mconcat . map compileFun . separateFuns
 
@@ -45,8 +47,12 @@ compileFun insts =
             Just (SM.Enter n ai) -> (n, ai)
             _                    -> error "Where is my Enter?!"
         vars  = foldMap gatherLocals insts
-        ((symStSpace, symStackSizeAtEnd), body) = runSymStackHolder $
-            join . fmap fromList <$> mapM (step name) insts
+        ((symStSpace, symStackSizeAtEnd), body) =
+            fmap (V.fromList . D.toList) $
+            first fst $
+            runWriter $
+            runSymStackHolder $
+            mapM_ (step name) insts
         check = if symStackSizeAtEnd == 0 then id
                 else error . badStackAtEnd symStackSizeAtEnd . Program
         frame = mkFrame args vars symStSpace
@@ -62,31 +68,40 @@ compileFun insts =
     badStackAtEnd =
         formatToString ("Wrong sym stack size at end: "%int%"\n"%build)
 
-step :: Var -> SM.Inst -> SymStackHolder [Inst]
+type TransMonad = SymStackHolder (Writer (D.DList Inst))
+
+step :: Var -> SM.Inst -> TransMonad ()
 step calleeName = \case
-    SM.Nop        -> pure []
-    SM.Push v     -> allocSymStackOp <&> \op -> [Mov (Const v) op]
-    SM.Drop       -> popSymStackOp $> []
+    SM.Nop        -> return ()
+    SM.Push v     -> do
+        op <- allocSymStackOp
+        tell [Mov (Const v) op]
+    SM.Drop       -> void popSymStackOp
     SM.Dup        -> do
         from <- peekSymStackOp
         to <- allocSymStackOp
-        return [Mov from eax, Mov eax to]
-    SM.Load v     -> allocSymStackOp <&> \op -> [Mov (Local v) eax, Mov eax op]
-    SM.Store v    -> popSymStackOp <&> \op -> [Mov op eax, Mov eax (Local v)]
+        tell [Mov from eax, Mov eax to]
+    SM.Load v     -> do
+        op <- allocSymStackOp
+        tell [Mov (Local v) eax, Mov eax op]
+    SM.Store v    -> do
+        op <- popSymStackOp
+        tell [Mov op eax, Mov eax (Local v)]
     SM.Bin op     -> do
         op2 <- popSymStackOp
         op1 <- popSymStackOp
         resOp <- allocSymStackOp
-        return $ binop op1 op2 op <> [Mov op2 eax, Mov eax resOp]
-    SM.ArrayMake k -> allocSymStackOp >>= \op -> do
-        let part1 = [Mov (Const $ fromIntegral k) op]
-        part2 <- mkCall "allocate" 1
-        return $ part1 <> part2
+        tell $ binop op1 op2 op
+        tell [Mov op2 eax, Mov eax resOp]
+    SM.ArrayMake k -> do
+        op <- allocSymStackOp
+        tell [Mov (Const $ fromIntegral k) op]
+        mkCall "allocate" 1
     SM.ArrayAccess -> do
         i <- popSymStackOp
         a <- popSymStackOp
         e <- allocSymStackOp
-        return
+        tell
             [ Mov a eax
             , Mov i edx
             , Mov (HeapMemExt eax edx) eax
@@ -95,29 +110,31 @@ step calleeName = \case
     SM.ArraySet (fromIntegral -> i) -> do
         e <- popSymStackOp
         a <- popSymStackOp
-        return
+        tell
             [ Mov a eax
             , BinOp "addl" (Const $ i * 4) eax
             , Mov e edx
             , Mov edx (HeapMem eax)
             ]
-    SM.Label lid -> pure [Label lid]
-    SM.Jmp   lid -> pure [jmp (SM.CLabel lid)]
-    SM.JmpIf lid -> popSymStackOp <&> \op ->
-        [ Mov op eax
-        , BinOp "cmp" (Const 0) eax
-        , Jmp "ne" (SM.CLabel lid)
-        ]
+    SM.Label lid -> tell [Label lid]
+    SM.Jmp   lid -> tell [jmp (SM.CLabel lid)]
+    SM.JmpIf lid -> do
+        op <- popSymStackOp
+        tell
+            [ Mov op eax
+            , BinOp "cmp" (Const 0) eax
+            , Jmp "ne" (SM.CLabel lid)
+            ]
     SM.Call (FunSign name args) -> mkCall name (length args)
-    SM.Ret       -> do
-        p1 <- popSymStackOp <&> \op -> [Mov op eax]
-        return $ p1 <> [jmp (SM.ELabel calleeName)]
-    SM.Enter{}   -> pure [NoopOperator "int3"]
+    SM.Ret -> do
+        op <- popSymStackOp
+        tell [Mov op eax, jmp (SM.ELabel calleeName)]
+    SM.Enter{} -> tell [NoopOperator "int3"]
   where
     mkCall name argNum = do
-        part1 <- prepareFunCall argNum [Call name]
-        part2 <- allocSymStackOp <&> \op -> [Mov eax op]
-        return $ part1 <> part2
+        prepareFunCall argNum [Call name]
+        op <- allocSymStackOp
+        tell [Mov eax op]
 
 separateFuns :: SM.Insts -> [SM.Insts]
 separateFuns insts =
@@ -176,7 +193,7 @@ fixMemRefs insts =
     fixMemRef other   = return other
 
 -- TODO: inline?
-prepareFunCall :: Int -> [Inst] -> SymStackHolder [Inst]
+prepareFunCall :: Int -> D.DList Inst -> TransMonad ()
 prepareFunCall argsNum insts = do
     rolling <- fmap mconcat . forM [0 .. argsNum - 1] $ \i ->
         popSymStackOp <&> \op ->
@@ -184,37 +201,34 @@ prepareFunCall argsNum insts = do
             , Mov eax (HardMem i)
             ]
     toBackup <- occupiedRegs
-    return . backupingOps toBackup $ withStackSpace argsNum $
-        rolling <> insts
+    backupingOps toBackup $ censor (withStackSpace argsNum) $ do
+        tell rolling
+        tell insts
 
-backupingOps :: [Operand] -> [Inst] -> [Inst]
-backupingOps []  insts = insts
-backupingOps ops insts =
-    let assoc = zip ops (Backup <$> [0..])
-        backup  = map (uncurry Mov) assoc
-        restore = map (uncurry $ flip Mov) assoc
-    in  mconcat
-        [ backup  // "buckup"
-        , insts
-        , restore  // "restore"
-        ]
+backupingOps :: [Operand] -> TransMonad () -> TransMonad ()
+backupingOps []  trans = trans
+backupingOps ops trans = do
+    let assoc = D.fromList $ zip ops (Backup <$> [0..])
+    tell $ fmap (uncurry Mov) assoc         // "buckup"
+    trans
+    tell $ fmap (uncurry $ flip Mov) assoc  // "restore"
 
 inRegsWith
-    :: Operand              -- operand to temporally store argument in
-    -> Operand              -- argument
-    -> (Operand -> [Inst])  -- action with given argument, placed in register
-    -> [Inst]
+    :: Operand                    -- ^ operand to temporally store argument in
+    -> Operand                    -- ^ argument
+    -> (Operand -> D.DList Inst)  -- ^ action with given argument, placed in register
+    -> D.DList Inst
 inRegsWith _   op@(Reg _)   f = f op
 inRegsWith aux op@(Const _) f = [Mov op aux] <> f aux
 inRegsWith aux op           f = [Mov op aux] <> f aux <> [Mov aux op]
 
-inRegs1 :: Operand -> (Operand -> [Inst]) -> [Inst]
+inRegs1 :: Operand -> (Operand -> D.DList Inst) -> D.DList Inst
 inRegs1 = inRegsWith eax
 
 -- inRegs2 :: Operand -> Operand -> (Operand -> Operand -> [Inst]) -> [Inst]
 -- inRegs2 op1 op2 f = inRegsWith eax op1 $ inRegsWith edx op2 . f
 
-binop :: Operand -> Operand -> Text -> [Inst]
+binop :: Operand -> Operand -> Text -> D.DList Inst
 binop op1 op2 = \case
     "+" -> inRegs1 op1 $ \op1' -> [BinOp "addl" op1' op2]
     "-" -> inRegs1 op1 $ \op1' -> [BinOp "subl" op2 op1', Mov op1' op2]
