@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE ViewPatterns    #-}
 
 module Toy.X86.Translator
     ( compile
@@ -24,7 +25,6 @@ import           System.Process        (proc)
 import           Universum             (Text, first, toText)
 
 import           Toy.Base              (FunSign (..), Var)
-import           Toy.Exp               (ExpRes (..))
 import qualified Toy.SM                as SM
 import           Toy.X86.Data          (Inst (..), Insts, Operand (..), Program (..),
                                         StackDirection (..), eax, edx, jmp, ret,
@@ -34,6 +34,7 @@ import           Toy.X86.Optimize      (optimize)
 import           Toy.X86.Process       (readCreateProcess)
 import           Toy.X86.SymStack      (SymStackHolder, allocSymStackOp, occupiedRegs,
                                         peekSymStackOp, popSymStackOp, runSymStackHolder)
+
 
 compile :: SM.Insts -> Insts
 compile = mconcat . map compileFun . separateFuns
@@ -64,7 +65,7 @@ compileFun insts =
 step :: Var -> SM.Inst -> SymStackHolder [Inst]
 step calleeName = \case
     SM.Nop        -> pure []
-    SM.Push v     -> allocSymStackOp <&> \op -> [Mov (Const $ case v of ValueR v' -> v') op]
+    SM.Push v     -> allocSymStackOp <&> \op -> [Mov (Const v) op]
     SM.Drop       -> popSymStackOp $> []
     SM.Dup        -> do
         from <- peekSymStackOp
@@ -77,6 +78,29 @@ step calleeName = \case
         op1 <- popSymStackOp
         resOp <- allocSymStackOp
         return $ binop op1 op2 op <> [Mov op2 eax, Mov eax resOp]
+    SM.ArrayMake k -> allocSymStackOp >>= \op -> do
+        let part1 = [Mov (Const $ fromIntegral k) op]
+        part2 <- mkCall "allocate" 1
+        return $ part1 <> part2
+    SM.ArrayAccess -> do
+        i <- popSymStackOp
+        a <- popSymStackOp
+        e <- allocSymStackOp
+        return
+            [ Mov a eax
+            , Mov i edx
+            , Mov (HeapMemExt eax edx) eax
+            , Mov eax e
+            ]
+    SM.ArraySet (fromIntegral -> i) -> do
+        e <- popSymStackOp
+        a <- popSymStackOp
+        return
+            [ Mov a eax
+            , BinOp "addl" (Const $ i * 4) eax
+            , Mov e edx
+            , Mov edx (HeapMem eax)
+            ]
     SM.Label lid -> pure [Label lid]
     SM.Jmp   lid -> pure [jmp (SM.CLabel lid)]
     SM.JmpIf lid -> popSymStackOp <&> \op ->
@@ -84,14 +108,16 @@ step calleeName = \case
         , BinOp "cmp" (Const 0) eax
         , Jmp "ne" (SM.CLabel lid)
         ]
-    SM.Call (FunSign name args) -> do
-        part1 <- rolloutSymStackOps (length args) [Call name]
-        part2 <- allocSymStackOp <&> \op -> [Mov eax op]
-        return $ part1 <> part2
+    SM.Call (FunSign name args) -> mkCall name (length args)
     SM.Ret       -> do
         p1 <- popSymStackOp <&> \op -> [Mov op eax]
         return $ p1 <> [jmp (SM.ELabel calleeName)]
     SM.Enter{}   -> pure [NoopOperator "int3"]
+  where
+    mkCall name argNum = do
+        part1 <- prepareFunCall argNum [Call name]
+        part2 <- allocSymStackOp <&> \op -> [Mov eax op]
+        return $ part1 <> part2
 
 separateFuns :: SM.Insts -> [SM.Insts]
 separateFuns insts =
@@ -149,9 +175,9 @@ fixMemRefs insts =
     fixMemRef (Mem i) = Mem . (i +) <$> get
     fixMemRef other   = return other
 
--- | Puts symbolic stack on real stack. Symbolic stack becomes empty
-rolloutSymStackOps :: Int -> [Inst] -> SymStackHolder [Inst]
-rolloutSymStackOps argsNum insts = do
+-- TODO: inline?
+prepareFunCall :: Int -> [Inst] -> SymStackHolder [Inst]
+prepareFunCall argsNum insts = do
     rolling <- fmap mconcat . forM [0 .. argsNum - 1] $ \i ->
         popSymStackOp <&> \op ->
             [ Mov op eax                       -- TODO: with nice 'inRegs' :()
@@ -247,8 +273,9 @@ produceBinary
     -> Insts
     -> m (Either Text ())
 produceBinary runtimePath outputPath insts = liftIO $ do
-    let cmd = proc "gcc"
-            ["-m32"                        -- for x32
+    let cmd = proc "g++"
+            [ "-m32"                       -- for x32
+            , "-lstdc++"                   -- fetch stdlib (c++ required)
             , runtimePath </> "runtime.o"
             , "-xassembler"                -- specifies language
             , "-"                          -- take source from stdin

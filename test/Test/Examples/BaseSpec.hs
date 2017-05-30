@@ -10,7 +10,7 @@ module Test.Examples.BaseSpec
 import           Control.Lens    ((&), (<&>))
 import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (NonNegative (..), Property, Small (..), conjoin,
-                                  counterexample, property)
+                                  counterexample, property, (==>))
 import           Universum       (Text, toString)
 
 import           Test.Arbitrary  ()
@@ -34,7 +34,7 @@ spec = do
     let ways =
             [ Ex asIs
             , Ex translateLang
-            -- , Ex $ translateLang <~~> defCompileX86
+            , Ex $ translateLang <~~> defCompileX86
             ]
     describeExecWays ways $ \way -> do
         describe "examples" $ do
@@ -58,6 +58,9 @@ spec = do
                 whileTest way
 
             describe "arrays" $ do
+                it "allocation works" $
+                    property $ arrayAllocTest way
+
                 it "simple" $
                     property $ arraySimpleTest way
 
@@ -107,32 +110,37 @@ whileTest = sample & [] >-*-> [0 .. 4]
             ]
         ]
 
-arraySimpleTest :: ExecWay Stmt -> Value -> Property
-arraySimpleTest way k = expected sample way
+arrayAllocTest :: ExecWay Stmt -> Property
+arrayAllocTest = sample & [] >-*-> []
+  where
+    sample = "a" `L.arrayVarS` []
+
+arraySimpleTest :: ExecWay Stmt -> (NonNegative (Small Value)) -> Property
+arraySimpleTest way (NonNegative (Small k)) =
+    k `elem` range ==> ([k] >-*-> [k]) sample way
   where
     sample = mconcat
-        [ ("a" := ) `L.arrayS` (ValueE <$> range)
+        [ "a" `L.arrayVarS` (ValueE <$> range)
         , "i" := readE
         , writeS ("a" !!: "i")
         ]
-    expected = [k] >-*-> if k `elem` range then [k] else X
     range = [0 .. 5]
 
 arrayDeepTest :: ExecWay Stmt
               -> NonNegative (VerySmall Value)
               -> NonNegative (VerySmall Value)
               -> Property
-arrayDeepTest way (NonNegative (VerySmall k1)) (NonNegative (VerySmall k2)) = expected sample way
+arrayDeepTest way (NonNegative (VerySmall k1)) (NonNegative (VerySmall k2)) =
+    k1 == k2 ==> ([] >-*-> [1]) sample way
   where
     sample = mconcat
         [ "a" := 1
         , mconcat . replicate (fromIntegral k1) $  -- {{{... 1 ...}}}
-              ("a" := ) `L.arrayS` ["a"]
+              ("a" :=) `L.arrayS` ["a"]
         , L.forS ("i" := 0) ("i" <: ValueE k2) ("i" := "i" + 1) $
               "a" := "a" !!: 0
         , writeS "a"
         ]
-    expected = [] >-*-> if k1 == k2 then [1] else X
 
 errorsTest :: Property
 errorsTest = conjoin $

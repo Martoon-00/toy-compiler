@@ -10,7 +10,7 @@ import qualified Data.Vector         as V
 import           Formatting          (bprint, (%))
 import qualified Formatting          as F
 
-import           Toy.Base            (BinOp, FunSign (..), Var)
+import           Toy.Base            (BinOp, FunSign (..), Value, Var)
 import           Toy.Exp             (ExpRes, LocalVars)
 
 type IP = Int
@@ -29,7 +29,7 @@ instance Buildable LabelId where
 
 -- | Statement of a program.
 data Inst
-    = Push ExpRes
+    = Push Value
     | Drop
     | Dup
     | Bin BinOp

@@ -107,10 +107,16 @@ funCallS name args = dropS $ FunE name args
 writeS :: Exp -> Stmt
 writeS = funCallS "write" . pure
 
--- | Array initializer.
+-- | Array initializer, which imideatelly writes to variable.
+arrayVarS :: Var -> [Exp] -> Stmt
+arrayVarS var exps = mconcat
+    [ var := ArrayUninitE (length exps)
+    , uncurry (ArrayAssign $ VarE var) `foldMap` (zip [0..] exps)
+    ]
+
+-- | Array initializer, which allows to get array as exression.
 arrayS :: (Exp -> Stmt) -> [Exp] -> Stmt
 arrayS f exps = mconcat
-    [ "_" := ArrayUninitE (length exps)
-    , uncurry (ArrayAssign "_") `foldMap` (zip [0..] exps)
+    [ arrayVarS "_" exps
     , f "_"
     ]

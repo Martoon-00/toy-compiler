@@ -42,7 +42,7 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
         insts V.!? i `whenNothing` throwError "To infinity and beyond! >>>"
 
     step = \case
-        Push v      -> push v
+        Push v      -> push (ValueR v)
         Drop        -> void pop
         Dup         -> replicateM_ 2 . push =<< pop
         Bin op      -> do

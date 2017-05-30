@@ -26,7 +26,7 @@ import           Formatting                 (build, sformat, (%))
 import           Universum                  (type ($), Identity (..), Text)
 
 import           Toy.Base                   (FunSign (..), Var)
-import           Toy.Exp.Data               (Exp (..), ExpRes (..))
+import           Toy.Exp.Data               (Exp (..))
 import qualified Toy.Lang.Data              as L
 import qualified Toy.SM.Data                as SM
 
@@ -51,7 +51,7 @@ toIntermediate (L.Program funcs main) =
     convertFun (FunSign name args, stmt) = do
         tell [ SM.Enter name args, SM.Label $ SM.FLabel name ]
         convert stmt
-        tell [ SM.Push (ValueR 0), SM.Ret, SM.Label (SM.ELabel name) ]
+        tell [ SM.Push 0, SM.Ret, SM.Label (SM.ELabel name) ]
 
 convert :: L.Stmt -> TransState ()
 convert L.Skip         = tell [SM.Nop]
@@ -83,7 +83,7 @@ genLabel = id <<+= 1
 -- | Gives instructions which effectively push value equals to given
 -- expression on stack.
 pushExp :: Exp -> TransState ()
-pushExp (ValueE k)    = tell [SM.Push (ValueR k)]
+pushExp (ValueE k)    = tell [SM.Push k]
 pushExp (VarE n)      = tell [SM.Load n]
 pushExp (UnaryE _ _)  = throwError "SM doesn't support unary operations for now"
 pushExp (BinE op a b) = do

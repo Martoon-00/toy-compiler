@@ -60,6 +60,8 @@ resolveMemRefs Frame{..} = fmap $ traverseOperands %~ \case
         in  fromMaybe noVar $ asVar <$> M.lookup n fVars
                           <|> asArg <$> M.lookup n fArgs
     o@HardMem{} -> o
+    o@HeapMem{} -> o
+    o@HeapMemExt{} -> o
     Mem _       -> error "Resolving Mem reference??"
     o@Reg{}     -> o
     o@Const{}   -> o

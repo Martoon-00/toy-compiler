@@ -26,6 +26,7 @@ import qualified Data.Vector         as V
 
 import           Toy.X86.Data        (Operand (..))
 
+
 regSymStack :: V.Vector Operand
 regSymStack = Reg <$> ["ecx", "ebx", "esi", "edi"]
 

@@ -39,6 +39,7 @@ import qualified Text.RawString.QQ      as QQ
 import           Toy.Base               (Value, Var)
 import           Toy.SM                 (LabelId)
 
+-- TODO: Aaa, 100500 constructors. Decrease?
 data Operand
     = Reg Text
     -- ^ Register
@@ -48,6 +49,10 @@ data Operand
     -- ^ Memory reference. This keeps amount of /qword/s to look back on stack
     | HardMem Int
     -- ^ Like `Mem`, but won't be moved by 'Toy.X86.Translator.fixMemRefs'
+    | HeapMem Operand
+    -- ^ Memory reference to heap. Operand must be register  -- TODO: force by types?
+    | HeapMemExt Operand Operand
+    -- ^ Memory reference to heap (a + 4 * b). Operands must be registers
     | Local Var
     -- ^ Reerence to local variable
     | Stack Int
@@ -64,13 +69,15 @@ edi = Reg "edi"
 esp = Reg "esp"
 
 instance Buildable Operand where
-    build (Reg   r)   = "%" <> build r
-    build (Const v)   = "$" <> build v
-    build (Mem   i)   = bprint (int%"("%F.build%")") (4 * i) esp
-    build (HardMem i) = build (Mem i)
-    build (Local _)   = error "Local var reference remains upon compilation"
-    build (Stack _)   = error "Stack reference remains upon compilation"
-    build (Backup _)  = error "Backup reference remains upon compilation"
+    build (Reg   r)        = "%" <> build r
+    build (Const v)        = "$" <> build v
+    build (Mem   i)        = bprint (int%"("%F.build%")") (4 * i) esp
+    build (HardMem i)      = build (Mem i)
+    build (HeapMem b)      = bprint ("("%F.build%")") b
+    build (HeapMemExt a b) = bprint ("("%F.build%", "%F.build%", 4)") a b
+    build (Local _)        = error "Local var reference remains upon compilation"
+    build (Stack _)        = error "Stack reference remains upon compilation"
+    build (Backup _)       = error "Backup reference remains upon compilation"
 
 data StackDirection
     = Backward
@@ -148,6 +155,7 @@ instance Buildable Program where
 withStackSpace
     :: (Snoc s s Inst Inst, Cons s s Inst Inst)
     => Int -> s -> s
+withStackSpace 0 = id
 withStackSpace k = (ResizeStack Forward k <| ) . ( |> ResizeStack Backward k)
 
 traverseOperands :: Applicative f => (Operand -> f Operand) -> Inst -> f Inst
