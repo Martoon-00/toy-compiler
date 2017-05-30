@@ -16,7 +16,7 @@ before_install:
 - export PATH=$HOME/.local/bin:$PATH
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards
   --strip-components=1 -C ~/.local/bin '*/stack'
-- sudo apt-get install gcc-multilib
+- sudo apt-get install g++-multilib
 install:
 - stack --no-terminal --install-ghc build --only-dependencies --jobs=4
 script:
