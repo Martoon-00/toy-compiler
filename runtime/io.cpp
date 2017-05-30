@@ -1,6 +1,8 @@
 #include <stdio.h>
 
 extern "C" {
+namespace Toy {
+ 
     void write(int val) {
         printf("%d\n", val);
     }
@@ -11,4 +13,5 @@ extern "C" {
         scanf("%d", &val);
        return val;
     } 
+}
 }

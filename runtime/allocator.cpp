@@ -15,6 +15,7 @@ struct alloc_meta {
 std::map<int*, int> allocated = std::map<int*, int>();
 
 extern "C" {
+namespace Toy {
 
     int* allocate(int size) {
         int* ptr = (int*) std::calloc(1, size * VALUE_SIZE + sizeof(alloc_meta));
@@ -56,4 +57,5 @@ extern "C" {
         }
     }
 
+}
 }
