@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase   #-}
-{-# LANGUAGE QuasiQuotes  #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Toy.X86.Data
     ( Operand (..)
@@ -22,9 +23,10 @@ module Toy.X86.Data
 
     , withStackSpace
     , traverseOperands
+
+    , InstContainer
     ) where
 
-import           Control.Monad.Writer   (MonadWriter (..))
 import           Data.List              (intersperse)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
@@ -107,7 +109,7 @@ jmp = Jmp "mp"
 ret :: Inst
 ret = NoopOperator "ret"
 
-(?) :: (Monoid l, IsList l, Item l ~ Inst) => Text -> l -> l
+(?) :: InstContainer l => Text -> l -> l
 (?) comment insts = mconcat
     [ fromList $ [Comment comment]
     , insts
@@ -159,8 +161,7 @@ instance Buildable Program where
 |]
 
 withStackSpace
-    :: (Monoid l, IsList l, Item l ~ Inst)
-    => Int -> l -> l
+    :: InstContainer l => Int -> l -> l
 withStackSpace 0 insts = insts
 withStackSpace k insts = mconcat
     [ fromList [ResizeStack Forward k]
@@ -181,3 +182,5 @@ traverseOperands _ o@Comment{}       = pure o
 traverseOperands _ o@Label{}         = pure o
 traverseOperands _ o@Jmp{}           = pure o
 traverseOperands _ o@ResizeStack{}   = pure o
+
+type InstContainer l = (Monoid l, IsList l, Item l ~ Inst)

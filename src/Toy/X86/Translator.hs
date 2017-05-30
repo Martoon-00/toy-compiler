@@ -22,15 +22,16 @@ import qualified Data.Set              as S
 import qualified Data.Vector           as V
 import           Formatting            (build, formatToString, int, (%))
 import qualified Formatting            as F
+import           GHC.Exts              (fromList)
 import           System.FilePath.Posix ((</>))
 import           System.Process        (proc)
 import           Universum             (Text, first, toText)
 
 import           Toy.Base              (FunSign (..), Var)
 import qualified Toy.SM                as SM
-import           Toy.X86.Data          (Inst (..), Insts, Operand (..), Program (..),
-                                        StackDirection (..), eax, edx, jmp, ret,
-                                        withStackSpace, (//), (?))
+import           Toy.X86.Data          (Inst (..), InstContainer, Insts, Operand (..),
+                                        Program (..), StackDirection (..), eax, edx, jmp,
+                                        ret, withStackSpace, (//), (?))
 import           Toy.X86.Frame         (evalStackShift, mkFrame, resolveMemRefs)
 import           Toy.X86.Optimize      (optimize)
 import           Toy.X86.Process       (readCreateProcess)
@@ -200,32 +201,31 @@ fixMemRefs insts =
 
 -- | Copies given operands to backup space.
 -- It's essetial for this operation to not influence on sym stack.
-backupingOps :: MonadWriter (D.DList Inst) m => [Operand] -> m () -> m ()
+backupingOps :: (MonadWriter r m, InstContainer r) => [Operand] -> m () -> m ()
 backupingOps []  trans = trans
 backupingOps ops trans = do
-    let assoc = D.fromList $ zip ops (Backup <$> enumFrom ops)
-    tell $ fmap (uncurry Mov) assoc         // "buckup"
+    let copyWith f = fromList $ uncurry f <$> zip ops (Backup <$> [0..])
+    tell $ copyWith Mov         // "buckup"
     trans
-    tell $ fmap (uncurry $ flip Mov) assoc  // "restore"
-  where
-    enumFrom k = k : enumFrom (k + 1)
+    tell $ copyWith (flip Mov)  // "restore"
 
 inRegsWith
-    :: Operand                    -- ^ operand to temporally store argument in
-    -> Operand                    -- ^ argument
-    -> (Operand -> D.DList Inst)  -- ^ action with given argument, placed in register
-    -> D.DList Inst
+    :: InstContainer r
+    => Operand         -- ^ operand to temporally store argument in
+    -> Operand         -- ^ argument
+    -> (Operand -> r)  -- ^ action with given argument, placed in register
+    -> r
 inRegsWith _   op@(Reg _)   f = f op
 inRegsWith aux op@(Const _) f = [Mov op aux] <> f aux
 inRegsWith aux op           f = [Mov op aux] <> f aux <> [Mov aux op]
 
-inRegs1 :: Operand -> (Operand -> D.DList Inst) -> D.DList Inst
+inRegs1 :: InstContainer r => Operand -> (Operand -> r) -> r
 inRegs1 = inRegsWith eax
 
 -- inRegs2 :: Operand -> Operand -> (Operand -> Operand -> [Inst]) -> [Inst]
 -- inRegs2 op1 op2 f = inRegsWith eax op1 $ inRegsWith edx op2 . f
 
-binop :: Operand -> Operand -> Text -> D.DList Inst
+binop :: InstContainer r => Operand -> Operand -> Text -> r
 binop op1 op2 = \case
     "+" -> inRegs1 op1 $ \op1' -> [BinOp "addl" op1' op2]
     "-" -> inRegs1 op1 $ \op1' -> [BinOp "subl" op2 op1', Mov op1' op2]
@@ -286,7 +286,6 @@ produceBinary
 produceBinary runtimePath outputPath insts = liftIO $ do
     let cmd = proc "g++"
             [ "-m32"                       -- for x32
-            , "-lstdc++"                   -- fetch stdlib (c++ required)
             , runtimePath </> "runtime.o"
             , "-xassembler"                -- specifies language
             , "-"                          -- take source from stdin
