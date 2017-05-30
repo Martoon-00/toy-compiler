@@ -21,4 +21,5 @@ install:
 - stack --no-terminal --install-ghc build --only-dependencies --jobs=4
 script:
 - make $TESTS_MODE TEST_RUNS=$TEST_RUNS
+after_script:
 - make clean 1> /dev/null
