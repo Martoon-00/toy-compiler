@@ -20,7 +20,6 @@ module Toy.X86.SymStack
 
 import           Control.Lens         (ix, makeLenses, use, (%=), (<&>), (<-=), (<<+=),
                                        (^?))
-import           Control.Monad.Fix    (MonadFix)
 import           Control.Monad.State  (StateT, runStateT)
 import           Control.Monad.Writer (MonadWriter)
 import           Data.Default         (Default (..))
@@ -48,7 +47,7 @@ instance Default SymStackState where
     def = SymStackState 0 0
 
 newtype SymStackHolder m a = SymStackHolder (StateT SymStackState m a)
-    deriving (Functor, Applicative, Monad, MonadWriter __, MonadFix)
+    deriving (Functor, Applicative, Monad, MonadWriter __)
 
 -- | How much space sym stack requires on real stack.
 newtype SymStackSpace = SymStackSpace Int
