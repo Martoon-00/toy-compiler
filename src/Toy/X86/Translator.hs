@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE RecursiveDo     #-}
 {-# LANGUAGE TypeFamilies    #-}
 {-# LANGUAGE ViewPatterns    #-}
 
@@ -132,19 +133,21 @@ step calleeName = \case
         tell [Mov op eax, jmp (SM.ELabel calleeName)]
     SM.Enter{} -> tell [NoopOperator "int3"]
   where
-    mkCall name argsNum = do
-        rolling <- fmap mconcat . forM [0 .. argsNum - 1] $ \i ->
-            popSymStackOp <&> \op ->
-                [ Mov op eax                -- TODO: with nice 'inRegs' :()
-                , Mov eax (HardMem i)
-                ]
-        toBackup <- occupiedRegs
-        backupingOps toBackup $ censor (withStackSpace argsNum) $ do
+    mkCall name argsNum = mdo
+        toBackup <- backupingOps toBackup $ censor (withStackSpace argsNum) $ do
+            rolling <- fmap mconcat . forM [0 .. argsNum - 1] $ \i ->
+                popSymStackOp <&> \op ->
+                    [ Mov op eax                -- TODO: with nice 'inRegs' :()
+                    , Mov eax (HardMem i)
+                    ]
             tell rolling
+            toBackup' <- occupiedRegs
             tell [Call name]
 
             op <- allocSymStackOp
             tell [Mov eax op]
+            return toBackup'
+        return ()
 
 separateFuns :: SM.Insts -> [SM.Insts]
 separateFuns insts =
@@ -204,13 +207,14 @@ fixMemRefs insts =
 
 -- | Copies given operands to backup space.
 -- It's essetial for this operation to not influence on sym stack.
-backupingOps :: (MonadWriter r m, InstContainer r) => [Operand] -> m () -> m ()
-backupingOps []  trans = trans
+-- Also, it should not be strict on first argument (for the sake of RecursiveDo MADNESS)
+backupingOps :: (MonadWriter r m, InstContainer r) => [Operand] -> m a -> m a
 backupingOps ops trans = do
     let copyWith f = fromList $ uncurry f <$> zip ops (Backup <$> [0..])
     tell $ copyWith Mov         // "buckup"
-    trans
+    res <- trans
     tell $ copyWith (flip Mov)  // "restore"
+    return res
 
 inRegsWith
     :: InstContainer r

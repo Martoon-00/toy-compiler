@@ -41,6 +41,7 @@ library
                        Toy.SM.Interpreter
 
                        Toy.Util.Error
+                       Toy.Util.Instances
                        Toy.Util.Parsable
 
                        Toy.X86.Data

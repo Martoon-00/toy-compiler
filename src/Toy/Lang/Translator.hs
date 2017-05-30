@@ -2,14 +2,13 @@
 {-# LANGUAGE OverloadedLists       #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE ViewPatterns          #-}
-{-# OPTIONS_GHC -fno-warn-orphans  #-}
 
 module Toy.Lang.Translator
     ( toIntermediate
     ) where
 
 import           Control.Applicative        ((<|>))
-import           Control.Lens               (Snoc (..), ix, preview, prism, (<<+=), _1)
+import           Control.Lens               (ix, preview, (<<+=), _1)
 import           Control.Monad              (replicateM)
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.State        (MonadState)
@@ -29,12 +28,6 @@ import           Toy.Base                   (FunSign (..), Var)
 import           Toy.Exp.Data               (Exp (..))
 import qualified Toy.Lang.Data              as L
 import qualified Toy.SM.Data                as SM
-
-instance Snoc (D.DList a) (D.DList a) a a where
-    _Snoc = prism (uncurry D.snoc) undefined
-
-instance Traversable D.DList where
-    traverse f l = fmap D.fromList $ traverse f (D.toList l)
 
 type TransState = RWST L.FunDecls (D.DList SM.Inst) Int $ ExceptT Text Identity
 

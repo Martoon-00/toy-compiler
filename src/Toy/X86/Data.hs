@@ -37,8 +37,9 @@ import           Formatting             (bprint, int, stext, (%))
 import qualified Formatting             as F
 import           GHC.Exts               (IsList (..))
 import           GHC.Exts               (toList)
-import           Prelude                hiding (unlines)
+import           Prelude                hiding (null, unlines)
 import qualified Text.RawString.QQ      as QQ
+import           Universum              (Container (null), One (..))
 
 import           Toy.Base               (Value, Var)
 import           Toy.SM                 (LabelId)
@@ -110,13 +111,15 @@ ret :: Inst
 ret = NoopOperator "ret"
 
 (?) :: InstContainer l => Text -> l -> l
-(?) comment insts = mconcat
-    [ fromList $ [Comment comment]
-    , insts
-    , fromList $ [Comment (comment <> " end")]
-    ]
+(?) comment insts
+    | null insts = mempty
+    | otherwise = mconcat
+        [ one $ Comment comment
+        , insts
+        , one $ Comment (comment <> " end")
+        ]
 
-(//) :: (Monoid l, IsList l, Item l ~ Inst) => l -> Text -> l
+(//) :: InstContainer l => l -> Text -> l
 (//) = flip (?)
 
 buildInst :: Buildable b => Text -> [b] -> Builder
@@ -164,9 +167,9 @@ withStackSpace
     :: InstContainer l => Int -> l -> l
 withStackSpace 0 insts = insts
 withStackSpace k insts = mconcat
-    [ fromList [ResizeStack Forward k]
+    [ one $ ResizeStack Forward k
     , insts
-    , fromList [ResizeStack Backward k]
+    , one $ ResizeStack Backward k
     ]
 
 traverseOperands :: Applicative f => (Operand -> f Operand) -> Inst -> f Inst
@@ -183,4 +186,11 @@ traverseOperands _ o@Label{}         = pure o
 traverseOperands _ o@Jmp{}           = pure o
 traverseOperands _ o@ResizeStack{}   = pure o
 
-type InstContainer l = (Monoid l, IsList l, Item l ~ Inst)
+type InstContainer l =
+    ( Monoid l
+    , Container l
+    , One l
+    , IsList l
+    , Item l ~ Inst
+    , OneItem l ~ Inst
+    )
