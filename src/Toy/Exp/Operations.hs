@@ -97,8 +97,8 @@ binOp "!=" = binResToBool (/=)
 binOp op   = error $ "Unsopported operation: " ++ show op
 
 
-arrayMake :: MonadIO m => Int -> m ExpRes
-arrayMake k = liftIO $ ArrayR <$> newIORef (V.replicate k NotInitR)
+arrayMakeU :: MonadIO m => Int -> m ExpRes
+arrayMakeU k = liftIO $ ArrayR <$> newIORef (V.replicate k NotInitR)
 
 arrayAccess :: (MonadIO m, MonadError s m, IsString s) => ExpRes -> ExpRes -> m ExpRes
 arrayAccess a i = do
@@ -114,3 +114,14 @@ arraySet a i e = do
     a'' <- liftIO $ readIORef a'
     unless (ix i `has` a'') $ throwError "index out of bounds"
     liftIO . modifyIORef a' $ ix i .~ e
+
+arrayLength :: (MonadIO m, MonadError s m, IsString s) => ExpRes -> m ExpRes
+arrayLength a = do
+    arg <- liftIO . readIORef =<< pure a `arrayOnly` "array expected"
+    return (ValueR . fromIntegral $ V.length arg)
+
+arrayMake :: (MonadIO m, MonadError s m, IsString s) => ExpRes -> ExpRes -> m ExpRes
+arrayMake l e = do
+    l' <- pure l `valueOnly` "length should be numeric"
+    r  <- liftIO . newIORef $ V.replicate (fromIntegral l') e
+    return (ArrayR r)

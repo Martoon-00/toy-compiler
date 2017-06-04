@@ -55,13 +55,8 @@ spec = do
                 it "gcd" $
                     gcdTest way
             describe "standart functions presence" $ do
-                describe "available as statement" $
-                    for_ stdFunExamples $ \args@(show -> name, _) ->
-                        it name $ stdFunCallStmtTest args way
-
-                describe "available as expression" $
-                    for_ stdFunExamples $ \args@(show -> name, _) ->
-                        it name $ stdFunCallExpTest args way
+                for_ stdFunExamples $ \args@(show -> name, _) ->
+                    it name $ stdFunCallTest args way
 
 singleFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleFunProg argNames args body =
@@ -155,11 +150,6 @@ gcdTest = sample ~*~ fun
     fun :: NonNegative Value -> NonNegative Value -> Value
     fun (NonNegative x) (NonNegative y) = gcd x y
 
+stdFunCallTest :: (Var, [Exp]) -> ExecWay L.Program -> Property
+stdFunCallTest = works . L.Program mempty . uncurry L.funCallS
 
-stdFunCallStmtTest :: (Var, [Exp]) -> ExecWay L.Program -> Property
-stdFunCallStmtTest callParams =
-    works . L.Program mempty $ uncurry L.funCallS callParams
-
-stdFunCallExpTest :: (Var, [Exp]) -> ExecWay L.Program -> Property
-stdFunCallExpTest callParams =
-    works . L.Program mempty $ "x" L.:= uncurry FunE callParams

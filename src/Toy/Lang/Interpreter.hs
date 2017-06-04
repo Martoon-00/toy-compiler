@@ -71,7 +71,7 @@ executeDo = \case
     eval = E.eval execFun
 
 execFun :: MonadIO m => Stmt -> ExecProcess m ExpRes
-execFun stmt = (ValueR 0 <$ executeDo stmt) `catchError` handler
+execFun stmt = (NotInitR <$ executeDo stmt) `catchError` handler
   where
     handler e@(Error _)  = throwError e
     handler (Returned v) = return v

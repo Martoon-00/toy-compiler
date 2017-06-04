@@ -13,7 +13,7 @@ module Test.Execution
     , describeExecWays
     ) where
 
-import           Control.Lens               (has, (^?), _Right)
+import           Control.Lens               ((^?), _Right)
 import           Control.Monad              (forM_)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Writer       (runWriter)
@@ -79,7 +79,9 @@ works prog way =
     once $ propTranslating way prog $ \executable ->
         withTimeout . ioProperty $ do
             outcome <- runEitherT $ exec executable [0..]
-            return $ has _Right outcome
+            return $ case outcome of
+                Left err -> counterexample (toString err) False
+                Right _  -> property True
 
 
 class Equivalence f where

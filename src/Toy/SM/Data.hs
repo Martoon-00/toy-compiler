@@ -2,15 +2,17 @@
 
 module Toy.SM.Data where
 
-import           Control.Lens        (makeLenses)
+import           Control.Lens        (makeLenses, (<&>))
 import           Data.Default        (Default (..))
 import qualified Data.Map            as M
 import           Data.Text.Buildable (Buildable (..))
 import qualified Data.Vector         as V
 import           Formatting          (bprint, (%))
 import qualified Formatting          as F
+import           Universum           (one)
 
-import           Toy.Base            (BinOp, FunSign (..), Value, Var)
+import           Toy.Base            (BinOp, FunSign (..), Value, Var (..),
+                                      stdFunExamples)
 import           Toy.Exp             (ExpRes, LocalVars)
 
 type IP = Int
@@ -69,6 +71,5 @@ initFunName = "main"
 
 externalFuns :: [FunSign]
 externalFuns =
-    [ FunSign "read" []
-    , FunSign "write" ["x"]
-    ]
+    stdFunExamples <&> \(name, args) ->
+        FunSign name $ zipWith const (Var . one <$> ['a'..'z']) args

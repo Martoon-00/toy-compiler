@@ -11,12 +11,12 @@ import           Control.Monad.Error.Class (throwError)
 import           Data.Conduit              (await, yield)
 import qualified Data.Map                  as M
 import           Formatting                (build, sformat, shown, (%))
-import           Universum                 (whenNothingM)
+import           Universum                 (whenNothingM, (<>))
 
-import           Toy.Base                  (ExecInOut, FunSign (..), Var)
+import           Toy.Base                  (ExecInOut, FunSign (..), Var (..))
 import           Toy.Exp                   (Exp (..), ExpRes (..), arithspoon,
-                                            arrayAccess, arrayMake, binOp, unaryOp,
-                                            valueOnly)
+                                            arrayAccess, arrayLength, arrayMake,
+                                            arrayMakeU, binOp, unaryOp, valueOnly)
 import           Toy.Lang.Data             (ExecInterrupt (..), MonadExec, Stmt (..))
 
 type FunExecutor m = Stmt -> ExecInOut m ExpRes
@@ -33,7 +33,7 @@ eval executor = \case
     UnaryE op v    -> fmap ValueR $ arithspoon =<< (unaryOp op <$> evalRecV v)
     BinE op a b    -> fmap ValueR $ arithspoon =<< (binOp op <$> evalRecV a <*> evalRecV b)
     FunE n args    -> callFun executor n args
-    ArrayUninitE k -> arrayMake k
+    ArrayUninitE k -> arrayMakeU k
     ArrayAccessE a i -> do
         ar <- evalRec a
         ir <- evalRec i
@@ -49,13 +49,33 @@ callFun executor name args = case name of
     "read" ->
         ValueR <$> await `whenNothingM` throwError "No input"
 
-    "write" | [x] <- args -> do
-        arg <- eval executor x `valueOnly` "Cannot write array"
+    "write" -> expectArgs 1 $ \[x] -> do
+        arg <- evalValue x
         yield arg
         return (ValueR 0)
-    "write" ->
-        throwError "Wrong number of arguments"
+
+    "arrlen" -> expectArgs 1 $ \[x] -> do
+        eval executor x >>= arrayLength
+
+    "arrmake" -> expectArgs 2 $ \[l, v] -> do
+        l' <- eval executor l
+        v' <- eval executor v
+        arrayMake l' v'
+
+    "Arrmake" -> callFun executor "arrmake" args
+
     _ -> callDefinedFun executor name args
+  where
+    funName = case name of Var n -> n
+    expectArgs k f = do
+        let err = Error $ funName <> ": wrong number of arguments"
+        if length args == k then f args else throwError err
+    evalValue expr = do
+        let err = funName <> ": not a primitive value given"
+        eval executor expr `valueOnly` err
+    -- evalArray expr = do
+    --     let err = funName <> ": not an array given"
+    --     eval executor expr `arrayOnly` err
 
 callDefinedFun
     :: MonadExec m

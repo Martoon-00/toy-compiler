@@ -24,7 +24,8 @@ import           Universum                 (Text, whenNothing, (<>))
 
 import           Toy.Base                  (Exec, FunSign (..))
 import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess,
-                                            arrayMake, arraySet, binOp, valueOnly)
+                                            arrayLength, arrayMake, arrayMakeU, arraySet,
+                                            binOp, valueOnly)
 import           Toy.SM.Data               (ExecState (..), IP, Inst (..), Insts,
                                             LabelId (..), esIp, esLocals, esStack,
                                             initFunName)
@@ -53,7 +54,7 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
             Nothing  -> throwError $ sformat ("No variable "%build%" defined") n
             Just var -> push var
         Store n     -> pop >>= (esLocals . at n ?= )
-        ArrayMake k -> arrayMake k >>= push
+        ArrayMake k -> arrayMakeU k >>= push
         ArrayAccess -> do
             i <- pop
             a <- pop
@@ -74,6 +75,17 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
             await >>= maybe (throwError "No input") (push . ValueR)
         Call (FunSign "write" _) ->
             pop `valueOnly` "Can't write reference" >>= yield >> push (ValueR 0)
+        Call (FunSign "arrlen" _) -> do
+            a <- pop
+            l <- mapError ("array length: " <>) $ arrayLength a
+            push l
+        Call (FunSign "arrmake" _) -> do
+            l <- pop
+            e <- pop
+            a <- mapError ("make array: " <>) $ arrayMake l e
+            push a
+        Call (FunSign "Arrmake" args) ->
+            step (Call $ FunSign "arrmake" args)
         Call (FunSign name args) -> do
             stack <- esStack <<%= drop (length args)
             entry <- getLabel (FLabel name)
