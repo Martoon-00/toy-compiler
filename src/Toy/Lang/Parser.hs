@@ -6,9 +6,11 @@ module Toy.Lang.Parser
     ) where
 
 import           Control.Applicative   (Alternative (..), (*>), (<*))
+import           Control.Lens          (unsnoc)
 import           Control.Monad         (join, void)
 import           Data.Char             (isAlphaNum)
 import           Data.Functor          (($>), (<$))
+import           Data.Maybe            (fromMaybe)
 import           Data.Text             (Text)
 import           Text.Megaparsec       (char, choice, eof, label, letterChar,
                                         notFollowedBy, satisfy, sepBy, space, try, (<?>))
@@ -18,9 +20,9 @@ import           Universum             (toString, toText)
 
 import           Toy.Base              (FunSign (..), Var (..))
 import           Toy.Exp               (Exp (..))
-import           Toy.Lang.Data         (FunDecl, Program, Program (..), Stmt (..),
-                                        arrayVarS, forS, funCallS, mkFunDecls, repeatS,
-                                        whileS, writeS)
+import           Toy.Lang.Data         (FunDecl, Program, Program (..), Stmt (..), arrayS,
+                                        forS, funCallS, mkFunDecls, repeatS, whileS,
+                                        writeS)
 import           Toy.Util              (Parsable (..), Parser)
 
 
@@ -51,6 +53,9 @@ infixl 1 ?>
 
 paren :: Parser a -> Parser a
 paren p = sp $ char '(' *> p <* char ')'
+
+brackets :: Parser a -> Parser a
+brackets p = sp $ char '[' *> p <* char ']'
 
 -- | Expression atom
 elemP :: Parser Exp
@@ -120,7 +125,7 @@ arrayAccessP ap =
     label "Array access operator" $
     sp $ do
     a <- ap
-    arrayAccessP (ArrayAccessE a <$> (char '[' *> expP <* char ']')) ?> a
+    arrayAccessP (ArrayAccessE a <$> brackets expP) ?> a
 
 skipP :: Parser Stmt
 skipP = space $> Skip
@@ -157,10 +162,19 @@ stmtP = sp $
             [ rvalue var
             , funCallS var <$> funCallArgsP
             ]
-    rvalue var = sp (string ":=") *> choice
-        [ (var := ) <$> expP
-        , arrayVarS var <$> (char '[' *> enumerationP expP <* char ']')
-        ]
+    rvalue var = do
+        assign <- sp . choice $
+            [ (var := ) <$ string ":="
+            , do exprs <- unsnoc <$> some (brackets expP)
+                 let (es, e) = fromMaybe (error "'some' returned 0 elems") exprs
+                 string ":="
+                 return $ ArrayAssign (foldr ArrayAccessE (VarE var) es) e
+            ]
+        choice
+            [ assign <$> expP
+            , arrayS assign <$> brackets (enumerationP expP)
+            ]
+
 
 
 stmtsP :: Parser Stmt

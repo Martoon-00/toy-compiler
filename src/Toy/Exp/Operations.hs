@@ -7,8 +7,10 @@ import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Trans       (MonadIO (..))
 import           Data.Bits                 (xor, (.&.), (.|.))
 import           Data.IORef                (modifyIORef, newIORef, readIORef)
-import           Data.String               (IsString)
+import           Data.String               (IsString (..))
 import qualified Data.Vector               as V
+import           Formatting                ((%))
+import qualified Formatting                as F
 import           Universum                 (unless, whenNothing)
 
 import           Toy.Base                  (BinOp, UnaryOp, Value)
@@ -100,28 +102,42 @@ binOp op   = error $ "Unsopported operation: " ++ show op
 arrayMakeU :: MonadIO m => Int -> m ExpRes
 arrayMakeU k = liftIO $ ArrayR <$> newIORef (V.replicate k NotInitR)
 
-arrayAccess :: (MonadIO m, MonadError s m, IsString s) => ExpRes -> ExpRes -> m ExpRes
+arrayAccess
+    :: (MonadIO m, MonadError s m, IsString s)
+    => ExpRes -> ExpRes -> m ExpRes
 arrayAccess a i = do
-    i' <- pure i `valueOnly` "index is not a number"
+    i' <- pure i `valueOnly` "array access: index is not a number"
     let i'' = fromIntegral i'
-    a' <- pure a `arrayOnly` "array expected"
+    a' <- pure a `arrayOnly` "array access: array expected"
     a'' <- liftIO $ readIORef a'
-    (a'' ^? ix i'') `whenNothing` throwError "index out of bounds"
+    (a'' ^? ix i'') `whenNothing` throwError "array access: index out of bounds"
 
-arraySet :: (MonadIO m, MonadError s m, IsString s) => ExpRes -> Int -> ExpRes -> m ()
+arraySet
+    :: (MonadIO m, MonadError s m, IsString s)
+    => ExpRes -> ExpRes -> ExpRes -> m ()
 arraySet a i e = do
-    a'  <- pure a `arrayOnly` "array expected"
+    a'  <- pure a `arrayOnly` "array set: array expected"
     a'' <- liftIO $ readIORef a'
-    unless (ix i `has` a'') $ throwError "index out of bounds"
-    liftIO . modifyIORef a' $ ix i .~ e
+    i'  <- pure i `valueOnly` "array set: array expected"
+    let i'' = fromIntegral i'
+    unless (ix i'' `has` a'') $
+        throwError . fromString $
+        F.formatToString ("array set: index out of bounds: "%F.build%
+                          " is out of ["%F.build%", "%F.build%")")
+                          i'' (0 :: Int) (V.length a'')
+    liftIO . modifyIORef a' $ ix i'' .~ e
 
-arrayLength :: (MonadIO m, MonadError s m, IsString s) => ExpRes -> m ExpRes
+arrayLength
+    :: (MonadIO m, MonadError s m, IsString s)
+    => ExpRes -> m ExpRes
 arrayLength a = do
-    arg <- liftIO . readIORef =<< pure a `arrayOnly` "array expected"
+    arg <- liftIO . readIORef =<< pure a `arrayOnly` "array length: array expected"
     return (ValueR . fromIntegral $ V.length arg)
 
-arrayMake :: (MonadIO m, MonadError s m, IsString s) => ExpRes -> ExpRes -> m ExpRes
+arrayMake
+    :: (MonadIO m, MonadError s m, IsString s)
+    => ExpRes -> ExpRes -> m ExpRes
 arrayMake l e = do
-    l' <- pure l `valueOnly` "length should be numeric"
+    l' <- pure l `valueOnly` "make array: length should be numeric"
     r  <- liftIO . newIORef $ V.replicate (fromIntegral l') e
     return (ArrayR r)

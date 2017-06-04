@@ -20,7 +20,7 @@ import           Data.Functor              (($>))
 import qualified Data.Map                  as M
 import qualified Data.Vector               as V
 import           Formatting                (build, int, sformat, shown, string, (%))
-import           Universum                 (Text, whenNothing, (<>))
+import           Universum                 (Text, whenNothing)
 
 import           Toy.Base                  (Exec, FunSign (..))
 import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess,
@@ -29,7 +29,6 @@ import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess
 import           Toy.SM.Data               (ExecState (..), IP, Inst (..), Insts,
                                             LabelId (..), esIp, esLocals, esStack,
                                             initFunName)
-import           Toy.Util                  (mapError)
 
 execute :: MonadIO m => Insts -> Exec m ()
 execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
@@ -58,12 +57,13 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
         ArrayAccess -> do
             i <- pop
             a <- pop
-            e <- mapError ("array access: " <>) $ arrayAccess a i
+            e <- arrayAccess a i
             push e
-        ArraySet k -> do
+        ArraySet -> do
             e <- pop
+            i <- pop
             a <- pop
-            mapError ("array set: " <>) $ arraySet a k e
+            arraySet a i e
         Label{}     -> step Nop
         Jmp lid     -> do
             ensureStackSize 0 "jump"
@@ -77,12 +77,12 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
             pop `valueOnly` "Can't write reference" >>= yield >> push (ValueR 0)
         Call (FunSign "arrlen" _) -> do
             a <- pop
-            l <- mapError ("array length: " <>) $ arrayLength a
+            l <- arrayLength a
             push l
         Call (FunSign "arrmake" _) -> do
             l <- pop
             e <- pop
-            a <- mapError ("make array: " <>) $ arrayMake l e
+            a <- arrayMake l e
             push a
         Call (FunSign "Arrmake" args) ->
             step (Call $ FunSign "arrmake" args)

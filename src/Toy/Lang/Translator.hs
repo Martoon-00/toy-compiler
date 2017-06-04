@@ -67,8 +67,9 @@ convert (L.DoWhile s c) = do
 convert (L.Return e) = pushExp e >> tell [SM.Ret]
 convert (L.ArrayAssign a i e) = do
     pushExp a
+    pushExp i
     pushExp e
-    tell [SM.ArraySet i]
+    tell [SM.ArraySet]
 
 genLabel :: MonadState Int m => m Int
 genLabel = id <<+= 1

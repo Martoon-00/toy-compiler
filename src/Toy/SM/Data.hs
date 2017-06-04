@@ -39,7 +39,7 @@ data Inst
     | Store Var
     | ArrayMake Int
     | ArrayAccess
-    | ArraySet Int
+    | ArraySet
     | Label LabelId
     | Jmp Int
     | JmpIf Int

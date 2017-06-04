@@ -7,6 +7,7 @@ module Toy.Lang.Interpreter
     ) where
 
 import           Control.Lens               (at, (?=), (^?))
+import           Control.Monad              (join)
 import           Control.Monad.Error.Class  (MonadError (..))
 import           Control.Monad.Morph        (hoist)
 import           Control.Monad.Reader       (ReaderT, runReaderT)
@@ -39,6 +40,7 @@ execute (Program funDecls stmt) =
     simplifyErr = bimapEitherT toSimpleErr id
     toSimpleErr = fromMaybe "Return at global scope" . ( ^? _Error)
 
+-- TODO: do smth with 'withStmt' everywhere
 -- | Execute given statement.
 executeDo :: MonadIO m => Stmt -> ExecProcess m ()
 executeDo = \case
@@ -58,10 +60,7 @@ executeDo = \case
         throwError $ Returned value
 
     ArrayAssign a i e -> do
-        -- TODO: do smth with 'withStmt' everywhere
-        ar <- eval a
-        er <- eval e
-        arraySet ar i er
+        join $ arraySet <$> eval a <*> eval i <*> eval e
 
     Seq stmt0 stmt1 ->
         mapM_ executeDo [stmt0, stmt1]

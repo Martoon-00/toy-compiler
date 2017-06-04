@@ -10,7 +10,7 @@ module Test.Examples.BaseSpec
 import           Control.Lens    ((&), (<&>))
 import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (NonNegative (..), Property, Small (..), conjoin,
-                                  counterexample, property, (==>))
+                                  counterexample, once, property, (==>))
 import           Universum       (Text, toString)
 
 import           Test.Arbitrary  ()
@@ -18,7 +18,7 @@ import           Test.Execution  (TestRes (..), describeExecWays, (>-*->), (>-->
 import           Test.Util       (VerySmall (..))
 import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Base
-import           Toy.Execution   (ExecWay (..), asIs, defCompileX86, translateLang,
+import           Toy.Execution   (ExecWay (..), defCompileX86, transShow, translateLang,
                                   (<~~>))
 import           Toy.Exp
 import           Toy.Lang        (Stmt (..), writeS)
@@ -26,13 +26,13 @@ import qualified Toy.Lang        as L
 
 spec :: Spec
 spec = do
-    describeExecWays [Ex @Stmt asIs] $ \_ -> do
+    describeExecWays [Ex @Stmt transShow] $ \_ -> do
         describe "examples" $ do
             it "different erroneous scenarios" $
                 errorsTest
 
     let ways =
-            [ Ex asIs
+            [ Ex transShow
             , Ex translateLang
             , Ex $ translateLang <~~> defCompileX86
             ]
@@ -117,7 +117,7 @@ arrayAllocTest = sample & [] >-*-> []
 
 arraySimpleTest :: ExecWay Stmt -> (NonNegative (Small Value)) -> Property
 arraySimpleTest way (NonNegative (Small k)) =
-    k `elem` range ==> ([k] >-*-> [k]) sample way
+    once $ k `elem` range ==> ([k] >-*-> [k]) sample way
   where
     sample = mconcat
         [ "a" `L.arrayVarS` (ValueE <$> range)
@@ -131,10 +131,10 @@ arrayDeepTest :: ExecWay Stmt
               -> NonNegative (VerySmall Value)
               -> Property
 arrayDeepTest way (NonNegative (VerySmall k1)) (NonNegative (VerySmall k2)) =
-    k1 == k2 ==> ([] >-*-> [1]) sample way
+    k1 == k2 ==> ([] >-*-> [7]) sample way
   where
     sample = mconcat
-        [ "a" := 1
+        [ "a" := 7
         , mconcat . replicate (fromIntegral k1) $  -- {{{... 1 ...}}}
               ("a" :=) `L.arrayS` ["a"]
         , L.forS ("i" := 0) ("i" <: ValueE k2) ("i" := "i" + 1) $

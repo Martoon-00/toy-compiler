@@ -2,7 +2,6 @@
 {-# LANGUAGE OverloadedLists  #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies     #-}
-{-# LANGUAGE ViewPatterns     #-}
 
 module Toy.X86.Translator
     ( compile
@@ -109,12 +108,14 @@ step calleeName = \case
             , Mov (HeapMemExt eax edx) eax
             , Mov eax e
             ]
-    SM.ArraySet (fromIntegral -> i) -> do
+    SM.ArraySet -> do
         e <- popSymStackOp
+        i <- popSymStackOp
         a <- popSymStackOp
         tell
             [ Mov a eax
-            , BinOp "addl" (Const $ i * 4) eax
+            , Mov i edx
+            , BinOp "leal" (HeapMemExt eax edx) eax
             , Mov e edx
             , Mov edx (HeapMem eax)
             ]

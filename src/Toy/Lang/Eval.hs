@@ -55,7 +55,7 @@ callFun executor name args = case name of
         return (ValueR 0)
 
     "arrlen" -> expectArgs 1 $ \[x] -> do
-        eval executor x >>= arrayLength
+        arrayLength =<< eval executor x
 
     "arrmake" -> expectArgs 2 $ \[l, v] -> do
         l' <- eval executor l

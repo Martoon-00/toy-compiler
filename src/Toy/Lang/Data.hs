@@ -19,7 +19,7 @@ import           Universum                 (Text)
 
 import           Toy.Base                  (FunSign (..), Var (..))
 import           Toy.Exp                   (Exp (..), ExpRes, LocalVars, readE, (==:))
-
+import           Toy.Util.Error            (mapError)
 
 -- | Statement of a program.
 data Stmt
@@ -28,7 +28,7 @@ data Stmt
     | DoWhile Stmt Exp  -- ^ @do .. while@ is the most optimal / easy loop from
                         -- asm point of view
     | Return Exp
-    | ArrayAssign Exp Int Exp
+    | ArrayAssign Exp Exp Exp  -- ^ array, index and value to assign
     | Seq Stmt Stmt
     | Skip
     deriving (Show)
@@ -62,6 +62,9 @@ makePrisms ''ExecInterrupt
 
 instance IsString ExecInterrupt where
     fromString = Error . fromString
+
+prefixError :: MonadError ExecInterrupt m => Text -> m a -> m a
+prefixError desc = mapError (_Error %~ (desc <>))
 
 type MonadExec m =
     ( MonadIO m
@@ -111,7 +114,7 @@ writeS = funCallS "write" . pure
 arrayVarS :: Var -> [Exp] -> Stmt
 arrayVarS var exps = mconcat
     [ var := ArrayUninitE (length exps)
-    , uncurry (ArrayAssign $ VarE var) `foldMap` (zip [0..] exps)
+    , uncurry (ArrayAssign $ VarE var) `foldMap` (zip (map ValueE [0..]) exps)
     ]
 
 -- | Array initializer, which allows to get array as exression.
