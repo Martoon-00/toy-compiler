@@ -18,8 +18,9 @@ import           Universum             (toString, toText)
 
 import           Toy.Base              (FunSign (..), Var (..))
 import           Toy.Exp               (Exp (..))
-import           Toy.Lang.Data         (FunDecl, Program, Program (..), Stmt (..), forS,
-                                        funCallS, mkFunDecls, repeatS, whileS, writeS)
+import           Toy.Lang.Data         (FunDecl, Program, Program (..), Stmt (..),
+                                        arrayVarS, forS, funCallS, mkFunDecls, repeatS,
+                                        whileS, writeS)
 import           Toy.Util              (Parsable (..), Parser)
 
 
@@ -53,8 +54,11 @@ paren p = sp $ char '(' *> p <* char ')'
 
 -- | Expression atom
 elemP :: Parser Exp
-elemP = sp $ label "Expression atom" $ choice
+elemP = sp $ label "Expression atom" $
+    arrayAccessP $
+    choice
     [ paren expP
+    , ArrayUninitE 0 <$ (char '{' >> space >> char '}')
     , ValueE <$> mkParser
     , do var <- varP
          FunE var <$> funCallArgsP ?> VarE var
@@ -111,6 +115,13 @@ funCallArgsP =
     label "Function call arguments" $
     sp $ paren (enumerationP expP)
 
+arrayAccessP :: Parser Exp -> Parser Exp
+arrayAccessP ap =
+    label "Array access operator" $
+    sp $ do
+    a <- ap
+    arrayAccessP (ArrayAccessE a <$> (char '[' *> expP <* char ']')) ?> a
+
 skipP :: Parser Stmt
 skipP = space $> Skip
 
@@ -143,9 +154,14 @@ stmtP = sp $
     withName = label "Assignment or function" $ do
         var <- varP
         choice
-            [ (var :=)     <$> (sp (string ":=") *> expP)
+            [ rvalue var
             , funCallS var <$> funCallArgsP
             ]
+    rvalue var = sp (string ":=") *> choice
+        [ (var := ) <$> expP
+        , arrayVarS var <$> (char '[' *> enumerationP expP <* char ']')
+        ]
+
 
 stmtsP :: Parser Stmt
 stmtsP = sp $
