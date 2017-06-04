@@ -10,7 +10,7 @@ module Test.Examples.BaseSpec
 import           Control.Lens    ((&), (<&>))
 import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (NonNegative (..), Property, Small (..), conjoin,
-                                  counterexample, once, property, (==>))
+                                  counterexample, property, (==>))
 import           Universum       (Text, toString)
 
 import           Test.Arbitrary  ()
@@ -60,6 +60,9 @@ spec = do
             describe "arrays" $ do
                 it "allocation works" $
                     property $ arrayAllocTest way
+
+                it "arrlen" $
+                    property $ arrayLengthTest way
 
                 it "simple" $
                     property $ arraySimpleTest way
@@ -115,9 +118,15 @@ arrayAllocTest = sample & [] >-*-> []
   where
     sample = "a" `L.arrayVarS` []
 
+arrayLengthTest :: ExecWay Stmt -> (NonNegative (Small Value)) -> Property
+arrayLengthTest way (NonNegative (Small k)) =
+    sample & [] >-*-> [k] $ way
+  where
+    sample = writeS $ FunE "arrlen" [ArrayUninitE $ fromIntegral k]
+
 arraySimpleTest :: ExecWay Stmt -> (NonNegative (Small Value)) -> Property
 arraySimpleTest way (NonNegative (Small k)) =
-    once $ k `elem` range ==> ([k] >-*-> [k]) sample way
+    k `elem` range ==> ([k] >-*-> [k]) sample way
   where
     sample = mconcat
         [ "a" `L.arrayVarS` (ValueE <$> range)
