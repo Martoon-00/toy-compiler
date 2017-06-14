@@ -44,7 +44,7 @@ compile = mconcat . map compileFun . separateFuns
 
 compileFun :: SM.Insts -> Insts
 compileFun insts =
-    let (name, args) = case insts ^? ix 0 of
+    let (_, args) = case insts ^? ix 0 of
             Just (SM.Enter n ai) -> (n, ai)
             _                    -> error "Where is my Enter?!"
         vars  = foldMap gatherLocals insts
@@ -53,7 +53,7 @@ compileFun insts =
             first fst $
             runWriter $
             runSymStackHolder $
-            mapM_ (step name) insts
+            mapM_ step insts
         check = if symStackSizeAtEnd == 0 then id
                 else error . badStackAtEnd symStackSizeAtEnd . Program
         frame = mkFrame args vars symStSpace
@@ -71,8 +71,8 @@ compileFun insts =
 
 type TransMonad = SymStackHolder (Writer (D.DList Inst))
 
-step :: Var -> SM.Inst -> TransMonad ()
-step calleeName = \case
+step :: SM.Inst -> TransMonad ()
+step = \case
     SM.Nop        -> return ()
     SM.Push v     -> do
         op <- allocSymStackOp
@@ -120,19 +120,21 @@ step calleeName = \case
             , Mov edx (HeapMem eax)
             ]
     SM.Label lid -> tell [Label lid]
-    SM.Jmp   lid -> tell [jmp (SM.CLabel lid)]
+    SM.Jmp   lid -> tell [jmp lid]
     SM.JmpIf lid -> do
         op <- popSymStackOp
         tell
             [ Mov op eax
             , BinOp "cmp" (Const 0) eax
-            , Jmp "ne" (SM.CLabel lid)
+            , Jmp "ne" lid
             ]
     SM.Call (FunSign name args) -> mkCall name (length args)
     SM.Ret -> do
         op <- popSymStackOp
-        tell [Mov op eax, jmp (SM.ELabel calleeName)]
-    SM.Enter{} -> tell [NoopOperator "int3"]
+        tell [Mov op eax, jmp SM.exitLabel]
+    SM.Enter{} -> tell
+        [ NoopOperator "int3"  -- don't step out!
+        ]
   where
     mkCall name argsNum =
         void . mfix $ \toBackup ->

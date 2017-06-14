@@ -20,14 +20,19 @@ type IP = Int
 data LabelId
     = CLabel Int  -- ^ control
     | FLabel Var  -- ^ function
-    | ELabel Var  -- ^ function exit, used for correct @return@s in the middle
-                  -- of the code
+    | LLabel Int  -- ^ function-local labels
     deriving (Eq, Ord, Show)
 
 instance Buildable LabelId where
     build (CLabel l) = bprint ("L"%F.build) l
     build (FLabel n) = bprint F.build n
-    build (ELabel n) = bprint (F.build%"_exit") n
+    build (LLabel i) = bprint F.build i
+
+newtype JmpLabelForm = JmpLabelForm LabelId
+
+instance Buildable JmpLabelForm where
+    build (JmpLabelForm (LLabel i)) = bprint (F.build%"f") i  -- curently used for 'Ret' only
+    build (JmpLabelForm label)      = bprint F.build label
 
 -- | Statement of a program.
 data Inst
@@ -41,8 +46,8 @@ data Inst
     | ArrayAccess
     | ArraySet
     | Label LabelId
-    | Jmp Int
-    | JmpIf Int
+    | Jmp LabelId
+    | JmpIf LabelId
     | Call FunSign
     | Ret
     | Nop
@@ -73,3 +78,9 @@ externalFuns :: [FunSign]
 externalFuns =
     stdFunExamples <&> \(name, args) ->
         FunSign name $ zipWith const (Var . one <$> ['a'..'z']) args
+
+
+-- * Function local labels
+
+exitLabel :: LabelId
+exitLabel = LLabel 10  -- make them memorable, right?

@@ -42,7 +42,7 @@ import qualified Text.RawString.QQ      as QQ
 import           Universum              (Container (null), One (..))
 
 import           Toy.Base               (Value, Var)
-import           Toy.SM                 (LabelId)
+import           Toy.SM                 (JmpLabelForm (..), LabelId)
 
 -- TODO: Aaa, 100500 constructors. Decrease?
 data Operand
@@ -139,7 +139,7 @@ instance Buildable Inst where
         Set kind op     -> bprint ("set"%pad%" "%pad) kind op
         Comment d       -> bprint ("# "%pad) d
         Label lid       -> bprint (F.build%":") lid
-        Jmp kind lid    -> bprint ("j"%pad%" "%pad) kind lid
+        Jmp kind lid    -> bprint ("j"%pad%" "%pad) kind (JmpLabelForm lid)
         ResizeStack d k ->
             let op    = case d of { Backward -> "addl"; Forward -> "subl" }
                 shift = Const . fromIntegral $ k * 4

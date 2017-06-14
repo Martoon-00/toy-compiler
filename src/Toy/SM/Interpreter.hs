@@ -67,7 +67,7 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
         Label{}     -> step Nop
         Jmp lid     -> do
             ensureStackSize 0 "jump"
-            (esIp .= ) =<< getLabel (CLabel lid)
+            (esIp .= ) =<< getLabel lid
         JmpIf lid   -> do
             cond <- pop `valueOnly` "If on reference"
             when (cond /= 0) $ step (Jmp lid)

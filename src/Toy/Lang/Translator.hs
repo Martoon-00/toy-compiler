@@ -44,7 +44,8 @@ toIntermediate (L.Program funcs main) =
     convertFun (FunSign name args, stmt) = do
         tell [ SM.Enter name args, SM.Label $ SM.FLabel name ]
         convert stmt
-        tell [ SM.Push 0, SM.Ret, SM.Label (SM.ELabel name) ]
+        -- 'Ret' is translated to jump to the end
+        tell [ SM.Push 0, SM.Ret, SM.Label SM.exitLabel ]
 
 convert :: L.Stmt -> TransState ()
 convert L.Skip         = tell [SM.Nop]
@@ -55,12 +56,12 @@ convert (L.If c s1 s2) = do
     pushExp c
     tell [SM.JmpIf midL]
     convert s2
-    tell [SM.Jmp endL, SM.Label $ SM.CLabel midL]
+    tell [SM.Jmp endL, SM.Label midL]
     convert s1
-    tell [SM.Label $ SM.CLabel endL]
+    tell [SM.Label endL]
 convert (L.DoWhile s c) = do
     label <- genLabel
-    tell [SM.Label $ SM.CLabel label]
+    tell [SM.Label label]
     convert s
     pushExp c
     tell [SM.JmpIf label]
@@ -71,8 +72,8 @@ convert (L.ArrayAssign a i e) = do
     pushExp e
     tell [SM.ArraySet]
 
-genLabel :: MonadState Int m => m Int
-genLabel = id <<+= 1
+genLabel :: MonadState Int m => m SM.LabelId
+genLabel = SM.CLabel <$> (id <<+= 1)
 
 -- | Gives instructions which effectively push value equals to given
 -- expression on stack.
@@ -100,3 +101,4 @@ callFun name (D.fromList . reverse -> args) = do
 
     mapM_ pushExp args
     tell [SM.Call sign]
+
