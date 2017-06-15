@@ -7,7 +7,7 @@ module Test.Examples.KParserSpec
 import           Control.Lens    (has, _Left)
 import           Test.Hspec      (Spec, describe)
 import           Test.QuickCheck (Property, counterexample, property)
-import           Universum       (Text, toString)
+import           Universum
 
 import           Test.Walker     (ProgramTestData (..), describeDir)
 

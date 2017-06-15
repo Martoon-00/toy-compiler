@@ -5,6 +5,7 @@ module Toy.Base.Fun
 
 import           Toy.Base.Data (Var)
 import           Toy.Exp.Data  (Exp (..))
+import           Universum
 
 -- | Function signature
 data FunSign = FunSign Var [Var]

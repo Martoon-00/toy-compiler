@@ -10,11 +10,12 @@ import           Control.Monad.Trans  (MonadIO (..))
 import           Test.Hspec.Core.Spec (SpecM (..))
 import           Test.QuickCheck      (Arbitrary (..), Large (..), NonNegative (..),
                                        Property, Small (..), conjoin, property, (.&&.))
+import           Universum
 
 import qualified Toy.SM               as SM
 
 instsSM :: SM.Insts -> SM.Insts
-instsSM = id
+instsSM = identity
 
 instance Monoid Property where
     mempty = property True
@@ -37,7 +38,7 @@ class Extract a p where
     extract :: p -> a
 
 instance Extract a a where
-    extract = id
+    extract = identity
 
 instance Extract a (Large a) where
     extract = getLarge

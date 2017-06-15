@@ -6,6 +6,8 @@ module Test.Walker.Instances
     , FullTestData (..)
     ) where
 
+import           Universum
+
 import           Test.Walker.Extractor (Extension, TestCaseData (..), gatherFile,
                                         readTestCase)
 import           Toy.Base              (Value)

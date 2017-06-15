@@ -5,7 +5,6 @@ module Toy.Lang.Parser
     ) where
 
 import           Control.Applicative   (Alternative (..), (*>), (<*))
-import           Control.Lens          (unsnoc)
 import           Control.Monad         (join, void)
 import           Data.Char             (isAlphaNum)
 import           Data.Functor          (($>), (<$))
@@ -15,7 +14,7 @@ import           Text.Megaparsec       (char, choice, eof, label, letterChar,
                                         notFollowedBy, satisfy, sepBy, space, try, (<?>))
 import           Text.Megaparsec.Expr  (Operator (..), makeExprParser)
 import           Text.Megaparsec.Lexer (symbol, symbol')
-import           Universum             (toString, toText)
+import           Universum
 
 import           Toy.Base              (FunSign (..), Var (..))
 import           Toy.Exp               (Exp (..))
@@ -120,10 +119,10 @@ funCallArgsP =
     sp $ paren (enumerationP expP)
 
 arrayAccessP :: Parser Exp -> Parser Exp
-arrayAccessP ap =
+arrayAccessP arrayP =
     label "Array access operator" $
     sp $ do
-    a <- ap
+    a <- arrayP
     arrayAccessP (ArrayAccessE a <$> brackets expP) ?> a
 
 skipP :: Parser Stmt

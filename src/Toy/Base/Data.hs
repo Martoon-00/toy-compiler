@@ -1,5 +1,4 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeOperators              #-}
 
 module Toy.Base.Data where
 
@@ -7,7 +6,7 @@ import           Control.Monad.Trans.Either (EitherT (..))
 import           Data.Conduit               (ConduitM)
 import           Data.Int                   (Int32)
 import           Data.String                (IsString (..))
-import           Universum                  (type ($), Buildable, Text)
+import           Universum
 
 -- | Variable name
 newtype Var = Var Text

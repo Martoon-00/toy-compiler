@@ -6,8 +6,8 @@ module Toy.X86.Translator
     , produceBinary
     ) where
 
-import           Control.Lens          (Lens', ix, (%~), (&), (+=), (-=), (<&>), (^?))
-import           Control.Monad         (forM, forM_, void)
+import           Control.Lens          (ix, (+=), (-=))
+import           Control.Monad         (forM_)
 import           Control.Monad.Fix     (mfix)
 import           Control.Monad.State   (get, runState)
 import           Control.Monad.Trans   (MonadIO (..))
@@ -17,12 +17,12 @@ import           Data.Functor          (($>))
 import           Data.Maybe            (fromMaybe)
 import           Data.Monoid           ((<>))
 import qualified Data.Vector           as V
-import           Formatting            (build, formatToString, int, (%))
+import           Formatting            (build, int, sformat, (%))
 import qualified Formatting            as F
 import           GHC.Exts              (fromList)
 import           System.FilePath.Posix ((</>))
 import           System.Process        (proc)
-import           Universum             (Text, first, toText)
+import           Universum             hiding (Const, forM_)
 
 import           Toy.Base              (FunSign (..))
 import qualified Toy.SM                as SM
@@ -51,7 +51,7 @@ compileFun insts =
             runWriter $
             runSymStackHolder $
             mapM_ step insts
-        check = if symStackSizeAtEnd == 0 then id
+        check = if symStackSizeAtEnd == 0 then identity
                 else error . badStackAtEnd symStackSizeAtEnd . Program
         frame = mkFrame args vars symStSpace
         post  = [ resolveMemRefs frame
@@ -63,8 +63,7 @@ compileFun insts =
                 ] :: [Insts -> Insts]
     in foldl (&) body post
   where
-    badStackAtEnd =
-        formatToString ("Wrong sym stack size at end: "%int%"\n"%build)
+    badStackAtEnd = sformat ("Wrong sym stack size at end: "%int%"\n"%build)
 
 type TransMonad = SymStackHolder (Writer (D.DList Inst))
 
@@ -175,7 +174,7 @@ insertExit :: Insts -> Insts
 insertExit = (<> [ret])
 
 mkStackShift :: Int -> Insts -> Insts
-mkStackShift 0     = id
+mkStackShift 0     = identity
 mkStackShift shift = afterFunBeginning %~ withStackSpace shift
 
 -- | Function 'step', when sets `Mem` indices, doesn't take into account
@@ -186,18 +185,18 @@ mkStackShift shift = afterFunBeginning %~ withStackSpace shift
 fixMemRefs :: Traversable f => f Inst -> f Inst
 fixMemRefs insts =
     let (res, finalStackShift) = flip runState 0 $ forM insts $ \case
-            op@(Push _)    -> (id += 1) $> op
-            op@(Pop  _)    -> (id -= 1) $> op
+            op@(Push _)    -> (identity += 1) $> op
+            op@(Pop  _)    -> (identity -= 1) $> op
             op@(ResizeStack Forward k)
-                           -> (id += k) $> op
+                           -> (identity += k) $> op
             op@(ResizeStack Backward k)
-                           -> (id -= k) $> op
+                           -> (identity -= k) $> op
             (Mov o1 o2)    -> Mov <$> fixMemRef o1 <*> fixMemRef o2
             op             -> return op
     in  case finalStackShift of
         0     -> res
         extra -> error $ "Detected extra values at stack at the end: "
-                       ++ show extra
+                       <> show extra
 
   where
     fixMemRef (Mem i) = Mem . (i +) <$> get
@@ -267,7 +266,7 @@ binop op1 op2 = \case
         , Mov eax op2'
         ]
 
-    unknown -> error $ "Unsupported operation: " ++ show unknown
+    unknown -> error $ "Unsupported operation: " <> show unknown
   where
     idiv res = "/" ?
         [ Mov op1 eax

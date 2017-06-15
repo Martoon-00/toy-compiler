@@ -7,7 +7,7 @@ module Test.Examples.ZControlSpec
 
 import           Test.Hspec      (Spec, describe)
 import           Test.QuickCheck (Property, counterexample)
-import           Universum       (Text, toString)
+import           Universum
 
 import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->))

@@ -1,12 +1,10 @@
-{-# LANGUAGE LambdaCase    #-}
-{-# LANGUAGE Rank2Types    #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE Rank2Types #-}
 
 module Toy.Lang.Interpreter
     ( execute
     ) where
 
-import           Control.Lens               (at, (?=), (^?))
+import           Control.Lens               (at, (?=))
 import           Control.Monad              (join)
 import           Control.Monad.Error.Class  (MonadError (..))
 import           Control.Monad.Morph        (hoist)
@@ -17,7 +15,7 @@ import           Control.Monad.Trans.Either (EitherT, bimapEitherT)
 import           Data.Conduit.Lift          (evalStateC)
 import           Data.Default               (def)
 import           Data.Maybe                 (fromMaybe)
-import           Universum                  (type ($))
+import           Universum                  hiding (StateT)
 
 import           Toy.Base                   (Exec, ExecInOut)
 import           Toy.Exp                    (ExpRes (..), LocalVars, arraySet, valueOnly)
@@ -37,7 +35,7 @@ execute (Program funDecls stmt) =
     hoist simplifyErr . evalStateC def . hoist (`runReaderT` funDecls) $
         executeDo stmt
   where
-    simplifyErr = bimapEitherT toSimpleErr id
+    simplifyErr = bimapEitherT toSimpleErr identity
     toSimpleErr = fromMaybe "Return at global scope" . ( ^? _Error)
 
 -- TODO: do smth with 'withStmt' everywhere

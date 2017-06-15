@@ -2,7 +2,7 @@ module Toy.SM.Interpreter
     ( execute
     ) where
 
-import           Control.Lens              (at, use, (%=), (+=), (.=), (<<%=), (?=), (^.))
+import           Control.Lens              (at, (%=), (+=), (.=), (<<%=), (?=))
 import           Control.Monad             (forever, mzero, replicateM, replicateM_, void,
                                             when)
 import           Control.Monad.Error.Class (MonadError (..))
@@ -16,7 +16,7 @@ import           Data.Functor              (($>))
 import qualified Data.Map                  as M
 import qualified Data.Vector               as V
 import           Formatting                (build, int, sformat, shown, string, (%))
-import           Universum                 (Text, whenNothing)
+import           Universum
 
 import           Toy.Base                  (Exec, FunSign (..))
 import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess,
@@ -129,13 +129,13 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
     getLabel :: MonadError Text m => LabelId -> m IP
     getLabel = buildLabelsMap insts
     programEntry =
-        either (error "No entry point exists") id $
+        either (error "No entry point exists") identity $
         getLabel (FLabel initFunName)
 
 buildLabelsMap :: MonadError Text m => Insts -> LabelId -> m IP
 buildLabelsMap (V.toList -> insts) =
     let addLabel (idx, Label li) = M.insert li idx
-        addLabel _               = id
+        addLabel _               = identity
         labelsMap = foldr addLabel M.empty $ zip [0..] insts
     in  \labelId -> (labelsMap ^. at labelId) `whenNothing`
                         throwError (sformat ("No label "%build) labelId)

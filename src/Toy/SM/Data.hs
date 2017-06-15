@@ -2,14 +2,14 @@
 
 module Toy.SM.Data where
 
-import           Control.Lens        (makeLenses, (<&>))
+import           Control.Lens        (makeLenses)
 import           Data.Default        (Default (..))
 import qualified Data.Map            as M
 import           Data.Text.Buildable (Buildable (..))
 import qualified Data.Vector         as V
 import           Formatting          (bprint, (%))
 import qualified Formatting          as F
-import           Universum           (one)
+import           Universum
 
 import           Toy.Base            (BinOp, FunSign (..), Value, Var (..),
                                       stdFunExamples)

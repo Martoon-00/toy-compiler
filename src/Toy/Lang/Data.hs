@@ -3,7 +3,7 @@
 
 module Toy.Lang.Data where
 
-import           Control.Lens              (makePrisms, (%~))
+import           Control.Lens              (makePrisms)
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Reader      (MonadReader)
 import           Control.Monad.State       (MonadState)
@@ -13,7 +13,7 @@ import           Data.Monoid               ((<>))
 import           Data.String               (IsString (..))
 import           Formatting                (sformat, sformat, shown, stext, (%))
 import           GHC.Exts                  (IsList (..))
-import           Universum                 (Text)
+import           Universum                 hiding (toList)
 
 import           Toy.Base                  (FunSign (..), Var (..))
 import           Toy.Exp                   (Exp (..), ExpRes, LocalVars, readE, (==:))

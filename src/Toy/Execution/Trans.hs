@@ -24,9 +24,9 @@ import           Data.Functor               (($>))
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (..))
 import qualified Formatting                 as F
-import           GHC.Exts                   (toList)
+import qualified Prelude
 import           System.IO.Unsafe           (unsafeInterleaveIO, unsafePerformIO)
-import           Universum                  (Text, (<>))
+import           Universum
 
 import           Toy.Execution.Data         (Meta, Meta (..))
 import           Toy.Execution.Exec         (BinaryFile (..), Executable (..))

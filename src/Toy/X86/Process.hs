@@ -4,19 +4,18 @@ module Toy.X86.Process
 
 -- | This module contains utils to work with OS processes.
 
-import           Control.Concurrent      (forkIO, killThread)
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
-import           Control.DeepSeq         (rnf)
-import           Control.Exception       (SomeException, evaluate, handle, mask,
-                                          onException, throwIO, try)
-import           Control.Monad           (unless)
-import           Foreign.C.Error         (Errno (..), ePIPE)
-import           GHC.IO.Exception        (IOErrorType (..), IOException (..))
-import           System.Exit             (ExitCode (..))
-import           System.IO               (Handle, hClose, hGetContents, hPutStr)
-import           System.Process          (CreateProcess (..), ProcessHandle,
-                                          ProcessHandle, StdStream (..), createProcess,
-                                          waitForProcess)
+import           Control.Concurrent (forkIO, killThread)
+import           Control.DeepSeq    (rnf)
+import           Control.Exception  (SomeException, evaluate, handle, onException,
+                                     throwIO, try)
+import           Control.Monad      (unless)
+import           Foreign.C.Error    (Errno (..), ePIPE)
+import           GHC.IO.Exception   (IOErrorType (..), IOException (..))
+import           System.Exit        (ExitCode (..))
+import           System.IO          (Handle, hClose, hGetContents, hPutStr)
+import           System.Process     (CreateProcess (..), ProcessHandle, ProcessHandle,
+                                     StdStream (..), createProcess, waitForProcess)
+import           Universum
 
 -- | Copy-pasted `readCreateProcess` functions, but ignores stdout and
 -- extracts stderr.

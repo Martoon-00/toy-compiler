@@ -5,11 +5,11 @@ module Test.Examples.BaseSpec
     ( spec
     ) where
 
-import           Control.Lens    ((&), (<&>))
+import           Prelude         (tail, (!!))
 import           Test.Hspec      (Spec, describe, it)
 import           Test.QuickCheck (NonNegative (..), Property, Small (..), conjoin,
                                   counterexample, property, (==>))
-import           Universum       (Text, toString)
+import           Universum
 
 import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->), (>-->), (~*~))
@@ -93,7 +93,7 @@ ifFalseTest = sample & [] >-*-> [1]
     sample = If 0 (writeS 0) (writeS 1)
 
 ioTest :: ExecWay Stmt -> Property
-ioTest = sample ~*~ id @Value
+ioTest = sample ~*~ identity @Value
   where
     sample = mconcat
         [ L.readS "a"

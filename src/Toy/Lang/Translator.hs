@@ -5,7 +5,7 @@ module Toy.Lang.Translator
     ) where
 
 import           Control.Applicative        ((<|>))
-import           Control.Lens               (ix, preview, (<<+=), _1)
+import           Control.Lens               (ix, (<<+=))
 import           Control.Monad              (replicateM)
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.State        (MonadState)
@@ -19,8 +19,7 @@ import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
 import qualified Data.Vector                as V
 import           Formatting                 (build, sformat, (%))
-import           GHC.Exts                   (toList)
-import           Universum                  (type ($), Identity (..), Text)
+import           Universum                  hiding (find, pass)
 
 import           Toy.Base                   (FunSign (..), Var)
 import           Toy.Exp.Data               (Exp (..))
@@ -99,7 +98,7 @@ convert (L.ArrayAssign a i e) = do
     tell [SM.ArraySet]
 
 genLabel :: MonadState LabelsCounter m => m SM.LabelId
-genLabel = SM.CLabel <$> (id <<+= 1)
+genLabel = SM.CLabel <$> (identity <<+= 1)
 
 -- | Gives instructions which effectively push value, which equals to given
 -- expression, on stack.

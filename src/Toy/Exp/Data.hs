@@ -2,12 +2,13 @@
 
 module Toy.Exp.Data where
 
-import           Control.Lens              (makePrisms, preview)
+import           Control.Lens              (makePrisms)
 import           Control.Monad.Error.Class (MonadError (..))
 import           Data.IORef                (IORef)
 import           Data.String               (IsString (..))
 import qualified Data.Vector               as V
-import           Universum                 (Text, toString)
+import qualified Prelude
+import           Universum
 
 import           Toy.Base.Data             (BinOp, UnaryOp, Value, Var)
 
@@ -37,8 +38,8 @@ instance Num Exp where
     (+) = BinE "+"
     (-) = BinE "-"
     (*) = BinE "*"
-    abs = undefined
-    signum = undefined
+    abs = error "Num abs: undefined"
+    signum = error "Num sugnum: undefined"
     fromInteger = ValueE . fromInteger
 
 -- | @read@ expression.

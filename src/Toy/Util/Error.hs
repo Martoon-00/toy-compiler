@@ -5,6 +5,7 @@ module Toy.Util.Error
     ) where
 
 import           Control.Monad.Error.Class (MonadError (..))
+import           Universum
 
 mapError :: MonadError e m => (e -> e) -> m a -> m a
 mapError mapErr = (`catchError` throwError . mapErr)

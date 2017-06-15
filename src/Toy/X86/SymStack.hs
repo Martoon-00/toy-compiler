@@ -18,13 +18,13 @@ module Toy.X86.SymStack
     , occupiedRegs
     ) where
 
-import           Control.Lens         (ix, makeLenses, use, (%=), (<&>), (<-=), (<<+=),
-                                       (^?))
+import           Control.Lens         (ix, makeLenses, (%=), (<-=), (<<+=))
 import           Control.Monad.Fix
 import           Control.Monad.State  (StateT, runStateT)
 import           Control.Monad.Writer (MonadWriter)
 import           Data.Default         (Default (..))
 import qualified Data.Vector          as V
+import           Universum
 
 import           Toy.X86.Data         (Operand (..))
 

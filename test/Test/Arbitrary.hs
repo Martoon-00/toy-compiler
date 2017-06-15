@@ -3,7 +3,7 @@ module Test.Arbitrary where
 import           Control.Monad   (liftM2)
 import           Data.String     (fromString)
 import           Test.QuickCheck (Arbitrary (..), choose, elements, frequency, getSmall)
-import           Universum       (toText)
+import           Universum
 
 import           Toy.Base        (Var (..))
 import           Toy.Exp

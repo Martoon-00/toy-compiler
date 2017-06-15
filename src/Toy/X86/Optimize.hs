@@ -7,7 +7,8 @@ module Toy.X86.Optimize
 
 import           Control.Monad (guard)
 import           Data.Functor  (($>))
-import           GHC.Exts      (fromList, toList)
+import           GHC.Exts      (fromList)
+import           Universum     hiding (Const)
 
 import           Toy.X86.Data  (Inst (..), Insts, Operand (..))
 

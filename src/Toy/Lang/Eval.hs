@@ -1,17 +1,16 @@
-{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Toy.Lang.Eval
     ( eval
     ) where
 
-import           Control.Lens              (at, use, view, (.=), (<<.=))
+import           Control.Lens              (at, (.=), (<<.=))
 import           Control.Monad             (forM)
 import           Control.Monad.Error.Class (throwError)
 import           Data.Conduit              (await, yield)
 import qualified Data.Map                  as M
 import           Formatting                (build, sformat, shown, (%))
-import           Universum                 (whenNothingM, (<>))
+import           Universum
 
 import           Toy.Base                  (ExecInOut, FunSign (..), Var (..))
 import           Toy.Exp                   (Exp (..), ExpRes (..), arithspoon,
@@ -83,7 +82,7 @@ callDefinedFun
 callDefinedFun executor name args = do
     (FunSign _ argNames, body) <- view (at name) `whenNothingM` throwError noFun
     args' <- forM args $ eval executor
-    curVars <- id <<.= M.fromList (zip argNames args')
-    executor body <* (id .= curVars)
+    curVars <- identity <<.= M.fromList (zip argNames args')
+    executor body <* (identity .= curVars)
   where
     noFun = Error $ sformat ("No function "%shown%" defined") name

@@ -2,7 +2,7 @@
 
 module Toy.Exp.Operations where
 
-import           Control.Lens              (has, ix, (%~), (.~), (^?), _Just)
+import           Control.Lens              (has, ix, _Just)
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Trans       (MonadIO (..))
 import           Data.Bits                 (xor, (.&.), (.|.))
@@ -11,11 +11,11 @@ import           Data.String               (IsString (..))
 import qualified Data.Vector               as V
 import           Formatting                ((%))
 import qualified Formatting                as F
-import           Universum                 (unless, whenJust, whenNothing, whenNothingM)
+import           Universum
 
 import           Toy.Base                  (BinOp, UnaryOp, Value)
 import           Toy.Exp.Data
-import           Toy.Exp.Util              (asToBool, binResToBool, bool)
+import           Toy.Exp.Util              (asToBool, binResToBool, boolL)
 
 -- * Unary operations
 
@@ -23,8 +23,8 @@ notE :: Exp -> Exp
 notE  = UnaryE "!"
 
 unaryOp :: UnaryOp -> Value -> Value
-unaryOp "!" = bool %~ not
-unaryOp op  = error $ "Unsupported operation: " ++ show op
+unaryOp "!" = boolL %~ not
+unaryOp op  = error $ "Unsupported operation: " <> show op
 
 -- * Binary operations
 
@@ -96,7 +96,7 @@ binOp "<=" = binResToBool (<=)
 binOp "==" = binResToBool (==)
 binOp "!=" = binResToBool (/=)
 
-binOp op   = error $ "Unsopported operation: " ++ show op
+binOp op   = error $ "Unsopported operation: " <> show op
 
 
 arrayMakeU :: MonadIO m => Int -> m ExpRes

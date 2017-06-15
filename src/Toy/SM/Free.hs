@@ -10,15 +10,14 @@ module Toy.SM.Free
     , getVarKind
     ) where
 
-import           Control.Lens              (use, (%=), (.=))
-import           Control.Monad             (forM_, replicateM_)
+import           Control.Lens              ((%=), (.=))
+import           Control.Monad             (replicateM_)
 import           Control.Monad.Error.Class (throwError)
 import           Control.Monad.State       (StateT, runStateT)
 import           Data.Char                 (isLower, isUpper)
 import           Data.Conduit              (ConduitM, awaitForever, yield, ($$), (=$=))
 import qualified Data.Conduit.List         as CL
-import           Universum                 (type ($), Text, pass, toString, whenNothing,
-                                            (<>))
+import           Universum
 
 import           Toy.Base                  (FunSign (..), Var (..))
 import           Toy.SM.Data               (Inst (..))
@@ -77,12 +76,12 @@ insertDeallocationsDo = awaitForever $ \inst -> process inst >> yield inst
         Free -> error "Lol, how Free occured during epic deallocation work?"
 
     -- 'KindsStack' manipulation
-    push k = id %= (k :)
+    push k = identity %= (k :)
 
-    pop expected = use id >>= \case
+    pop expected = use identity >>= \case
         []   -> throwError "empty stack"
         x:xs -> do
-            id .= xs
+            identity .= xs
             mergeValueKinds expected x `whenNothing` kindContradiction
     pop_ = pop UnknownKind
 
