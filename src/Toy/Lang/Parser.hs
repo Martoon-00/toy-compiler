@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-orphans   #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE TupleSections #-}
 
 module Toy.Lang.Parser

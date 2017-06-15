@@ -5,4 +5,6 @@ module Toy.SM
        ) where
 
 import           Toy.SM.Data        as M
+import           Toy.SM.Free        as M
 import           Toy.SM.Interpreter as M
+import           Toy.SM.Util        as M

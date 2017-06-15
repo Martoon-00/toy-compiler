@@ -51,7 +51,8 @@ data Inst
     | Call FunSign
     | Ret
     | Nop
-    | Enter Var [Var]
+    | Enter Var [Var]  -- ^ function start indicator with fun name and args
+    | Free             -- ^ pops reference at top of stack and deallocates it
     deriving (Show)
 
 type Insts = V.Vector Inst

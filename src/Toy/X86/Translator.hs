@@ -18,7 +18,6 @@ import qualified Data.DList            as D
 import           Data.Functor          (($>))
 import           Data.Maybe            (fromMaybe)
 import           Data.Monoid           ((<>))
-import qualified Data.Set              as S
 import qualified Data.Vector           as V
 import           Formatting            (build, formatToString, int, (%))
 import qualified Formatting            as F
@@ -27,7 +26,7 @@ import           System.FilePath.Posix ((</>))
 import           System.Process        (proc)
 import           Universum             (Text, first, toText)
 
-import           Toy.Base              (FunSign (..), Var)
+import           Toy.Base              (FunSign (..))
 import qualified Toy.SM                as SM
 import           Toy.X86.Data          (Inst (..), InstContainer, Insts, Operand (..),
                                         Program (..), StackDirection (..), eax, edx, jmp,
@@ -47,7 +46,7 @@ compileFun insts =
     let (_, args) = case insts ^? ix 0 of
             Just (SM.Enter n ai) -> (n, ai)
             _                    -> error "Where is my Enter?!"
-        vars  = foldMap gatherLocals insts
+        vars  = SM.gatherLocals insts
         ((symStSpace, symStackSizeAtEnd), body) =
             fmap (V.fromList . D.toList) $
             first fst $
@@ -135,6 +134,7 @@ step = \case
     SM.Enter{} -> tell
         [ NoopOperator "int3"  -- don't step out!
         ]
+    SM.Free    -> mkCall "deallocate" 1
   where
     mkCall name argsNum =
         void . mfix $ \toBackup ->
@@ -162,10 +162,6 @@ separateFuns insts =
   where
     isEnter SM.Enter{} = True
     isEnter _          = False
-
-gatherLocals :: SM.Inst -> S.Set Var
-gatherLocals (SM.Store v) = [v]
-gatherLocals _            = []
 
 afterFunBeginning :: Lens' Insts Insts
 afterFunBeginning f insts =

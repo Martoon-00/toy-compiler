@@ -24,8 +24,8 @@ import           Universum                 (Text, whenNothing)
 
 import           Toy.Base                  (Exec, FunSign (..))
 import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess,
-                                            arrayLength, arrayMake, arrayMakeU, arraySet,
-                                            binOp, valueOnly)
+                                            arrayFree, arrayLength, arrayMake, arrayMakeU,
+                                            arraySet, binOp, valueOnly)
 import           Toy.SM.Data               (ExecState (..), IP, Inst (..), Insts,
                                             LabelId (..), esIp, esLocals, esStack,
                                             initFunName)
@@ -71,40 +71,53 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
         JmpIf lid   -> do
             cond <- pop `valueOnly` "If on reference"
             when (cond /= 0) $ step (Jmp lid)
-        Call (FunSign "read" _) ->
-            await >>= maybe (throwError "No input") (push . ValueR)
-        Call (FunSign "write" _) ->
-            pop `valueOnly` "Can't write reference" >>= yield >> push (ValueR 0)
-        Call (FunSign "arrlen" _) -> do
-            a <- pop
-            l <- arrayLength a
-            push l
-        Call (FunSign "arrmake" _) -> do
-            l <- pop
-            e <- pop
-            a <- arrayMake l e
-            push a
-        Call (FunSign "Arrmake" args) ->
-            step (Call $ FunSign "arrmake" args)
-        Call (FunSign name args) -> do
-            stack <- esStack <<%= drop (length args)
-            entry <- getLabel (FLabel name)
-            let funExecState = ExecState
-                    { _esLocals = M.fromList (zip args stack)
-                    , _esStack  = []
-                    , _esIp     = entry
-                    }
-            -- run execution with its own `ExecState`, not allowing it to
-            -- infulence on our current state
-            funEndExecState <-
-                hoist (lift . lift) $ execStateC funExecState executeDo
+        Call (FunSign name args) -> case name of
+            "read"  ->
+                await >>= maybe (throwError "No input") (push . ValueR)
+            "write" -> do
+                yield =<< pop `valueOnly` "Can't write reference"
+                push (ValueR 0)
+            "allocate" -> do
+                l <- pop
+                a <- arrayMake l (ValueR 0)
+                push a
+            "deallocate" -> do
+                a <- pop
+                arrayFree a
+                push (ValueR 0)
+            "arrlen" -> do
+                a <- pop
+                l <- arrayLength a
+                push l
+            "arrmake" -> do
+                l <- pop
+                e <- pop
+                a <- arrayMake l e
+                push a
+            "Arrmake" ->
+                step (Call $ FunSign "arrmake" args)
+            _ -> do
+                stack <- esStack <<%= drop (length args)
+                entry <- getLabel (FLabel name)
+                let funExecState = ExecState
+                        { _esLocals = M.fromList (zip args stack)
+                        , _esStack  = []
+                        , _esIp     = entry
+                        }
+                -- run execution with its own `ExecState`, not allowing it to
+                -- infulence on our current state
+                funEndExecState <-
+                    hoist (lift . lift) $ execStateC funExecState executeDo
 
-            case _esStack funEndExecState of
-                [x]   -> esStack %= (x:)
-                other -> throwError $ badStackAtFunEnd other
+                case _esStack funEndExecState of
+                    [x]   -> esStack %= (x:)
+                    other -> throwError $ badStackAtFunEnd other
         Ret        -> lift mzero
         Enter{}    -> throwError "Got into out of nowhere"
         Nop        -> return ()
+        Free       -> do
+            a <- pop
+            arrayFree a
 
     push v = esStack %= (v:)
     pop = use esStack >>= \case

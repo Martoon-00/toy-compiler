@@ -38,7 +38,9 @@ library
                        Toy.Lang.Translator
 
                        Toy.SM.Data
+                       Toy.SM.Free
                        Toy.SM.Interpreter
+                       Toy.SM.Util
 
                        Toy.Util.Error
                        Toy.Util.Instances
@@ -79,6 +81,8 @@ library
   default-extensions:  FlexibleContexts
                        FlexibleInstances
                        OverloadedStrings
+                       TypeOperators
+                       ExplicitForAll
 
 executable launch
   main-is:              Main.hs

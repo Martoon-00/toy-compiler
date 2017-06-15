@@ -1,5 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedLists       #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE ViewPatterns          #-}
 
@@ -15,37 +16,66 @@ import           Control.Monad.State        (MonadState)
 import           Control.Monad.Trans.Except (ExceptT, runExceptT)
 import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import           Control.Monad.Trans.RWS    (RWST, evalRWST)
-import           Control.Monad.Writer       (tell)
+import           Control.Monad.Writer       (pass, tell)
 import qualified Data.DList                 as D
 import           Data.Foldable              (find)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
 import qualified Data.Vector                as V
 import           Formatting                 (build, sformat, (%))
+import           GHC.Exts                   (toList)
 import           Universum                  (type ($), Identity (..), Text)
 
 import           Toy.Base                   (FunSign (..), Var)
 import           Toy.Exp.Data               (Exp (..))
 import qualified Toy.Lang.Data              as L
-import qualified Toy.SM.Data                as SM
+import qualified Toy.SM                     as SM
 
-type TransState = RWST L.FunDecls (D.DList SM.Inst) Int $ ExceptT Text Identity
+type LabelsCounter = Int
+
+type TransState =
+    RWST L.FunDecls (D.DList SM.Inst) LabelsCounter $
+    ExceptT Text Identity
+
+toIntermediate :: L.Program -> Either Text SM.Insts
+toIntermediate (L.Program funcs main) = do
+    res <- fmap (V.fromList . D.toList) . execTransState funcs $ do
+        mapM_ convertFun $ snd <$> M.toList funcs
+        convertFun (FunSign SM.initFunName [], main)
+    -- V.fromList <$> insertDeallocations (V.toList res)
+    return res
+  where
+    convertFun (FunSign name args, stmt) = do
+        tell [ SM.Enter name args, SM.Label (SM.FLabel name) ]
+        bracketLocals $ convert stmt
+        -- when (name == SM.initFunName) memCheck  -- TODO:
+        -- 'Ret' is translated to jmp to the end
+        tell [ SM.Push 0, SM.Ret, SM.Label SM.exitLabel ]
+
+    initRef :: Var -> D.DList SM.Inst
+    initRef var =
+        [ SM.Push 0, SM.Call $ FunSign "allocate" ["X"], SM.Store var ]
+    freeRef :: Var -> D.DList SM.Inst
+    freeRef var =
+        [ SM.Load var, SM.Call $ FunSign "deallocate" ["X"], SM.Drop ]
+
+    bracketLocals :: TransState () -> TransState ()
+    bracketLocals action = pass $ do
+        action
+        return . pure $ \insts -> do
+            let locals = toList $ SM.gatherLocals insts
+                forLocals act = mconcat $ act <$> locals
+            mconcat
+                [ forLocals initRef
+                , insts
+                , forLocals freeRef
+                ]
+
+    -- memCheck = tell [ SM.Call $ FunSign "ensure_no_allocations" [], SM.Drop ]
 
 execTransState :: L.FunDecls -> TransState () -> Either Text (D.DList SM.Inst)
 execTransState funcs action =
     runIdentity . runExceptT $ snd <$> evalRWST action funcs 0
-
-toIntermediate :: L.Program -> Either Text SM.Insts
-toIntermediate (L.Program funcs main) =
-    fmap (V.fromList . D.toList) . execTransState funcs $ do
-        mapM_ convertFun $ snd <$> M.toList funcs
-        convertFun (FunSign SM.initFunName [], main)
-  where
-    convertFun (FunSign name args, stmt) = do
-        tell [ SM.Enter name args, SM.Label $ SM.FLabel name ]
-        convert stmt
-        -- 'Ret' is translated to jump to the end
-        tell [ SM.Push 0, SM.Ret, SM.Label SM.exitLabel ]
 
 convert :: L.Stmt -> TransState ()
 convert L.Skip         = tell [SM.Nop]
@@ -72,11 +102,11 @@ convert (L.ArrayAssign a i e) = do
     pushExp e
     tell [SM.ArraySet]
 
-genLabel :: MonadState Int m => m SM.LabelId
+genLabel :: MonadState LabelsCounter m => m SM.LabelId
 genLabel = SM.CLabel <$> (id <<+= 1)
 
--- | Gives instructions which effectively push value equals to given
--- expression on stack.
+-- | Gives instructions which effectively push value, which equals to given
+-- expression, on stack.
 pushExp :: Exp -> TransState ()
 pushExp (ValueE k)    = tell [SM.Push k]
 pushExp (VarE n)      = tell [SM.Load n]

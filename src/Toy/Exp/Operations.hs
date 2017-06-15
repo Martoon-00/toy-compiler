@@ -2,16 +2,16 @@
 
 module Toy.Exp.Operations where
 
-import           Control.Lens              (has, ix, (%~), (.~), (^?))
+import           Control.Lens              (has, ix, (%~), (.~), (^?), _Just)
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Trans       (MonadIO (..))
 import           Data.Bits                 (xor, (.&.), (.|.))
-import           Data.IORef                (modifyIORef, newIORef, readIORef)
+import           Data.IORef                (modifyIORef, newIORef, readIORef, writeIORef)
 import           Data.String               (IsString (..))
 import qualified Data.Vector               as V
 import           Formatting                ((%))
 import qualified Formatting                as F
-import           Universum                 (unless, whenNothing)
+import           Universum                 (unless, whenJust, whenNothing, whenNothingM)
 
 import           Toy.Base                  (BinOp, UnaryOp, Value)
 import           Toy.Exp.Data
@@ -100,7 +100,7 @@ binOp op   = error $ "Unsopported operation: " ++ show op
 
 
 arrayMakeU :: MonadIO m => Int -> m ExpRes
-arrayMakeU k = liftIO $ ArrayR <$> newIORef (V.replicate k NotInitR)
+arrayMakeU k = liftIO $ ArrayR <$> newIORef (Just $ V.replicate k NotInitR)
 
 arrayAccess
     :: (MonadIO m, MonadError s m, IsString s)
@@ -109,7 +109,7 @@ arrayAccess a i = do
     i' <- pure i `valueOnly` "array access: index is not a number"
     let i'' = fromIntegral i'
     a' <- pure a `arrayOnly` "array access: array expected"
-    a'' <- liftIO $ readIORef a'
+    a'' <- liftIO (readIORef a') `whenNothingM` throwError "array access: value freed"
     (a'' ^? ix i'') `whenNothing` throwError "array access: index out of bounds"
 
 arraySet
@@ -117,7 +117,7 @@ arraySet
     => ExpRes -> ExpRes -> ExpRes -> m ()
 arraySet a i e = do
     a'  <- pure a `arrayOnly` "array set: array expected"
-    a'' <- liftIO $ readIORef a'
+    a'' <- liftIO (readIORef a') `whenNothingM` throwError "array set: value freed"
     i'  <- pure i `valueOnly` "array set: array expected"
     let i'' = fromIntegral i'
     unless (ix i'' `has` a'') $
@@ -125,13 +125,14 @@ arraySet a i e = do
         F.formatToString ("array set: index out of bounds: "%F.build%
                           " is out of ["%F.build%", "%F.build%")")
                           i'' (0 :: Int) (V.length a'')
-    liftIO . modifyIORef a' $ ix i'' .~ e
+    liftIO . modifyIORef a' $ _Just . ix i'' .~ e
 
 arrayLength
     :: (MonadIO m, MonadError s m, IsString s)
     => ExpRes -> m ExpRes
 arrayLength a = do
-    arg <- liftIO . readIORef =<< pure a `arrayOnly` "array length: array expected"
+    a' <- pure a `arrayOnly` "array length: array expected"
+    arg <- liftIO (readIORef a') `whenNothingM` throwError "array length: value freed"
     return (ValueR . fromIntegral $ V.length arg)
 
 arrayMake
@@ -139,5 +140,15 @@ arrayMake
     => ExpRes -> ExpRes -> m ExpRes
 arrayMake l e = do
     l' <- pure l `valueOnly` "make array: length should be numeric"
-    r  <- liftIO . newIORef $ V.replicate (fromIntegral l') e
+    r  <- liftIO . newIORef . Just $ V.replicate (fromIntegral l') e
     return (ArrayR r)
+
+arrayFree
+    :: (MonadIO m, MonadError s m, IsString s)
+    => ExpRes -> m ()
+arrayFree a =
+    -- it's fully ok to to call free on primitive values
+    whenJust (a ^? _ArrayR) $ \a' -> do
+        _ <- liftIO (readIORef a')
+                 `whenNothingM` throwError "array free: already freed"
+        liftIO $ writeIORef a' Nothing

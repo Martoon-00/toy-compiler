@@ -50,7 +50,7 @@ readE = FunE "read" []
 -- | Evaluated expression
 data ExpRes
    = ValueR Value
-   | ArrayR (MRef (V.Vector ExpRes))
+   | ArrayR (MRef (Maybe (V.Vector ExpRes)))
    | NotInitR
 
 makePrisms ''ExpRes
@@ -69,6 +69,6 @@ valueOnly action (fromString . toString -> desc) =
 
 arrayOnly
     :: (IsString s, MonadError s m)
-    => m ExpRes -> Text -> m (MRef (V.Vector ExpRes))
+    => m ExpRes -> Text -> m (MRef (Maybe (V.Vector ExpRes)))
 arrayOnly action (fromString . toString -> desc) =
     maybe (throwError desc) pure . preview _ArrayR =<< action
