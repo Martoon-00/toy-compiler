@@ -1,5 +1,3 @@
-{-# LANGUAGE TupleSections #-}
-
 -- | The module contains some optimization rules which tend to decrease
 -- number of instructions to reach better readability.
 

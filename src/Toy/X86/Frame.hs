@@ -1,6 +1,3 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
-
 -- | This module contains operations to form function stack frame and access
 -- its elements.
 

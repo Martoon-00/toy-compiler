@@ -1,7 +1,3 @@
-{-# LANGUAGE LambdaCase    #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE ViewPatterns  #-}
-
 module Toy.SM.Interpreter
     ( execute
     ) where

@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Toy.Exp.Util
     ( arithspoon
     , bool

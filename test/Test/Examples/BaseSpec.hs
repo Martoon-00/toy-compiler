@@ -1,7 +1,5 @@
-{-# LANGUAGE OverloadedLists  #-}
-{-# LANGUAGE RecordWildCards  #-}
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Test.Examples.BaseSpec
     ( spec

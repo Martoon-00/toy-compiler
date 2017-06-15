@@ -82,6 +82,17 @@ library
                        FlexibleInstances
                        OverloadedStrings
                        TypeOperators
+                       ConstraintKinds
+                       LambdaCase
+                       MultiParamTypeClasses
+                       MultiWayIf
+                       OverloadedStrings
+                       ScopedTypeVariables
+                       TupleSections
+                       TypeApplications
+                       TypeOperators
+                       RecordWildCards
+                       ViewPatterns
                        ExplicitForAll
 
 executable launch
@@ -145,4 +156,11 @@ test-suite tests
   ghc-options:         -threaded -Wall -fno-warn-orphans
   default-extensions:  FlexibleContexts
                        FlexibleInstances
+                       MultiParamTypeClasses
+                       MultiWayIf
                        OverloadedStrings
+                       TypeApplications
+                       ScopedTypeVariables
+                       ViewPatterns
+                       RecordWildCards
+

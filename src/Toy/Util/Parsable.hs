@@ -1,6 +1,4 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE Rank2Types #-}
 
 module Toy.Util.Parsable
     ( Parser

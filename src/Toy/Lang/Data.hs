@@ -1,6 +1,4 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections   #-}
 {-# LANGUAGE TypeFamilies    #-}
 
 module Toy.Lang.Data where

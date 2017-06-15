@@ -1,5 +1,3 @@
-{-# LANGUAGE TupleSections #-}
-
 module Toy.Base.Fun
     ( FunSign (..)
     , stdFunExamples

@@ -1,6 +1,4 @@
-{-# LANGUAGE OverloadedLists  #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE ViewPatterns     #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module Test.Examples.FunSpec
     ( spec

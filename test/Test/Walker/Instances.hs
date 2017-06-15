@@ -1,6 +1,5 @@
-{-# LANGUAGE ApplicativeDo   #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE TypeFamilies  #-}
 
 module Test.Walker.Instances
     ( ProgramTestData (..)

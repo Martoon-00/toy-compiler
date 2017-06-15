@@ -1,5 +1,4 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE RecordWildCards           #-}
 
 module Toy.Execution.Trans
     ( TranslateWay (..)

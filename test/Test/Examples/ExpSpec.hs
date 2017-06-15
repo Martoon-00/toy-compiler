@@ -1,6 +1,5 @@
-{-# LANGUAGE OverloadedLists  #-}
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Test.Examples.ExpSpec
     ( spec
