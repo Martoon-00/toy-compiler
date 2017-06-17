@@ -53,7 +53,7 @@ namespace Toy {
         }
     }
 
-    void ensureNoAllocations() {
+    void ensure_no_allocations() {
         if (!allocated.empty()) {
             std::cerr << "Unallocated memory pointers:";
             std::for_each(allocated.begin(), allocated.end(), [](const std::pair<int*, int> &it){

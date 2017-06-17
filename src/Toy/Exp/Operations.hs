@@ -5,7 +5,6 @@ module Toy.Exp.Operations where
 import           Control.Lens              (has, ix, (.=))
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.State       (get)
-import           Control.Monad.Trans       (MonadIO (..))
 import           Data.Bits                 (xor, (.&.), (.|.))
 import           Data.String               (IsString (..))
 import qualified Data.Vector               as V
@@ -14,9 +13,9 @@ import qualified Formatting                as F
 import           Universum
 
 import           Toy.Base                  (BinOp, UnaryOp, Value)
-import           Toy.Exp.Arrays            (arrayOnly, initArray, valueOnly)
+import           Toy.Exp.Arrays            (MonadArrays, arrayOnly, initArray, valueOnly)
 import           Toy.Exp.Data
-import           Toy.Exp.RefEnv            (MonadRefEnv (..), MonadRefInit)
+import           Toy.Exp.RefEnv            (MonadRefEnv (..))
 import           Toy.Exp.Util              (asToBool, binResToBool, boolL)
 
 -- * Unary operations
@@ -101,21 +100,13 @@ binOp "!=" = binResToBool (/=)
 binOp op   = error $ "Unsopported operation: " <> show op
 
 
-type MonadArrays s m =
-    ( MonadIO m
-    , MonadError s m
-    , IsString s
-    , MonadRefInit m
-    , MonadRefEnv ExpRes m
-    )
-
 arrayMakeU
-    :: (MonadIO m, MonadRefInit m, MonadRefEnv ExpRes m)
+    :: MonadArrays s m
     => Int -> m ExpRes
 arrayMakeU k = initArray $ V.replicate k NotInitR
 
 arrayAccess
-    :: (MonadArrays s m)
+    :: MonadArrays s m
     => ExpRes -> ExpRes -> m ExpRes
 arrayAccess a i = do
     i' <- pure i `valueOnly` "array access: index is not a number"
@@ -127,7 +118,7 @@ arrayAccess a i = do
     return res
 
 arraySet
-    :: (MonadIO m, MonadError s m, IsString s, MonadRefEnv ExpRes m)
+    :: MonadArrays s m
     => ExpRes -> ExpRes -> ExpRes -> m ()
 arraySet a i e = do
     a'  <- arrayOnly a "array set: array expected" get
@@ -142,7 +133,7 @@ arraySet a i e = do
     changeRefCounter (-) a
 
 arrayLength
-    :: (MonadIO m, MonadError s m, IsString s, MonadRefEnv ExpRes m)
+    :: MonadArrays s m
     => ExpRes -> m ExpRes
 arrayLength a = do
     a' <- arrayOnly a "array length: array expected" get
@@ -159,4 +150,6 @@ arrayMake l e = do
 arrayFree
     :: MonadArrays s m
     => ExpRes -> m ()
-arrayFree = changeRefCounter (-)
+arrayFree =
+    -- argument expiration + actual deallocation
+    replicateM_ 2 . changeRefCounter (-)

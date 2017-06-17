@@ -1,47 +1,64 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 -- | Utils to work with arrays
 
 module Toy.Exp.Arrays where
 
-import           Control.Lens              (at, zoom, (.=))
+import           Control.Lens              (at, has, makeLenses, zoom, (.=), (<<+=))
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Trans       (MonadTrans)
 import           Control.Monad.Writer      (MonadWriter (..))
-import qualified Data.Set                  as S
+import           Data.Default              (Default (..))
+import qualified Data.Map                  as M
 import qualified Data.Vector               as V
+import           Formatting                (bprint, formatToString, shown, stext, (%))
+import           Serokell.Util.Text        (listJson)
 import           Universum
 
 import           Toy.Base                  (Value)
 import           Toy.Exp.Data
-import           Toy.Exp.RefEnv            (MRef, MRefId, MRefsGenerator,
-                                            MonadRefEnv (..), MonadRefInit (..),
-                                            runRefsGenerator)
+import           Toy.Exp.RefEnv            (MRef, MRefId (..), MonadRefEnv (..))
+
+type MonadArrays s m =
+    ( MonadIO m
+    , MonadError s m
+    , IsString s
+    , MonadRefEnv ExpRes m
+    )
 
 initArray
-    :: (MonadIO m, MonadRefInit m, MonadRefEnv ExpRes m)
+    :: MonadArrays __ m
     => V.Vector ExpRes -> m ExpRes
 initArray v = do
-    mRefId <- newMRefId
-    res <- ArrayR <$> newIORef (Just $ ArrayInnards 0 mRefId v)
+    res <- newMRef $ \mRefId ->
+        ArrayR <$> newIORef (Just $ ArrayInnards 0 mRefId v)
     void . runExceptT $ changeRefCounter (+) res
     return res
 
 valueOnly
-    :: (IsString s, MonadError s m)
+    :: MonadArrays __ m
     => m ExpRes -> Text -> m Value
-valueOnly action (fromString . toString -> desc) =
-    maybe (throwError desc) pure . preview _ValueR =<< action
+valueOnly action desc = do
+    value <- action
+    when (_NotInitR `has` value) $
+        throwError . fromString $
+        formatToString ("Not initialized variable! ("%stext%")") desc
+    preview _ValueR value `whenNothing` throwError (fromString $ toString desc)
 
 arrayShell
-    :: (IsString s, MonadError s m)
+    :: MonadArrays __ m
     => m ExpRes -> Text -> m (MRef (Maybe ArrayInnards))
-arrayShell action (fromString . toString -> desc) =
-    maybe (throwError desc) pure . preview _ArrayR =<< action
+arrayShell action desc = do
+    value <- action
+    when (_NotInitR `has` value) $
+        throwError . fromString $
+        formatToString ("Not initialized variable! ("%stext%")") desc
+    preview _ArrayR value `whenNothing` throwError (fromString $ toString desc)
 
 arrayOnlyM
-    :: (IsString s, MonadError s m, MonadIO m)
+    :: MonadArrays __ m
     => m ExpRes -> Text -> State (V.Vector ExpRes) a -> m a
 arrayOnlyM action desc modifier = do
     ref <- arrayShell action desc
@@ -51,13 +68,23 @@ arrayOnlyM action desc modifier = do
     return res
 
 arrayOnly
-    :: (IsString s, MonadError s m, MonadIO m)
+    :: MonadArrays __ m
     => ExpRes -> Text -> State (V.Vector ExpRes) a -> m a
 arrayOnly value = arrayOnlyM (pure value)
 
 
+data RefCountingGcState = RefCountingGcState
+    { _rcdsExistingRefs :: M.Map MRefId (MRef (Maybe ArrayInnards))
+    , _rcdsRefsCounter  :: Int
+    }
+
+makeLenses ''RefCountingGcState
+
+instance Default RefCountingGcState where
+    def = RefCountingGcState def def
+
 newtype RefCountingGc m a = RefCountingGc
-    { getRefCountingGc :: StateT (S.Set MRefId) m a
+    { getRefCountingGc :: StateT RefCountingGcState m a
     } deriving ( Functor
                , Applicative
                , Monad
@@ -69,10 +96,14 @@ newtype RefCountingGc m a = RefCountingGc
                )
 
 runRefCountingGc :: Monad m => RefCountingGc m a -> m a
-runRefCountingGc = flip evalStateT mempty . getRefCountingGc
+runRefCountingGc = flip evalStateT def . getRefCountingGc
 
 instance (MonadIO m, MonadError s m, IsString s) =>
          MonadRefEnv ExpRes (RefCountingGc m) where
+    newMRef mk = do
+        mRefId <- RefCountingGc (rcdsRefsCounter <<+= 1)
+        liftIO $ mk (MRefId mRefId)
+
     changeRefCounter modifier expr =
         whenJust (expr ^? _ArrayR) $ \ref -> do
             innard <- readIORef ref `whenNothingM` throwError "Array was freed"
@@ -80,9 +111,23 @@ instance (MonadIO m, MonadError s m, IsString s) =>
             let newRefStateM = guard $ _aiRefCounter innard' /= 0
             liftIO $ writeIORef ref $ newRefStateM $> innard'
 
-            RefCountingGc $ identity . at (innard ^. aiRefId) .= newRefStateM
+            RefCountingGc $
+                rcdsExistingRefs . at (innard ^. aiRefId) .= (newRefStateM $> ref)
             when (innard' ^. aiRefCounter == 0) $
                 mapM_ (changeRefCounter (-)) (innard ^. aiArray)
 
-runWholeRefCountingGc :: Monad m => (MRefsGenerator $ RefCountingGc m) a -> m a
-runWholeRefCountingGc = runRefCountingGc . runRefsGenerator
+    checkNoRefs _ = RefCountingGc $ do
+        existingRefs <- toList <$> use rcdsExistingRefs
+        unless (null existingRefs) $ do
+            values <- forM existingRefs $ \a ->
+                readIORef a `whenNothingM` throwError "Primitive in refs map??"
+            throwError . fromString $
+                formatToString ("References remained:\n"%listJson)
+                (values <&> \v ->
+                     bprint (shown%" ("%shown%")"%"\n") (_aiArray v) (_aiRefCounter v))
+
+checkNoExpResRefs :: MonadRefEnv ExpRes m => m ()
+checkNoExpResRefs = checkNoRefs (Proxy @ExpRes)
+
+runWholeRefCountingGc :: Monad m => RefCountingGc m a -> m a
+runWholeRefCountingGc = runRefCountingGc

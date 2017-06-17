@@ -17,7 +17,7 @@ import           Universum                 hiding (toList)
 
 import           Toy.Base                  (FunSign (..), Var (..))
 import           Toy.Exp                   (Exp (..), ExpRes, LocalVars, MonadRefEnv,
-                                            MonadRefInit, readE, (==:))
+                                            readE, (==:))
 import           Toy.Util.Error            (mapError)
 
 -- | Statement of a program.
@@ -70,7 +70,6 @@ type MonadExec m =
     , MonadError ExecInterrupt m
     , MonadState LocalVars m
     , MonadReader FunDecls m
-    , MonadRefInit m
     , MonadRefEnv ExpRes m
     )
 

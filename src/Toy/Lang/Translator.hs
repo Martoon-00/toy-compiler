@@ -37,19 +37,15 @@ toIntermediate (L.Program funcs main) = do
     res <- fmap (V.fromList . D.toList) . execTransState funcs $ do
         mapM_ convertFun $ snd <$> M.toList funcs
         convertFun (FunSign SM.initFunName [], main)
-    -- V.fromList <$> insertDeallocations (V.toList res)
     return res
   where
     convertFun (FunSign name args, stmt) = do
         tell [ SM.Enter name args, SM.Label (SM.FLabel name) ]
         bracketLocals $ convert stmt
-        -- when (name == SM.initFunName) memCheck  -- TODO:
+        when (name == SM.initFunName) memCheck
         -- 'Ret' is translated to jmp to the end
         tell [ SM.Push 0, SM.Ret, SM.Label SM.exitLabel ]
 
-    initRef :: Var -> D.DList SM.Inst
-    initRef var =
-        [ SM.Push 0, SM.Call $ FunSign "allocate" ["X"], SM.Store var ]
     freeRef :: Var -> D.DList SM.Inst
     freeRef var =
         [ SM.Load var, SM.Call $ FunSign "deallocate" ["X"], SM.Drop ]
@@ -61,12 +57,11 @@ toIntermediate (L.Program funcs main) = do
             let locals = toList $ SM.gatherLocals insts
                 forLocals act = mconcat $ act <$> locals
             mconcat
-                [ forLocals initRef
-                , insts
+                [ insts
                 , forLocals freeRef
                 ]
 
-    -- memCheck = tell [ SM.Call $ FunSign "ensure_no_allocations" [], SM.Drop ]
+    memCheck = tell [ SM.Call $ FunSign "ensure_no_allocations" [], SM.Drop ]
 
 execTransState :: L.FunDecls -> TransState () -> Either Text (D.DList SM.Inst)
 execTransState funcs action =

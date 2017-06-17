@@ -72,6 +72,7 @@ library
                      , mmorph
                      , mtl
                      , process
+                     , serokell-util
                      , spoon
                      , vector
                      , text
