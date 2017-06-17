@@ -16,7 +16,8 @@ import           GHC.Exts                  (IsList (..))
 import           Universum                 hiding (toList)
 
 import           Toy.Base                  (FunSign (..), Var (..))
-import           Toy.Exp                   (Exp (..), ExpRes, LocalVars, readE, (==:))
+import           Toy.Exp                   (Exp (..), ExpRes, LocalVars, MonadRefEnv,
+                                            MonadRefInit, readE, (==:))
 import           Toy.Util.Error            (mapError)
 
 -- | Statement of a program.
@@ -69,6 +70,8 @@ type MonadExec m =
     , MonadError ExecInterrupt m
     , MonadState LocalVars m
     , MonadReader FunDecls m
+    , MonadRefInit m
+    , MonadRefEnv ExpRes m
     )
 
 -- | Adds current statement info to probable evaluation error

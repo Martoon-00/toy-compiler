@@ -36,9 +36,9 @@ namespace Toy {
             allocated.erase(ptr);
         } else {
             // TODO: uncomment
-        //     std::stringbuf desc;
-        //     std::ostream(&desc) << "Freeing non-allocated pointer!: " << ptr;
-        //     throw std::runtime_error(desc.str());
+            // std::stringbuf desc;
+            // std::ostream(&desc) << "Freeing non-allocated pointer!: " << ptr;
+            // throw std::runtime_error(desc.str());
         }
     }
 

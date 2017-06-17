@@ -18,7 +18,8 @@ import           Data.Maybe                 (fromMaybe)
 import           Universum                  hiding (StateT)
 
 import           Toy.Base                   (Exec, ExecInOut)
-import           Toy.Exp                    (ExpRes (..), LocalVars, arraySet, valueOnly)
+import           Toy.Exp                    (ExpRes (..), LocalVars, NoGcEnv (..),
+                                             arraySet, valueOnly)
 import           Toy.Lang.Data              (ExecInterrupt (..), FunDecls, Program,
                                              Program (..), Stmt (..), withStmt, _Error)
 import qualified Toy.Lang.Eval              as E
@@ -26,14 +27,18 @@ import qualified Toy.Lang.Eval              as E
 
 type ExecProcess m =
     ExecInOut $
+    NoGcEnv $
     ReaderT FunDecls $
     StateT LocalVars $
     EitherT ExecInterrupt m
 
 execute :: MonadIO m => Program -> Exec m ()
 execute (Program funDecls stmt) =
-    hoist simplifyErr . evalStateC def . hoist (`runReaderT` funDecls) $
-        executeDo stmt
+    hoist simplifyErr $
+    evalStateC def $
+    hoist (`runReaderT` funDecls) $
+    hoist getNoGcEnv $
+    executeDo stmt
   where
     simplifyErr = bimapEitherT toSimpleErr identity
     toSimpleErr = fromMaybe "Return at global scope" . ( ^? _Error)

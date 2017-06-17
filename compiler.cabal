@@ -26,9 +26,11 @@ library
                        Toy.Execution.Exec
                        Toy.Execution.Trans
 
+                       Toy.Exp.Arrays
                        Toy.Exp.Data
                        Toy.Exp.Ext
                        Toy.Exp.Operations
+                       Toy.Exp.RefEnv
                        Toy.Exp.Util
 
                        Toy.Lang.Data
@@ -53,7 +55,8 @@ library
                        Toy.X86.SymStack
                        Toy.X86.Translator
 
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       autoexporter
+                     , base >= 4.7 && < 5
                      , conduit
                      , conduit-combinators
                      , containers

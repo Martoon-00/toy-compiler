@@ -41,7 +41,7 @@ packages:
 # (e.g., acme-missiles-0.3)
 extra-deps:
 - type-operators-0.1.0.4
-- universum-0.3
+- universum-0.4.3
 
 # Override default flag values for local packages and extra-deps
 flags: {}

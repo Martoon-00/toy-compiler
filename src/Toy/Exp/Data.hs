@@ -1,24 +1,22 @@
+{-# LANGUAGE Rank2Types      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Toy.Exp.Data where
 
-import           Control.Lens              (makePrisms)
-import           Control.Monad.Error.Class (MonadError (..))
-import           Data.IORef                (IORef)
-import           Data.String               (IsString (..))
-import qualified Data.Vector               as V
+import           Control.Lens   (makeLenses, makePrisms)
+import           Data.String    (IsString (..))
+import qualified Data.Vector    as V
 import qualified Prelude
 import           Universum
 
-import           Toy.Base.Data             (BinOp, UnaryOp, Value, Var)
+import           Toy.Base.Data  (BinOp, UnaryOp, Value, Var)
+import           Toy.Exp.RefEnv (MRef, MRefId)
 
 -- TODO:
 data Boxing
     = Boxed
     | Unboxed
     deriving (Eq, Show, Enum, Bounded)
-
-type MRef = IORef
 
 -- | Expression
 data Exp
@@ -46,29 +44,23 @@ instance Num Exp where
 readE :: Exp
 readE = FunE "read" []
 
+-- | Array with some meta info
+data ArrayInnards = ArrayInnards
+    { _aiRefCounter :: Int
+    , _aiRefId      :: MRefId
+    , _aiArray      :: V.Vector ExpRes
+    }
 
 -- | Evaluated expression
 data ExpRes
    = ValueR Value
-   | ArrayR (MRef (Maybe (V.Vector ExpRes)))
+   | ArrayR (MRef (Maybe ArrayInnards))
    | NotInitR
-
-makePrisms ''ExpRes
 
 instance Show ExpRes where
     show (ValueR n) = show n
     show (ArrayR _) = "<array>"
     show NotInitR   = "<undefined>"
 
-
-valueOnly
-    :: (IsString s, MonadError s m)
-    => m ExpRes -> Text -> m Value
-valueOnly action (fromString . toString -> desc) =
-    maybe (throwError desc) pure . preview _ValueR =<< action
-
-arrayOnly
-    :: (IsString s, MonadError s m)
-    => m ExpRes -> Text -> m (MRef (Maybe (V.Vector ExpRes)))
-arrayOnly action (fromString . toString -> desc) =
-    maybe (throwError desc) pure . preview _ArrayR =<< action
+makeLenses ''ArrayInnards
+makePrisms ''ExpRes

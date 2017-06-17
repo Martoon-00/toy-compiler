@@ -21,15 +21,18 @@ import           Universum
 import           Toy.Base                  (Exec, FunSign (..))
 import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess,
                                             arrayFree, arrayLength, arrayMake, arrayMakeU,
-                                            arraySet, binOp, valueOnly)
+                                            arraySet, binOp, changeRefCounter,
+                                            runWholeRefCountingGc, valueOnly)
 import           Toy.SM.Data               (ExecState (..), IP, Inst (..), Insts,
                                             LabelId (..), esIp, esLocals, esStack,
                                             initFunName)
 
 execute :: MonadIO m => Insts -> Exec m ()
-execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
+execute insts =
+    hoist runWholeRefCountingGc $
+    evalStateC def{ _esIp = programEntry } $
+    executeDo
   where
-    -- executeDo :: Monad m => ExecInOut $ StateT ExecState $ EitherT Text m ()
     executeDo = void . runMaybeC . forever $
         getCurInst >>= step >> esIp += 1
 
@@ -47,8 +50,11 @@ execute insts = evalStateC def{ _esIp = programEntry } $ executeDo
             push . ValueR =<< arithspoon (binOp op a b)
         Load n      -> use (esLocals . at n) >>= \case
             Nothing  -> throwError $ sformat ("No variable "%build%" defined") n
-            Just var -> push var
-        Store n     -> pop >>= (esLocals . at n ?= )
+            Just var -> push var >> changeRefCounter (+) var
+        Store n     -> do
+            whenJustM (use $ esLocals . at n) $
+                changeRefCounter (-)
+            pop >>= (esLocals . at n ?= )
         ArrayMake k -> arrayMakeU k >>= push
         ArrayAccess -> do
             i <- pop
@@ -137,5 +143,5 @@ buildLabelsMap (V.toList -> insts) =
     let addLabel (idx, Label li) = M.insert li idx
         addLabel _               = identity
         labelsMap = foldr addLabel M.empty $ zip [0..] insts
-    in  \labelId -> (labelsMap ^. at labelId) `whenNothing`
-                        throwError (sformat ("No label "%build) labelId)
+    in  \labelId -> (labelsMap ^. at labelId)
+            `whenNothing` throwError (sformat ("No label "%build) labelId)
