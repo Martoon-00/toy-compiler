@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <iostream>
+#include <set>
 #include <map>
 #include <stdexcept>
 #include <algorithm>
@@ -19,6 +20,7 @@ namespace Arrays {
     struct raw {};
 
     std::map<raw*, int> allocated = std::map<raw*, int>();
+    std::set<raw*> ever_allocated = std::set<raw*>();
 
     array_meta& access_array_meta(int* ptr) {
         return ((array_meta*) ptr)[-1];
@@ -40,6 +42,7 @@ namespace Arrays {
     int* allocate(int size) {
         raw* raw_ptr = static_cast<raw*>(std::calloc(1, size * VALUE_SIZE + sizeof(array_meta)));
         allocated[raw_ptr] = size;
+        ever_allocated.insert(raw_ptr);
         int* ptr = from_raw_ptr(raw_ptr);
         access_array_meta(ptr) = array_meta(size);
         ref_counter_increment(ptr);
@@ -51,18 +54,19 @@ namespace Arrays {
     // internal
     void deallocate(int* ptr) {
         raw* raw_ptr = to_raw_ptr(ptr);
-        if (allocated.count(raw_ptr)) {
-            int len = access_array_meta(ptr).arr_length;
-            int** ptr_ = reinterpret_cast<int**>(ptr);
-            std::for_each(ptr_, ptr_ + len, ref_counter_decrement);
+        if (ever_allocated.count(raw_ptr)) {
+            if (allocated.count(raw_ptr)) {
+                int len = access_array_meta(ptr).arr_length;
+                int** ptr_ = reinterpret_cast<int**>(ptr);
+                std::for_each(ptr_, ptr_ + len, ref_counter_decrement);
 
-            std::free(raw_ptr);
-            allocated.erase(raw_ptr);
-        } else {
-            // TODO: uncomment
-            // std::stringbuf desc;
-            // std::ostream(&desc) << "Freeing non-allocated pointer!: " << raw_ptr;
-            // throw std::runtime_error(desc.str());
+                std::free(raw_ptr);
+                allocated.erase(raw_ptr);
+            } else {
+                std::stringbuf desc;
+                std::ostream(&desc) << "Freeing non-allocated pointer!: " << raw_ptr;
+                throw std::runtime_error(desc.str());
+            }
         }
     }
 
