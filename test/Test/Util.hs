@@ -28,10 +28,14 @@ instance MonadIO (SpecM a) where
 
 newtype VerySmall a = VerySmall
     { getVerySmall :: a
-    } deriving (Eq, Ord, Show, Num)
+    } deriving (Eq, Ord, Show, Num, Enum)
 
-instance (Arbitrary a, Integral a) => Arbitrary (VerySmall a) where
-    arbitrary = VerySmall . flip rem 5 <$> arbitrary
+verySmallLimit :: Num a => a
+verySmallLimit = 5
+
+instance (Arbitrary a, Integral a, Enum a) => Arbitrary (VerySmall a) where
+    arbitrary = VerySmall . flip rem verySmallLimit <$> arbitrary
+    shrink k = [k + 1 .. verySmallLimit - 1]
 
 
 class Extract a p where

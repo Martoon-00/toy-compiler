@@ -7,59 +7,72 @@
 
 #define VALUE_SIZE sizeof(int)
 
-struct array_meta {
-    int ref_counter;
-    int arr_length;
-    array_meta(int arr_length): ref_counter(0), arr_length(arr_length) {}
-};
-
-std::map<int*, int> allocated = std::map<int*, int>();
-
 extern "C" {
-namespace Toy {
+namespace Arrays {
 
-    int* allocate(int size) {
-        int* ptr = (int*) std::calloc(1, size * VALUE_SIZE + sizeof(array_meta));
-        allocated[ptr] = size;
-        ((array_meta*) ptr)[0] = array_meta(size);
-        return (int*)((array_meta*) ptr + 1);
-    }
+    struct array_meta {
+        int ref_counter;
+        int arr_length;
+        array_meta(int arr_length): ref_counter(0), arr_length(arr_length) {}
+    };
+
+    struct raw {};
+
+    std::map<raw*, int> allocated = std::map<raw*, int>();
 
     array_meta& access_array_meta(int* ptr) {
         return ((array_meta*) ptr)[-1];
     }
 
-    void deallocate(int* arr_ptr) {
-        int* ptr = arr_ptr - sizeof(array_meta);
-        if (allocated.count(ptr)) {
-            std::free(ptr);
-            allocated.erase(ptr);
+    int* from_raw_ptr(raw* raw_ptr) {
+        return (int*)(static_cast<array_meta*>(static_cast<void*>(raw_ptr)) + 1);
+    }
+
+    raw* to_raw_ptr(int* ptr) {
+        return static_cast<raw*>(static_cast<void*>((array_meta*) ptr - 1));
+    }
+
+    void ref_counter_increment(int* ptr) {
+        int counts = ++access_array_meta(ptr).ref_counter;
+        // std::cerr << ptr << " - incremented " << counts << std::endl;
+    }
+
+    int* allocate(int size) {
+        raw* raw_ptr = static_cast<raw*>(std::calloc(1, size * VALUE_SIZE + sizeof(array_meta)));
+        allocated[raw_ptr] = size;
+        int* ptr = from_raw_ptr(raw_ptr);
+        access_array_meta(ptr) = array_meta(size);
+        ref_counter_increment(ptr);
+        return ptr;
+    }
+
+    void ref_counter_decrement(int* ptr);
+
+    // internal
+    void deallocate(int* ptr) {
+        raw* raw_ptr = to_raw_ptr(ptr);
+        if (allocated.count(raw_ptr)) {
+            int len = access_array_meta(ptr).arr_length;
+            int** ptr_ = reinterpret_cast<int**>(ptr);
+            std::for_each(ptr_, ptr_ + len, ref_counter_decrement);
+
+            std::free(raw_ptr);
+            allocated.erase(raw_ptr);
         } else {
             // TODO: uncomment
             // std::stringbuf desc;
-            // std::ostream(&desc) << "Freeing non-allocated pointer!: " << ptr;
+            // std::ostream(&desc) << "Freeing non-allocated pointer!: " << raw_ptr;
             // throw std::runtime_error(desc.str());
         }
     }
 
-    void alloc_counter_increment(int* ptr) {
-        access_array_meta(ptr).ref_counter++;
-    }
+    void ref_counter_decrement(int* ptr) {
+        if (!allocated.count(to_raw_ptr(ptr))) return;
 
-    void alloc_counter_decrement(int* ptr) {
         int counts = --access_array_meta(ptr).ref_counter;
+        // std::cerr << ptr << " - decremented " << counts << std::endl;
         if (!counts) {
             deallocate(ptr);
-        }
-    }
-
-    void ensure_no_allocations() {
-        if (!allocated.empty()) {
-            std::cerr << "Unallocated memory pointers:";
-            std::for_each(allocated.begin(), allocated.end(), [](const std::pair<int*, int> &it){
-                    std::cerr << "\t" << it.first << " - " << it.second << " bytes";
-                });
-            throw std::runtime_error("Memory leaked!");
         }
     }
 
@@ -68,17 +81,44 @@ namespace Toy {
     //////////////////////////////////////
 
     int arrlen(int* ptr) {
-        return access_array_meta(ptr).arr_length;
+        auto res = access_array_meta(ptr).arr_length;
+        ref_counter_decrement(ptr);
+        return res;
     }
 
     int* arrmake(int size, int def_val) {
         int* res = allocate(size);
-        std::for_each(res, res + size, [&](int &it){ it = def_val; });
+        std::for_each(res, res + size, [&](int &it){
+            it = def_val;
+        });
         return res;
     }
 
     int* Arrmake(int size, int* def_val) {
-        return arrmake(size, (int) def_val);
+        auto res = arrmake(size, (int) def_val);
+        for (int i = 0; i < size; i++)
+            ref_counter_increment(def_val);
+        ref_counter_decrement(def_val);
+        return res;
     }
+
+    void free(int* ptr) {
+        ref_counter_decrement(ptr);  // for argument expiration
+        ref_counter_decrement(ptr);  // actual cleaning
+    }
+
+    void ensure_no_allocations() {
+        if (!allocated.empty()) {
+            std::cerr << "Unallocated memory pointers:";
+            std::for_each(allocated.begin(), allocated.end(), [](decltype(*allocated.begin()) &it){
+                    std::cerr << "\t"
+                        << it.first << " - "
+                        << it.second << " bytes, "
+                        << access_array_meta(from_raw_ptr(it.first)).ref_counter << " refs\n";
+                });
+            throw std::runtime_error("Memory leaked!");
+        }
+    }
+
 }
 }

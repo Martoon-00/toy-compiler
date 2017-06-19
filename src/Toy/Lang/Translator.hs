@@ -46,9 +46,12 @@ toIntermediate (L.Program funcs main) = do
         -- 'Ret' is translated to jmp to the end
         tell [ SM.Push 0, SM.Ret, SM.Label SM.exitLabel ]
 
+    initRef :: Var -> D.DList SM.Inst
+    initRef var =
+        [ SM.Push 0, SM.Store var ]
     freeRef :: Var -> D.DList SM.Inst
     freeRef var =
-        [ SM.Load var, SM.Call $ FunSign "deallocate" ["X"], SM.Drop ]
+        [ SM.Load var, SM.Call $ FunSign "free" ["X"], SM.Drop ]
 
     bracketLocals :: TransState () -> TransState ()
     bracketLocals action = pass $ do
@@ -57,7 +60,8 @@ toIntermediate (L.Program funcs main) = do
             let locals = toList $ SM.gatherLocals insts
                 forLocals act = mconcat $ act <$> locals
             mconcat
-                [ insts
+                [ forLocals initRef  -- don't want to clean trash afterwards
+                , insts
                 , forLocals freeRef
                 ]
 
@@ -121,4 +125,3 @@ callFun name (D.fromList . reverse -> args) = do
 
     mapM_ pushExp args
     tell [SM.Call sign]
-

@@ -111,7 +111,7 @@ execute insts =
                 l <- pop
                 a <- arrayMake l (ValueR 0)
                 push a
-            "deallocate" -> do
+            "free" -> do
                 a <- pop
                 arrayFree a
                 push (ValueR 0)
@@ -142,8 +142,8 @@ execute insts =
                 funEndExecState <-
                     hoist (lift . lift) $ execStateC funExecState executeDo
 
-                forM_ (_esLocals funEndExecState) $
-                    changeRefCounter (-)
+                -- forM_ (_esLocals funEndExecState) $
+                --     changeRefCounter (-)
                 case _esStack funEndExecState of
                     [x]   -> esStack %= (x:)
                     other -> throwError $ badStackAtFunEnd other

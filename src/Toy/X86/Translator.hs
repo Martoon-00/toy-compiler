@@ -82,8 +82,12 @@ step = \case
         op <- allocSymStackOp
         tell [Mov (Local v) eax, Mov eax op]
     SM.Store v    -> do
-        op <- popSymStackOp
-        tell [Mov op eax, Mov eax (Local v)]
+        do op <- allocSymStackOp
+           tell [Mov (Local v) eax, Mov eax op]
+           mkCall "free" 1
+           void popSymStackOp
+        do op <- popSymStackOp
+           tell [Mov op eax, Mov eax (Local v)]
     SM.Bin op     -> do
         op2 <- popSymStackOp
         op1 <- popSymStackOp

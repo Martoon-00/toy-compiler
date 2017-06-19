@@ -105,6 +105,16 @@ arrayMakeU
     => Int -> m ExpRes
 arrayMakeU k = initArray $ V.replicate k NotInitR
 
+arrayMake
+    :: MonadArrays s m
+    => ExpRes -> ExpRes -> m ExpRes
+arrayMake l e = do
+    l' <- pure l `valueOnly` "make array: length should be numeric"
+    let l'' = fromIntegral l'
+    replicateM_ l'' $ changeRefCounter (+) e
+    changeRefCounter (-) e
+    initArray $ V.replicate l'' e
+
 arrayAccess
     :: MonadArrays s m
     => ExpRes -> ExpRes -> m ExpRes
@@ -139,13 +149,6 @@ arrayLength a = do
     a' <- arrayOnly a "array length: array expected" get
     changeRefCounter (-) a
     return (ValueR . fromIntegral $ V.length a')
-
-arrayMake
-    :: MonadArrays s m
-    => ExpRes -> ExpRes -> m ExpRes
-arrayMake l e = do
-    l' <- pure l `valueOnly` "make array: length should be numeric"
-    initArray $ V.replicate (fromIntegral l') e
 
 arrayFree
     :: MonadArrays s m
