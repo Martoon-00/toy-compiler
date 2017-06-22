@@ -55,6 +55,11 @@ spec = do
             describe "standart functions presence" $ do
                 for_ stdFunExamples $ \args@(show -> name, _) ->
                     it name $ stdFunCallTest args way
+            describe "arrays" $ do
+                it "array argument" $
+                    arrayArgTest way
+                it "array return" $
+                    arrayReturnTest way
 
 singleFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleFunProg argNames args body =
@@ -147,6 +152,25 @@ gcdTest = sample ~*~ fun
                 L.Return (FunE funName ["b", "a" %: "b"])
     fun :: NonNegative Value -> NonNegative Value -> Value
     fun (NonNegative x) (NonNegative y) = gcd x y
+
+arrayArgTest :: ExecWay L.Program -> Property
+arrayArgTest = sample & [] >-*-> [5]
+  where
+    fun =  ("lol", (FunSign "lol" ["x"], L.writeS $ ArrayAccessE "x" 0))
+    sample =
+        L.Program [fun] $ mconcat
+            [ "a" `L.arrayVarS` [5]
+            , L.funCallS "lol" ["a"]
+            ]
+
+arrayReturnTest :: ExecWay L.Program -> Property
+arrayReturnTest = sample & [] >-*-> [7]
+  where
+    fun =  ("lol", (FunSign "lol" [], L.Return `L.arrayS` [7]))
+    sample =
+        L.Program [fun] $ mconcat
+            [ L.writeS $ FunE "lol" [] `ArrayAccessE` 0
+            ]
 
 stdFunCallTest :: (Var, [Exp]) -> ExecWay L.Program -> Property
 stdFunCallTest = works . L.Program mempty . uncurry L.funCallS

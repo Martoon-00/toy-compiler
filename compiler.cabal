@@ -117,6 +117,7 @@ executable launch
   ghc-options:         -threaded -Wall -fno-warn-orphans
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
+                       TypeApplications
 
 test-suite tests
   main-is:             Test.hs

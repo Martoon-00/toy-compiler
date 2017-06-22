@@ -6,11 +6,15 @@ import           Control.Monad.Trans.Either (EitherT (..))
 import           Data.Conduit               (ConduitM)
 import           Data.Int                   (Int32)
 import           Data.String                (IsString (..))
+import qualified Prelude
 import           Universum
 
 -- | Variable name
 newtype Var = Var Text
-    deriving (Eq, Ord, Show, IsString, Buildable)
+    deriving (Eq, Ord, IsString, Buildable)
+
+instance Show Var where
+    show (Var name) = show name
 
 -- | Expression type
 type Value = Int32

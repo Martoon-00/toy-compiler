@@ -52,7 +52,7 @@ interact :: Exec IO () -> IO ()
 interact executor = handleRes $ readInput =$= executor $$ writeOutput
   where
     readInput        = forever $ readValue >>= yield
-    readValue        = liftIO $ putText "> " >> hFlush stdout >> readLn
+    readValue        = liftIO $ putStr @Text "> " >> hFlush stdout >> readLn
     writeOutput      = awaitForever $ liftIO . print
     handleRes action = runEitherT action `whenLeftM` printError
     printError err   = error $ "Execution failed: " <> err

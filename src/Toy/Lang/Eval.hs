@@ -81,6 +81,8 @@ callDefinedFun
     => FunExecutor m -> Var -> [Exp] -> ExecInOut m ExpRes
 callDefinedFun executor name args = do
     (FunSign _ argNames, body) <- view (at name) `whenNothingM` throwError noFun
+    when (length argNames /= length args) $
+        throwError "Invalid number of arguments passed to function"
     args' <- forM args $ eval executor
     curVars <- identity <<.= M.fromList (zip argNames args')
     executor body <* (identity .= curVars)

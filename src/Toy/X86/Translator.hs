@@ -8,7 +8,6 @@ module Toy.X86.Translator
 
 import           Control.Lens          (ix, (+=), (-=))
 import           Control.Monad         (forM_)
-import           Control.Monad.Fix     (mfix)
 import           Control.Monad.State   (get, runState)
 import           Control.Monad.Trans   (MonadIO (..))
 import           Control.Monad.Writer  (MonadWriter, Writer, censor, runWriter, tell)
@@ -41,7 +40,7 @@ compile = mconcat . map compileFun . separateFuns
 
 compileFun :: SM.Insts -> Insts
 compileFun insts =
-    let (_, args) = case insts ^? ix 0 of
+    let (name, args) = case insts ^? ix 0 of
             Just (SM.Enter n ai) -> (n, ai)
             _                    -> error "Where is my Enter?!"
         vars  = SM.gatherLocals insts
@@ -60,6 +59,7 @@ compileFun insts =
                 , insertExit
                 , optimize
                 , check
+                , (("Function " <> show name) ?)
                 ] :: [Insts -> Insts]
     in foldl (&) body post
   where
@@ -73,7 +73,7 @@ step = \case
     SM.Push v     -> do
         op <- allocSymStackOp
         tell [Mov (Const v) op]
-    SM.Drop       -> void popSymStackOp
+    SM.Drop       -> popSymStackOp >>= killReference
     SM.Dup        -> do
         from <- peekSymStackOp
         to <- allocSymStackOp
@@ -81,13 +81,11 @@ step = \case
     SM.Load v     -> do
         op <- allocSymStackOp
         tell [Mov (Local v) eax, Mov eax op]
+        addReference op
     SM.Store v    -> do
-        do op <- allocSymStackOp
-           tell [Mov (Local v) eax, Mov eax op]
-           mkCall "free" 1
-           void popSymStackOp
-        do op <- popSymStackOp
-           tell [Mov op eax, Mov eax (Local v)]
+        killReference (Local v)
+        op <- popSymStackOp
+        tell [Mov op eax, Mov eax (Local v)]
     SM.Bin op     -> do
         op2 <- popSymStackOp
         op1 <- popSymStackOp
@@ -97,17 +95,24 @@ step = \case
     SM.ArrayMake k -> do
         op <- allocSymStackOp
         tell [Mov (Const $ fromIntegral k) op]
-        mkCall "allocate" 1
+        mkCall "allocate" 1 False
     SM.ArrayAccess -> do
-        i <- popSymStackOp
-        a <- popSymStackOp
-        e <- allocSymStackOp
+        i   <- popSymStackOp
+        a   <- popSymStackOp
+        e   <- allocSymStackOp  -- @e@ shouldn't shadow @a@
+        tmp <- allocSymStackOp
         tell
             [ Mov a eax
             , Mov i edx
             , Mov (HeapMemExt eax edx) eax
-            , Mov eax e
+            , Mov eax tmp
             ]
+        killReference a
+        tell
+            [ Mov tmp e
+            ]
+        addReference e
+        void popSymStackOp
     SM.ArraySet -> do
         e <- popSymStackOp
         i <- popSymStackOp
@@ -119,6 +124,7 @@ step = \case
             , Mov e edx
             , Mov edx (HeapMem eax)
             ]
+        killReference a
     SM.Label lid -> tell [Label lid]
     SM.Jmp   lid -> tell [jmp lid]
     SM.JmpIf lid -> do
@@ -128,31 +134,46 @@ step = \case
             , BinOp "cmp" (Const 0) eax
             , Jmp "ne" lid
             ]
-    SM.Call (FunSign name args) -> mkCall name (length args)
+    SM.Call (FunSign name args) -> mkCall name (length args) True
     SM.Ret -> do
         op <- popSymStackOp
         tell [Mov op eax, jmp SM.exitLabel]
     SM.Enter{} -> tell
         [ NoopOperator "int3"  -- don't step out!
         ]
-    SM.Free    -> mkCall "deallocate" 1
+    SM.Free    -> replicateM_ 2 $ popSymStackOp >>= killReference
   where
-    mkCall name argsNum =
-        void . mfix $ \toBackup ->
-        backupingOps toBackup $ censor (withStackSpace argsNum) $ do
-            forM_ @[] [0 .. argsNum - 1] $ \i -> do
-                op <- popSymStackOp
-                tell
-                    [ Mov op eax    -- TODO: with nice 'inRegs' :()
-                    , Mov eax (HardMem i)
-                    ]
+    -- @doGc@ - whether to clean function arguments after call
+    mkCall name argsNum doGc = censor ("call" ?) $ do
+        toBackupNoRes <- occupiedRegs
+        stackArgOps <- replicateM argsNum popSymStackOp
+        replicateM_ argsNum allocSymStackOp  -- preserve them for gc
+        tmpTop <- allocSymStackOp
+
+        backupingOps toBackupNoRes $ censor (withStackSpace argsNum) $ do
+            forM_ (zip [0..] stackArgOps) $ \(i, op) ->
+                tell [Mov op eax, Mov eax (HardMem i)]
             tell [Call name]
 
-            toBackup' <- occupiedRegs
+            tell [Mov eax tmpTop]
 
-            op <- allocSymStackOp
-            tell [Mov eax op]
-            return toBackup'
+        when doGc $ do
+            toBackupWithRes <- occupiedRegs
+            backupingOps toBackupWithRes $ censor (("gc args" ?) . withStackSpace 1) $ do
+                forM_ stackArgOps $ \op ->
+                    tell [Mov op eax, Mov eax (HardMem 0), Call "ref_counter_decrement"]
+
+        replicateM_ argsNum popSymStackOp
+        op <- peekSymStackOp
+        tell [Mov tmpTop eax, Mov eax op]
+
+    singleOpCall funName op = do
+        op' <- allocSymStackOp
+        tell [Mov op op']
+        mkCall funName 1 False
+        void popSymStackOp
+    addReference = singleOpCall "ref_counter_increment"
+    killReference = singleOpCall "ref_counter_decrement"
 
 separateFuns :: SM.Insts -> [SM.Insts]
 separateFuns insts =

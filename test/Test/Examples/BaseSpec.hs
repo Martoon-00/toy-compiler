@@ -68,6 +68,9 @@ spec = do
                 it "deep" $
                     property $ arrayDeepTest way
 
+                it "long nested" $
+                    property $ arrayLongNestedTest way
+
             describe "complex" $ do
                 it "fib" $
                     property $ fibTest way
@@ -147,6 +150,16 @@ arrayDeepTest way (NonNegative (VerySmall k1)) (NonNegative (VerySmall k2)) =
         , L.forS ("i" := 0) ("i" <: ValueE k2) ("i" := "i" + 1) $
               "a" := "a" !!: 0
         , writeS "a"
+        ]
+
+arrayLongNestedTest :: ExecWay Stmt -> ([Value], [Value]) -> Property
+arrayLongNestedTest way (vs0, vs1) = sample & [] >-*-> [100500] $ way
+  where
+    sample = mconcat
+        [ "a0" `L.arrayVarS` (ValueE <$> vs0)
+        , "a1" `L.arrayVarS` (ValueE <$> vs1)
+        , "a" `L.arrayVarS` ["a0", "a1"]
+        , writeS 100500
         ]
 
 errorsTest :: Property

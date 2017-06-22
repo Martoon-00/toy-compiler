@@ -44,7 +44,7 @@ execute insts =
 
     step = \case
         Push v      -> push (ValueR v)
-        Drop        -> void pop
+        Drop        -> pop >>= changeRefCounter (-)
         Dup         -> replicateM_ 2 . push =<< pop
         Bin op      -> do
             let lil = "Arithmetic operation on reference"
@@ -142,8 +142,8 @@ execute insts =
                 funEndExecState <-
                     hoist (lift . lift) $ execStateC funExecState executeDo
 
-                -- forM_ (_esLocals funEndExecState) $
-                --     changeRefCounter (-)
+                forM_ (_esLocals funEndExecState) $
+                    changeRefCounter (-)
                 case _esStack funEndExecState of
                     [x]   -> esStack %= (x:)
                     other -> throwError $ badStackAtFunEnd other

@@ -35,6 +35,21 @@ namespace Arrays {
     }
 
     void ref_counter_increment(int* ptr) {
+        raw* raw_ptr = to_raw_ptr(ptr);
+
+        if (!ever_allocated.count(raw_ptr))
+            return;
+
+        if (!allocated.count(raw_ptr)) {
+            std::stringbuf desc;
+            if (ever_allocated.count(raw_ptr)) {  // TODO: will be useful
+                std::ostream(&desc) << "Incrementing freed pointer!: ";
+            } else {
+                std::ostream(&desc) << "Incrementing not allocated pointer!: ";
+            }
+            std::ostream(&desc) << ptr;
+            throw std::runtime_error(desc.str());
+        }
         int counts = ++access_array_meta(ptr).ref_counter;
         // std::cerr << ptr << " - incremented " << counts << std::endl;
     }
@@ -54,19 +69,19 @@ namespace Arrays {
     // internal
     void deallocate(int* ptr) {
         raw* raw_ptr = to_raw_ptr(ptr);
-        if (ever_allocated.count(raw_ptr)) {
-            if (allocated.count(raw_ptr)) {
-                int len = access_array_meta(ptr).arr_length;
-                int** ptr_ = reinterpret_cast<int**>(ptr);
-                std::for_each(ptr_, ptr_ + len, ref_counter_decrement);
+        if (!ever_allocated.count(raw_ptr))
+            return;
 
+        if (allocated.count(raw_ptr)) {
+            int len = access_array_meta(ptr).arr_length;
+            int** ptr_ = reinterpret_cast<int**>(ptr);
+            std::for_each(ptr_, ptr_ + len, ref_counter_decrement);
                 std::free(raw_ptr);
-                allocated.erase(raw_ptr);
-            } else {
-                std::stringbuf desc;
-                std::ostream(&desc) << "Freeing non-allocated pointer!: " << raw_ptr;
-                throw std::runtime_error(desc.str());
-            }
+            allocated.erase(raw_ptr);
+        } else {
+            std::stringbuf desc;  // TODO: cases of `ever_allocated`
+            std::ostream(&desc) << "Freeing freed pointer!: " << raw_ptr;
+            throw std::runtime_error(desc.str());
         }
     }
 
@@ -113,7 +128,7 @@ namespace Arrays {
 
     void ensure_no_allocations() {
         if (!allocated.empty()) {
-            std::cerr << "Unallocated memory pointers:";
+            std::cerr << "Unfreed memory pointers:";
             std::for_each(allocated.begin(), allocated.end(), [](decltype(*allocated.begin()) &it){
                     std::cerr << "\t"
                         << it.first << " - "

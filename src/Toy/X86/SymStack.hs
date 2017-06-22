@@ -76,7 +76,7 @@ popSymStackOp :: Monad m => SymStackHolder m Operand
 popSymStackOp = SymStackHolder $ (symSize <-= 1) <&> atSymStack
 
 peekSymStackOp :: Monad m => SymStackHolder m Operand
-peekSymStackOp = SymStackHolder $ use symSize <&> atSymStack
+peekSymStackOp = SymStackHolder $ use symSize <&> atSymStack . pred
 
 occupiedRegs :: Monad m => SymStackHolder m [Operand]
 occupiedRegs = symStackSize <&> flip take (V.toList regSymStack)
