@@ -41,7 +41,9 @@ data Inst
     | Dup
     | Bin BinOp
     | Load Var
+    | LoadNoGc Var
     | Store Var
+    | StoreInit Var  -- sets local to 0 without doing gc to old stored value
     | ArrayMake Int
     | ArrayAccess
     | ArraySet
@@ -49,10 +51,10 @@ data Inst
     | Jmp LabelId
     | JmpIf LabelId
     | Call FunSign
-    | Ret
+    | JumpToFunEnd
+    | FunExit
     | Nop
     | Enter Var [Var]  -- ^ function start indicator with fun name and args
-    | Free             -- ^ pops reference at top of stack and deallocates it
     deriving (Show)
 
 type Insts = V.Vector Inst
@@ -81,7 +83,10 @@ externalFuns =
         FunSign name $ zipWith const (Var . one <$> ['a'..'z']) args
 
 
--- * Function local labels
+-- * Function local stuff
 
 exitLabel :: LabelId
 exitLabel = LLabel 10  -- make them memorable, right?
+
+funResVar :: Var
+funResVar = "_res"

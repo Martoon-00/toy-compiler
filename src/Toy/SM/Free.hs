@@ -70,10 +70,9 @@ insertDeallocationsDo = awaitForever $ \inst -> process inst >> yield inst
         Call (FunSign _ args) -> do
             forM_ args $ kill . getVarKind
             push UnknownKind
-        Ret -> pass
         Nop -> pass
+        JumpToFunEnd -> pass
         Enter _ _ -> pass
-        Free -> error "Lol, how Free occured during epic deallocation work?"
 
     -- 'KindsStack' manipulation
     push k = identity %= (k :)
@@ -88,7 +87,7 @@ insertDeallocationsDo = awaitForever $ \inst -> process inst >> yield inst
     kill k = pop k >>= free
     kill_ = kill UnknownKind
 
-    free Reference   = yield Free
+    free Reference   = yield undefined -- Free
     free Primitive   = return ()
     free UnknownKind = return ()  -- such behaviour is still expected :(
 

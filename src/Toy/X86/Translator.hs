@@ -56,7 +56,7 @@ compileFun insts =
         post  = [ resolveMemRefs frame
                 , fixMemRefs
                 , mkStackShift (evalStackShift frame)
-                , insertExit
+                , (<> [ret])
                 , optimize
                 , check
                 , (("Function " <> show name) ?)
@@ -73,19 +73,24 @@ step = \case
     SM.Push v     -> do
         op <- allocSymStackOp
         tell [Mov (Const v) op]
-    SM.Drop       -> popSymStackOp >>= killReference
+    SM.Drop       -> popSymStackOp >>= killReference  -- TODO: watch out for void funs
     SM.Dup        -> do
         from <- peekSymStackOp
         to <- allocSymStackOp
         tell [Mov from eax, Mov eax to]
-    SM.Load v     -> do
+    SM.LoadNoGc v     -> do
         op <- allocSymStackOp
         tell [Mov (Local v) eax, Mov eax op]
-        addReference op
+    SM.Load v -> do
+        step (SM.LoadNoGc v)
+        peekSymStackOp >>= addReference
+    SM.StoreInit v ->
+        tell [Mov (Const 0) eax, Mov eax (Local v)]
     SM.Store v    -> do
-        killReference (Local v)
+        -- take care of @x <- x@
         op <- popSymStackOp
-        tell [Mov op eax, Mov eax (Local v)]
+        tell [Mov op eax, Mov (Local v) edx, Mov eax (Local v), Mov edx op]
+        killReference op
     SM.Bin op     -> do
         op2 <- popSymStackOp
         op1 <- popSymStackOp
@@ -135,13 +140,15 @@ step = \case
             , Jmp "ne" lid
             ]
     SM.Call (FunSign name args) -> mkCall name (length args) True
-    SM.Ret -> do
+    SM.JumpToFunEnd -> do
+        tell [jmp SM.exitLabel]
+    SM.FunExit -> do
         op <- popSymStackOp
-        tell [Mov op eax, jmp SM.exitLabel]
+        tell [Mov op eax]
+        -- ret is performed outside bacause of stack shift
     SM.Enter{} -> tell
         [ NoopOperator "int3"  -- don't step out!
         ]
-    SM.Free    -> replicateM_ 2 $ popSymStackOp >>= killReference
   where
     -- @doGc@ - whether to clean function arguments after call
     mkCall name argsNum doGc = censor ("call" ?) $ do
@@ -161,7 +168,13 @@ step = \case
             toBackupWithRes <- occupiedRegs
             backupingOps toBackupWithRes $ censor (("gc args" ?) . withStackSpace 1) $ do
                 forM_ stackArgOps $ \op ->
-                    tell [Mov op eax, Mov eax (HardMem 0), Call "ref_counter_decrement"]
+                    tell
+                        [ Mov op eax
+                        , Mov eax (HardMem 0)
+                        , Call "ref_counter_decrement"
+                        ]
+            forM_ stackArgOps $ \op ->
+                 tell [ Mov (Const 0) eax, Mov eax op ]
 
         replicateM_ argsNum popSymStackOp
         op <- peekSymStackOp
@@ -195,9 +208,6 @@ afterFunBeginning f insts =
     isFunLabel (Label (SM.FLabel _)) = True
     isFunLabel _                     = False
 
-insertExit :: Insts -> Insts
-insertExit = (<> [ret])
-
 mkStackShift :: Int -> Insts -> Insts
 mkStackShift 0     = identity
 mkStackShift shift = afterFunBeginning %~ withStackSpace shift
@@ -229,7 +239,6 @@ fixMemRefs insts =
 
 -- | Copies given operands to backup space.
 -- It's essetial for this operation to not influence on sym stack.
--- Also, it should not be strict on first argument (for the sake of RecursiveDo MADNESS)
 backupingOps :: (MonadWriter r m, InstContainer r) => [Operand] -> m a -> m a
 backupingOps ops trans = do
     let copyWith f = fromList $ uncurry f <$> zip ops (Backup <$> [0..])

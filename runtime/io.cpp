@@ -2,7 +2,7 @@
 
 extern "C" {
 namespace Toy {
- 
+
     void write(int val) {
         printf("%d\n", val);
     }
@@ -12,6 +12,6 @@ namespace Toy {
         printf("> ");
         scanf("%d", &val);
        return val;
-    } 
+    }
 }
 }

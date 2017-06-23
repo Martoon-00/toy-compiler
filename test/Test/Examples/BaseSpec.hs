@@ -65,6 +65,9 @@ spec = do
                 it "simple" $
                     property $ arraySimpleTest way
 
+                it "safe store" $
+                    property $ safeStoreTest way
+
                 it "deep" $
                     property $ arrayDeepTest way
 
@@ -135,6 +138,15 @@ arraySimpleTest way (NonNegative (Small k)) =
         , writeS ("a" !!: "i")
         ]
     range = [0 .. 5]
+
+safeStoreTest :: ExecWay Stmt -> Property
+safeStoreTest = sample & [] >-*-> [11]
+  where
+    sample = mconcat
+        [ "a" `L.arrayVarS` [11]
+        , "a" := "a"
+        , writeS ("a" !!: 0)
+        ]
 
 arrayDeepTest :: ExecWay Stmt
               -> NonNegative (VerySmall Value)

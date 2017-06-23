@@ -17,6 +17,7 @@ import qualified Data.DList                 as D
 import           Data.Foldable              (find)
 import qualified Data.Map                   as M
 import           Data.Maybe                 (fromJust)
+import qualified Data.Set                   as S
 import qualified Data.Vector                as V
 import           Formatting                 (build, sformat, (%))
 import           Universum                  hiding (find, pass)
@@ -41,14 +42,17 @@ toIntermediate (L.Program funcs main) = do
   where
     convertFun (FunSign name args, stmt) = do
         tell [ SM.Enter name args, SM.Label (SM.FLabel name) ]
-        bracketLocals $ convert stmt
+        bracketLocals $ do
+            convert stmt
+            -- could just push on stack, but jump after that would fail due to
+            -- SM interpreter laws
+            tell [SM.Push 0, SM.Store SM.funResVar, SM.Label SM.exitLabel]
         when (name == SM.initFunName) memCheck
-        -- 'Ret' is translated to jmp to the end
-        tell [ SM.Push 0, SM.Ret, SM.Label SM.exitLabel ]
+        tell [SM.LoadNoGc SM.funResVar, SM.FunExit]
 
     initRef :: Var -> D.DList SM.Inst
     initRef var =
-        [ SM.Push 0, SM.Store var ]
+        [ SM.StoreInit var ]
     freeRef :: Var -> D.DList SM.Inst
     freeRef var =
         [ SM.Load var, SM.Call $ FunSign "free" ["X"], SM.Drop ]
@@ -57,7 +61,7 @@ toIntermediate (L.Program funcs main) = do
     bracketLocals action = pass $ do
         action
         return . pure $ \insts -> do
-            let locals = toList $ SM.gatherLocals insts
+            let locals = toList $ S.delete SM.funResVar $ SM.gatherLocals insts
                 forLocals act = mconcat $ act <$> locals
             mconcat
                 [ forLocals initRef  -- don't want to clean trash afterwards
@@ -89,7 +93,7 @@ convert (L.DoWhile s c) = do
     convert s
     pushExp c
     tell [SM.JmpIf label]
-convert (L.Return e) = pushExp e >> tell [SM.Ret]
+convert (L.Return e) = pushExp e >> tell [SM.Store SM.funResVar, SM.JumpToFunEnd]
 convert (L.ArrayAssign a i e) = do
     pushExp a
     pushExp i

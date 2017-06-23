@@ -156,7 +156,7 @@ gcdTest = sample ~*~ fun
 arrayArgTest :: ExecWay L.Program -> Property
 arrayArgTest = sample & [] >-*-> [5]
   where
-    fun =  ("lol", (FunSign "lol" ["x"], L.writeS $ ArrayAccessE "x" 0))
+    fun = ("lol", (FunSign "lol" ["x"], L.writeS $ ArrayAccessE "x" 0))
     sample =
         L.Program [fun] $ mconcat
             [ "a" `L.arrayVarS` [5]

@@ -37,6 +37,9 @@ namespace Arrays {
     void ref_counter_increment(int* ptr) {
         raw* raw_ptr = to_raw_ptr(ptr);
 
+        if (ptr == NULL)
+            return;
+
         if (!ever_allocated.count(raw_ptr))
             return;
 
@@ -86,7 +89,11 @@ namespace Arrays {
     }
 
     void ref_counter_decrement(int* ptr) {
-        if (!allocated.count(to_raw_ptr(ptr))) return;
+        if (ptr == NULL)
+            return;
+
+        if (!allocated.count(to_raw_ptr(ptr)))
+            return;
 
         int counts = --access_array_meta(ptr).ref_counter;
         // std::cerr << ptr << " - decremented " << counts << std::endl;

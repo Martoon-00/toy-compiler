@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiWayIf #-}
+
 module Toy.SM.Interpreter
     ( execute
     ) where
@@ -26,7 +28,7 @@ import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess
                                             valueOnly)
 import           Toy.SM.Data               (ExecState (..), IP, Inst (..), Insts,
                                             LabelId (..), esIp, esLocals, esStack,
-                                            initFunName)
+                                            exitLabel, initFunName)
 import           Toy.Util.Error            (mapError)
 
 execute :: MonadIO m => Insts -> Exec m ()
@@ -53,6 +55,10 @@ execute insts =
         Load n      -> use (esLocals . at n) >>= \case
             Nothing  -> push NotInitR
             Just var -> push var >> changeRefCounter (+) var
+        LoadNoGc n  -> use (esLocals . at n) >>= \case
+            Nothing  -> push NotInitR
+            Just var -> push var
+        StoreInit n -> esLocals . at n ?= ValueR 0
         Store n     -> do
             whenJustM (use $ esLocals . at n) $
                 changeRefCounter (-)
@@ -77,12 +83,13 @@ execute insts =
             when (cond /= 0) $ step (Jmp lid)
         Call (FunSign name args) -> do
             processCall name args
-        Ret        -> lift mzero
+        JumpToFunEnd -> step $ Jmp exitLabel
+        FunExit    -> lift mzero
         Enter{}    -> throwError "Got into out of nowhere"
         Nop        -> return ()
-        Free       -> do
-            a <- pop
-            arrayFree a
+        -- Free       -> do
+        --     a <- pop
+        --     arrayFree a
 
     push v = esStack %= (v:)
     pop = use esStack >>= \case
@@ -142,8 +149,8 @@ execute insts =
                 funEndExecState <-
                     hoist (lift . lift) $ execStateC funExecState executeDo
 
-                forM_ (_esLocals funEndExecState) $
-                    changeRefCounter (-)
+                forM_ (take (length args) stack) $
+                     changeRefCounter (-)
                 case _esStack funEndExecState of
                     [x]   -> esStack %= (x:)
                     other -> throwError $ badStackAtFunEnd other
