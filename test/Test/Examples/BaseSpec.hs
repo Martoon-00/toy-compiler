@@ -35,7 +35,11 @@ spec = do
             , Ex $ translateLang <~~> defCompileX86
             ]
     describeExecWays ways $ \way -> do
-        describe "examples" $ do
+
+      describeDir "./test/cases/exec"
+          fileTest
+
+      describe "examples" $ do
             it "no actions" $
                 noActions way
 
@@ -56,8 +60,11 @@ spec = do
                 whileTest way
 
             describe "arrays" $ do
-                it "allocation works" $
+                it "allocation" $
                     property $ arrayAllocTest way
+
+                it "allocation of two arrays subsequently" $
+                    property $ arrayAlloc2Test way
 
                 it "arrlen" $
                     property $ arrayLengthTest way
@@ -74,6 +81,9 @@ spec = do
                 it "long nested" $
                     property $ arrayLongNestedTest way
 
+                it "set gc" $
+                    property $ arraySetGcTest way
+
             describe "complex" $ do
                 it "fib" $
                     property $ fibTest way
@@ -82,8 +92,6 @@ spec = do
                     property $ gcdTest way
 
 
-    describeDir "./test/cases/exec"
-        fileTest
 
 noActions :: ExecWay Stmt -> Property
 noActions = mempty & [] >-*-> []
@@ -121,6 +129,11 @@ arrayAllocTest :: ExecWay Stmt -> Property
 arrayAllocTest = sample & [] >-*-> []
   where
     sample = "a" `L.arrayVarS` []
+
+arrayAlloc2Test :: ExecWay Stmt -> Property
+arrayAlloc2Test = sample & [] >-*-> []
+  where
+    sample = mconcat . replicate 2 $ "a" `L.arrayVarS` []
 
 arrayLengthTest :: ExecWay Stmt -> (NonNegative (Small Value)) -> Property
 arrayLengthTest way (NonNegative (Small k)) =
@@ -172,6 +185,16 @@ arrayLongNestedTest way (vs0, vs1) = sample & [] >-*-> [100500] $ way
         , "a1" `L.arrayVarS` (ValueE <$> vs1)
         , "a" `L.arrayVarS` ["a0", "a1"]
         , writeS 100500
+        ]
+
+arraySetGcTest  :: ExecWay Stmt -> Property
+arraySetGcTest = sample & [] >-*-> []
+  where
+    sample = mconcat
+        [ "a0"  `L.arrayVarS` (ValueE <$> [1])
+        , "a0_" `L.arrayVarS` (ValueE <$> [2])
+        , "a" `L.arrayVarS` ["a0"]
+        , ArrayAssign "a" 0 "a0_"
         ]
 
 errorsTest :: Property

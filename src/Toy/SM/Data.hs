@@ -55,7 +55,7 @@ data Inst
     | FunExit
     | Nop
     | Enter Var [Var]  -- ^ function start indicator with fun name and args
-    deriving (Show)
+    deriving (Show, Eq)
 
 type Insts = V.Vector Inst
 

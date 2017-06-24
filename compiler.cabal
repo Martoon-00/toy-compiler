@@ -171,4 +171,3 @@ test-suite tests
                        ScopedTypeVariables
                        ViewPatterns
                        RecordWildCards
-

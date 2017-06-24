@@ -21,6 +21,7 @@ import           Control.Monad.Trans        (MonadTrans)
 import           Control.Monad.Writer       (MonadWriter, WriterT)
 import           Data.Conduit               (ConduitM)
 import           Data.IORef                 (IORef)
+import qualified Prelude
 import           Universum
 
 -- | Innard beyond reference type.
@@ -28,11 +29,10 @@ type MRef = IORef
 
 -- | Allows to destinguish different 'MRef's.
 newtype MRefId = MRefId Int
-    deriving (Show, Eq, Ord)
+    deriving (Eq, Ord)
 
-
-      -- mref <- MRefsGenerator $ identity <<+= 1
-      -- mk (MRefId mref)
+instance Show MRefId where
+    show (MRefId id) = "#" <> show id
 
 -- | Defines how (and whether) to perform references counting and remember
 -- allocated values.

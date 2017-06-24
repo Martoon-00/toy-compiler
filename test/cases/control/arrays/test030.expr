@@ -1,0 +1,67 @@
+fun printMatrix (M)
+begin
+  rs := arrlen (M);
+  if rs == 0
+     then return 0
+  fi;
+  cs := arrlen (M[0]);
+
+  for i := 0, i < rs, i := i+1 do
+    Mi := M[i];
+    for j := 0, j < cs, j := j+1 do
+      write (Mi[j])
+    od
+  od;
+
+  return 0
+end
+
+fun readMatrix ()
+begin
+  rs := read ();
+  cs := read ();
+
+  M := Arrmake (rs, {});
+
+  for i := 0, i < rs, i := i+1 do
+    Mi := arrmake (cs, 0);
+    for j := 0, j < cs, j := j+1 do
+      Mi[j] := read ()
+    od;
+    M[i] := Mi
+  od;
+  return M
+end
+
+fun multiplyMatrix (A, B)
+begin
+  rsA := arrlen (A);
+  csA := arrlen (A[0]);
+
+  rsB := arrlen (B);
+  csB := arrlen (B[0]);
+
+  if rsA == csB && csA == rsB
+  then
+    AB := Arrmake (rsA, {});
+    for i := 0, i < rsA, i := i+1 do
+      ABi := arrmake (csB, 0);
+      Ai  := A[i];
+      for j := 0, j < csB, j := j+1 do
+        s := 0;
+        for k := 0, k < csA, k := k+1 do
+          s := s + Ai[k] * B[k][j]
+        od;
+        ABi[j] := s
+      od;
+      AB[i] := ABi
+    od;
+    return AB
+  else return {}
+  fi
+end
+
+A := readMatrix ();
+B := readMatrix ();
+
+printMatrix (multiplyMatrix (A, B))

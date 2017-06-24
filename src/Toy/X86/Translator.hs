@@ -122,14 +122,21 @@ step = \case
         e <- popSymStackOp
         i <- popSymStackOp
         a <- popSymStackOp
+        replicateM_ 2 allocSymStackOp  -- preserve for gc
         tell
             [ Mov a eax
             , Mov i edx
             , BinOp "leal" (HeapMemExt eax edx) eax
+
+            , Mov (HeapMem eax) edx
+            , Mov edx i  -- using i as tmp var
+
             , Mov e edx
             , Mov edx (HeapMem eax)
             ]
+        killReference i
         killReference a
+        replicateM_ 2 popSymStackOp  -- preserve for gc
     SM.Label lid -> tell [Label lid]
     SM.Jmp   lid -> tell [jmp lid]
     SM.JmpIf lid -> do
@@ -152,12 +159,12 @@ step = \case
   where
     -- @doGc@ - whether to clean function arguments after call
     mkCall name argsNum doGc = censor ("call" ?) $ do
-        toBackupNoRes <- occupiedRegs
+        toBackupWithoutRes <- occupiedRegs
         stackArgOps <- replicateM argsNum popSymStackOp
         replicateM_ argsNum allocSymStackOp  -- preserve them for gc
         tmpTop <- allocSymStackOp
 
-        backupingOps toBackupNoRes $ censor (withStackSpace argsNum) $ do
+        backupingOps toBackupWithoutRes $ censor (withStackSpace argsNum) $ do
             forM_ (zip [0..] stackArgOps) $ \(i, op) ->
                 tell [Mov op eax, Mov eax (HardMem i)]
             tell [Call name]
@@ -165,16 +172,18 @@ step = \case
             tell [Mov eax tmpTop]
 
         when doGc $ do
-            toBackupWithRes <- occupiedRegs
-            backupingOps toBackupWithRes $ censor (("gc args" ?) . withStackSpace 1) $ do
-                forM_ stackArgOps $ \op ->
+            forM_ stackArgOps $ \op -> do
+                toBackupWithRes <- occupiedRegs
+                backupingOps toBackupWithRes $
+                    censor (("gc args" ?) . withStackSpace 1) $
                     tell
                         [ Mov op eax
                         , Mov eax (HardMem 0)
                         , Call "ref_counter_decrement"
+
+                        , Mov (Const 0) eax
+                        , Mov eax op
                         ]
-            forM_ stackArgOps $ \op ->
-                 tell [ Mov (Const 0) eax, Mov eax op ]
 
         replicateM_ argsNum popSymStackOp
         op <- peekSymStackOp

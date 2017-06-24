@@ -61,12 +61,11 @@ toIntermediate (L.Program funcs main) = do
     bracketLocals action = pass $ do
         action
         return . pure $ \insts -> do
-            let locals = toList $ S.delete SM.funResVar $ SM.gatherLocals insts
-                forLocals act = mconcat $ act <$> locals
+            let locals = SM.gatherLocals insts
             mconcat
-                [ forLocals initRef  -- don't want to clean trash afterwards
+                [ foldMap initRef locals  -- don't want to clean trash afterwards
                 , insts
-                , forLocals freeRef
+                , foldMap freeRef (S.delete SM.funResVar locals)
                 ]
 
     memCheck = tell [ SM.Call $ FunSign "ensure_no_allocations" [], SM.Drop ]

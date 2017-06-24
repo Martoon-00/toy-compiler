@@ -139,6 +139,8 @@ arraySet a i e = do
         F.formatToString ("array set: index out of bounds: "%F.build%
                           " is out of ["%F.build%", "%F.build%")")
                           i'' (0 :: Int) (V.length a')
+    whenJust (a' ^? ix i'') $
+        changeRefCounter (-)
     arrayOnly a "?" (ix i'' .= e)
     changeRefCounter (-) a
 

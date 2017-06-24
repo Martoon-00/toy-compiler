@@ -53,6 +53,7 @@ namespace Arrays {
             std::ostream(&desc) << ptr;
             throw std::runtime_error(desc.str());
         }
+
         int counts = ++access_array_meta(ptr).ref_counter;
         // std::cerr << ptr << " - incremented " << counts << std::endl;
     }
@@ -79,10 +80,10 @@ namespace Arrays {
             int len = access_array_meta(ptr).arr_length;
             int** ptr_ = reinterpret_cast<int**>(ptr);
             std::for_each(ptr_, ptr_ + len, ref_counter_decrement);
-                std::free(raw_ptr);
+            std::free(raw_ptr);
             allocated.erase(raw_ptr);
         } else {
-            std::stringbuf desc;  // TODO: cases of `ever_allocated`
+            std::stringbuf desc;
             std::ostream(&desc) << "Freeing freed pointer!: " << raw_ptr;
             throw std::runtime_error(desc.str());
         }
@@ -92,12 +93,16 @@ namespace Arrays {
         if (ptr == NULL)
             return;
 
-        if (!allocated.count(to_raw_ptr(ptr)))
+        if (!ever_allocated.count(to_raw_ptr(ptr)))
             return;
 
         int counts = --access_array_meta(ptr).ref_counter;
         // std::cerr << ptr << " - decremented " << counts << std::endl;
-        if (!counts) {
+        if (counts < 0) {
+            std::stringbuf desc;
+            std::ostream(&desc) << "Ref counter got negative!: " << ptr;
+            throw std::runtime_error(desc.str());
+        } else if (!counts) {
             deallocate(ptr);
         }
     }
@@ -107,30 +112,24 @@ namespace Arrays {
     //////////////////////////////////////
 
     int arrlen(int* ptr) {
-        auto res = access_array_meta(ptr).arr_length;
-        ref_counter_decrement(ptr);
-        return res;
+        return access_array_meta(ptr).arr_length;
     }
 
     int* arrmake(int size, int def_val) {
         int* res = allocate(size);
         std::for_each(res, res + size, [&](int &it){
             it = def_val;
+            ref_counter_increment((int*) def_val);
         });
         return res;
     }
 
     int* Arrmake(int size, int* def_val) {
-        auto res = arrmake(size, (int) def_val);
-        for (int i = 0; i < size; i++)
-            ref_counter_increment(def_val);
-        ref_counter_decrement(def_val);
-        return res;
+        return arrmake(size, (int) def_val);
     }
 
     void free(int* ptr) {
-        ref_counter_decrement(ptr);  // for argument expiration
-        ref_counter_decrement(ptr);  // actual cleaning
+        ref_counter_decrement(ptr);
     }
 
     void ensure_no_allocations() {
@@ -138,7 +137,7 @@ namespace Arrays {
             std::cerr << "Unfreed memory pointers:";
             std::for_each(allocated.begin(), allocated.end(), [](decltype(*allocated.begin()) &it){
                     std::cerr << "\t"
-                        << it.first << " - "
+                        << from_raw_ptr(it.first) << " - "
                         << it.second << " bytes, "
                         << access_array_meta(from_raw_ptr(it.first)).ref_counter << " refs\n";
                 });

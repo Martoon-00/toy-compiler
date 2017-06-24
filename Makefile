@@ -19,6 +19,9 @@ build-in-tests: build
 core-tests: build
 	$(CHECK)/core TESTS="$(CORE_TESTS)"
 
+lol: build
+	$(CHECK)/core TESTS="test030"
+
 expressions-tests: build
 	$(CHECK)/expressions
 

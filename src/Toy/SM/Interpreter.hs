@@ -77,7 +77,14 @@ execute insts =
         Label{}     -> step Nop
         Jmp lid     -> do
             ensureStackSize 0 "jump"
-            (esIp .= ) =<< getLabel lid
+            case lid of
+                l@LLabel{} -> do
+                    ip <- use esIp
+                    -- only forward lookup for local variables
+                    case V.elemIndex (Label l) (V.drop ip insts) of
+                        Nothing    -> throwError $ "No label " <> show l <> " ahead"
+                        Just relIp -> esIp .= ip + relIp
+                other -> (esIp .= ) =<< getLabel other
         JmpIf lid   -> do
             cond <- pop `valueOnly` "If on reference"
             when (cond /= 0) $ step (Jmp lid)
@@ -87,9 +94,6 @@ execute insts =
         FunExit    -> lift mzero
         Enter{}    -> throwError "Got into out of nowhere"
         Nop        -> return ()
-        -- Free       -> do
-        --     a <- pop
-        --     arrayFree a
 
     push v = esStack %= (v:)
     pop = use esStack >>= \case

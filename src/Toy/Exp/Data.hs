@@ -6,6 +6,7 @@ module Toy.Exp.Data where
 import           Control.Lens   (makeLenses, makePrisms)
 import           Data.String    (IsString (..))
 import qualified Data.Vector    as V
+import           Formatting     (formatToString, shown, (%))
 import qualified Prelude
 import           Universum
 
@@ -50,6 +51,14 @@ data ArrayInnards = ArrayInnards
     , _aiRefId      :: MRefId
     , _aiArray      :: V.Vector ExpRes
     }
+
+instance Show ArrayInnards where
+    show ArrayInnards {..} =
+        formatToString
+            (shown % " (" %shown % ", " %shown % ")")
+            _aiArray
+            _aiRefId
+            _aiRefCounter
 
 -- | Evaluated expression
 data ExpRes

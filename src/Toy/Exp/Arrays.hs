@@ -113,6 +113,8 @@ instance (MonadIO m, MonadError s m, IsString s) =>
 
             RefCountingGc $
                 rcdsExistingRefs . at (innard ^. aiRefId) .= (newRefStateM $> ref)
+            when (innard' ^. aiRefCounter < 0) $
+                throwError "Reference counter got negative!"
             when (innard' ^. aiRefCounter == 0) $
                 mapM_ (changeRefCounter (-)) (innard ^. aiArray)
 
@@ -123,8 +125,7 @@ instance (MonadIO m, MonadError s m, IsString s) =>
                 readIORef a `whenNothingM` throwError "Primitive in refs map??"
             throwError . fromString $
                 formatToString ("References remained:\n"%listJson)
-                (values <&> \v ->
-                     bprint (shown%" ("%shown%")"%"\n") (_aiArray v) (_aiRefCounter v))
+                (bprint (shown%"\n") <$> values)
 
 checkNoExpResRefs :: MonadRefEnv ExpRes m => m ()
 checkNoExpResRefs = checkNoRefs (Proxy @ExpRes)
