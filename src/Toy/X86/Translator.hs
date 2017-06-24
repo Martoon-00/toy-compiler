@@ -269,11 +269,8 @@ inRegsWith aux op           f = [Mov op aux] <> f aux <> [Mov aux op]
 inRegs1 :: InstContainer r => Operand -> (Operand -> r) -> r
 inRegs1 = inRegsWith eax
 
--- inRegs2 :: Operand -> Operand -> (Operand -> Operand -> [Inst]) -> [Inst]
--- inRegs2 op1 op2 f = inRegsWith eax op1 $ inRegsWith edx op2 . f
-
 binop :: InstContainer r => Operand -> Operand -> Text -> r
-binop op1 op2 = \case
+binop op1 op2 action = action ? case action of
     "+" -> inRegs1 op1 $ \op1' -> [BinOp "addl" op1' op2]
     "-" -> inRegs1 op1 $ \op1' -> [BinOp "subl" op2 op1', Mov op1' op2]
     "*" -> inRegs1 op2 $ \op2' -> [BinOp "imull" op1 op2']
@@ -290,7 +287,7 @@ binop op1 op2 = \case
     "^" -> inRegs1 op1 $ \op1' -> [BinOp "xorl" op1' op2]
     "&" -> inRegs1 op1 $ \op1' -> [BinOp "andl" op1' op2]
     "|" -> inRegs1 op1 $ \op1' -> [BinOp "orl" op1' op2]
-    "&&" -> "&&" ?
+    "&&" ->
         [ BinOp "xor" eax eax
         , Mov op1 edx
         , BinOp "andl" edx edx
@@ -302,26 +299,26 @@ binop op1 op2 = \case
         , BinOp "xor" (Reg "ah") (Reg "ah")
         , Mov eax op2
         ]
-    "||" -> inRegsWith edx op2 $ \op2' -> "||" ?
-        [ BinOp "xor" eax eax
+    "||" -> inRegs1 op2 $ \op2' ->
+        [ BinOp "xor" edx edx
         , BinOp "orl" op1 op2'
-        , UnaryOp "setne" (Reg "al")
-        , Mov eax op2'
+        , UnaryOp "setne" (Reg "dl")
+        , Mov edx op2'
         ]
 
     unknown -> error $ "Unsupported operation: " <> show unknown
   where
-    idiv res = "/" ?
+    idiv res =
         [ Mov op1 eax
         , NoopOperator "cdq"
         , UnaryOp "idivl" op2
         , Mov res op2
         ]
-    cmp kind = inRegsWith edx op2 $ \op2' -> "cmp" ?
-        [ BinOp "xor" eax eax
+    cmp kind = inRegs1 op2 $ \op2' ->
+        [ BinOp "xor" edx edx
         , BinOp "cmp" op2' op1
-        , Set kind (Reg "al")
-        , Mov eax op2'
+        , Set kind (Reg "dl")
+        , Mov edx op2'
         ]
 
 produceBinary
