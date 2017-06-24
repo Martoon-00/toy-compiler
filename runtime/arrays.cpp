@@ -34,23 +34,26 @@ namespace Arrays {
         return static_cast<raw*>(static_cast<void*>((array_meta*) ptr - 1));
     }
 
-    void ref_counter_increment(int* ptr) {
-        raw* raw_ptr = to_raw_ptr(ptr);
+    bool is_reference(int* ptr) {
+        // TODO: understand from the pointer
+        return ever_allocated.count(to_raw_ptr(ptr));
+    }
 
+    void ref_counter_increment(int* ptr) {
         if (ptr == NULL)
             return;
 
-        if (!ever_allocated.count(raw_ptr))
+        if (!is_reference(ptr))
             return;
+
+        raw* raw_ptr = to_raw_ptr(ptr);
+
+        if (!ever_allocated.count(raw_ptr))
+            throw std::runtime_error("Incrementing counter of not a reference!");
 
         if (!allocated.count(raw_ptr)) {
             std::stringbuf desc;
-            if (ever_allocated.count(raw_ptr)) {  // TODO: will be useful
-                std::ostream(&desc) << "Incrementing freed pointer!: ";
-            } else {
-                std::ostream(&desc) << "Incrementing not allocated pointer!: ";
-            }
-            std::ostream(&desc) << ptr;
+            std::ostream(&desc) << "Incrementing freed pointer!: " << ptr;
             throw std::runtime_error(desc.str());
         }
 
@@ -72,9 +75,10 @@ namespace Arrays {
 
     // internal
     void deallocate(int* ptr) {
+        if (!is_reference(ptr))
+            throw std::runtime_error("Deallocating not a reference!");
+
         raw* raw_ptr = to_raw_ptr(ptr);
-        if (!ever_allocated.count(raw_ptr))
-            return;
 
         if (allocated.count(raw_ptr)) {
             int len = access_array_meta(ptr).arr_length;
@@ -93,8 +97,11 @@ namespace Arrays {
         if (ptr == NULL)
             return;
 
-        if (!ever_allocated.count(to_raw_ptr(ptr)))
+        if (!is_reference(ptr))
             return;
+
+        if (!ever_allocated.count(to_raw_ptr(ptr)))
+            throw std::runtime_error("Decrementing counter of not a reference!");
 
         int counts = --access_array_meta(ptr).ref_counter;
         // std::cerr << ptr << " - decremented " << counts << std::endl;
