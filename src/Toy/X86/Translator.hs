@@ -191,7 +191,7 @@ step = \case
 
     singleOpCall funName op = do
         op' <- allocSymStackOp
-        tell [Mov op op']
+        tell [Mov op eax, Mov eax op']
         mkCall funName 1 False
         void popSymStackOp
     addReference = singleOpCall "ref_counter_increment"
