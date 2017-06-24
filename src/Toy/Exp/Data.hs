@@ -13,12 +13,6 @@ import           Universum
 import           Toy.Base.Data  (BinOp, UnaryOp, Value, Var)
 import           Toy.Exp.RefEnv (MRef, MRefId)
 
--- TODO:
-data Boxing
-    = Boxed
-    | Unboxed
-    deriving (Eq, Show, Enum, Bounded)
-
 -- | Expression
 data Exp
     = ValueE Value

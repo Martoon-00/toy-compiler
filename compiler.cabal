@@ -40,7 +40,6 @@ library
                        Toy.Lang.Translator
 
                        Toy.SM.Data
-                       Toy.SM.Free
                        Toy.SM.Interpreter
                        Toy.SM.Util
 

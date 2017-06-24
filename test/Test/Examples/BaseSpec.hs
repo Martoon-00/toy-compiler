@@ -36,9 +36,6 @@ spec = do
             ]
     describeExecWays ways $ \way -> do
 
-      describeDir "./test/cases/exec"
-          fileTest
-
       describe "examples" $ do
             it "no actions" $
                 noActions way
@@ -91,6 +88,8 @@ spec = do
                 it "gcd" $
                     property $ gcdTest way
 
+      describeDir "./test/cases/exec"
+          fileTest
 
 
 noActions :: ExecWay Stmt -> Property
