@@ -8,6 +8,7 @@ module Test.Execution
     , (>-*->)
     , (~~)
     , (~*~)
+    , works
 
     , describeExecWays
     ) where
@@ -72,6 +73,16 @@ infix 5 >-*->
   where
     expected (TestRes out) = Just out
     expected X             = Nothing
+
+works :: l -> ExecWay l -> Property
+works prog way =
+    once $ propTranslating way prog $ \executable ->
+        withTimeout . ioProperty $ do
+            outcome <- runEitherT $ exec executable [0..]
+            return $ case outcome of
+                Left err -> counterexample (toString err) False
+                Right _  -> property True
+
 
 class Equivalence f where
     equivalent :: f -> ([Value] -> EitherT Text IO Value) -> [Value] -> Property

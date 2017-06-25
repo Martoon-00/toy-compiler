@@ -2,7 +2,7 @@ module Main
     ( main
     ) where
 
-import           Control.Lens               (view, (%~), (&))
+import           Control.Lens               ((&))
 import           Control.Monad              (forever)
 import           Control.Monad.Trans        (liftIO)
 import           Control.Monad.Trans.Either (EitherT (..))
@@ -12,10 +12,10 @@ import qualified Data.Text.IO               as T
 import           Formatting                 (sformat, string, (%))
 import           GHC.IO.Handle              (hFlush)
 import           GHC.IO.Handle.FD           (stdout)
-import           Prelude                    hiding (error, interact)
-import           System.Environment         (getArgs, lookupEnv)
+import           Prelude                    (readLn)
+import           System.Environment         (lookupEnv)
 import           System.FilePath.Lens       (basename, filename)
-import           Universum                  (error, whenLeftM, (<>))
+import           Universum                  hiding (interact)
 
 import           Toy.Base                   (Exec)
 import qualified Toy.Lang                   as L
@@ -28,12 +28,12 @@ main = getArgs >>= launch
 
 launch :: [String] -> IO ()
 launch [mode, inputFile] = do
-    prog <- either parseError id . parseData <$> T.readFile inputFile
+    prog <- either parseError identity . parseData <$> T.readFile inputFile
     case mode of
         "-i" -> interact $ L.execute prog
-        "-s" -> interact $ SM.execute $ either error id (L.toIntermediate prog)
+        "-s" -> interact $ SM.execute $ either error identity (L.toIntermediate prog)
         "-o" -> do
-            let insts      = X86.compile $ either error id $ L.toIntermediate prog
+            let insts      = X86.compile $ either error identity $ L.toIntermediate prog
                 outputPath = inputFile & filename %~ view basename
             runtimePath <- fromMaybe "./runtime" <$> lookupEnv "RC_RUNTIME"
             X86.produceBinary runtimePath outputPath insts
@@ -52,7 +52,7 @@ interact :: Exec IO () -> IO ()
 interact executor = handleRes $ readInput =$= executor $$ writeOutput
   where
     readInput        = forever $ readValue >>= yield
-    readValue        = liftIO $ putStr "> " >> hFlush stdout >> readLn
+    readValue        = liftIO $ putStr @Text "> " >> hFlush stdout >> readLn
     writeOutput      = awaitForever $ liftIO . print
     handleRes action = runEitherT action `whenLeftM` printError
     printError err   = error $ "Execution failed: " <> err

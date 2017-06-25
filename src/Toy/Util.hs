@@ -4,4 +4,7 @@ module Toy.Util
        ( module M
        ) where
 
-import           Toy.Util.Parsable as M
+import           Toy.Util.Bits      as M
+import           Toy.Util.Error     as M
+import           Toy.Util.Instances as M ()
+import           Toy.Util.Parsable  as M

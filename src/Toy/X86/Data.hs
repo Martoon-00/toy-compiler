@@ -1,5 +1,7 @@
-{-# LANGUAGE LambdaCase  #-}
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Toy.X86.Data
     ( Operand (..)
@@ -21,9 +23,11 @@ module Toy.X86.Data
 
     , withStackSpace
     , traverseOperands
+
+    , InstContainer
     ) where
 
-import           Control.Lens           (Cons, Snoc, (<|), (|>))
+import           Data.Int               (Int32)
 import           Data.List              (intersperse)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
@@ -32,22 +36,29 @@ import           Data.Text.Lazy.Builder (Builder)
 import qualified Data.Vector            as V
 import           Formatting             (bprint, int, stext, (%))
 import qualified Formatting             as F
+import           GHC.Exts               (IsList (..))
 import           GHC.Exts               (toList)
-import           Prelude                hiding (unlines)
+import           Prelude                hiding (null, unlines)
 import qualified Text.RawString.QQ      as QQ
+import           Universum              (Container (null), One (..))
 
-import           Toy.Base               (Value, Var)
-import           Toy.SM                 (LabelId)
+import           Toy.Base               (Var)
+import           Toy.SM                 (JmpLabelForm (..), LabelId)
 
+-- TODO: Aaa, 100500 constructors. Decrease?
 data Operand
     = Reg Text
     -- ^ Register
-    | Const Value
+    | Const Int32
     -- ^ Constant
     | Mem Int
     -- ^ Memory reference. This keeps amount of /qword/s to look back on stack
     | HardMem Int
     -- ^ Like `Mem`, but won't be moved by 'Toy.X86.Translator.fixMemRefs'
+    | HeapMem Operand
+    -- ^ Memory reference to heap. Operand must be register  -- TODO: force by types?
+    | HeapMemExt Operand Operand
+    -- ^ Memory reference to heap (a + 4 * b). Operands must be registers
     | Local Var
     -- ^ Reerence to local variable
     | Stack Int
@@ -64,13 +75,15 @@ edi = Reg "edi"
 esp = Reg "esp"
 
 instance Buildable Operand where
-    build (Reg   r)   = "%" <> build r
-    build (Const v)   = "$" <> build v
-    build (Mem   i)   = bprint (int%"("%F.build%")") (4 * i) esp
-    build (HardMem i) = build (Mem i)
-    build (Local _)   = error "Local var reference remains upon compilation"
-    build (Stack _)   = error "Stack reference remains upon compilation"
-    build (Backup _)  = error "Backup reference remains upon compilation"
+    build (Reg   r)        = "%" <> build r
+    build (Const v)        = "$" <> build (toInteger v)
+    build (Mem   i)        = bprint (int%"("%F.build%")") (4 * i) esp
+    build (HardMem i)      = build (Mem i)
+    build (HeapMem b)      = bprint ("("%F.build%")") b
+    build (HeapMemExt a b) = bprint ("("%F.build%", "%F.build%", 4)") a b
+    build (Local _)        = error "Local var reference remains upon compilation"
+    build (Stack _)        = error "Stack reference remains upon compilation"
+    build (Backup _)       = error "Backup reference remains upon compilation"
 
 data StackDirection
     = Backward
@@ -98,10 +111,16 @@ jmp = Jmp "mp"
 ret :: Inst
 ret = NoopOperator "ret"
 
-(?) :: (Snoc s s Inst Inst, Cons s s Inst Inst) => Text -> s -> s
-(?) comment = (Comment comment <|) . (|> Comment (comment <> " end"))
+(?) :: InstContainer l => Text -> l -> l
+(?) comment insts
+    | null insts = mempty
+    | otherwise = mconcat
+        [ one $ Comment comment
+        , insts
+        , one $ Comment (comment <> " end")
+        ]
 
-(//) :: (Snoc s s Inst Inst, Cons s s Inst Inst) => s -> Text -> s
+(//) :: InstContainer l => l -> Text -> l
 (//) = flip (?)
 
 buildInst :: Buildable b => Text -> [b] -> Builder
@@ -121,7 +140,7 @@ instance Buildable Inst where
         Set kind op     -> bprint ("set"%pad%" "%pad) kind op
         Comment d       -> bprint ("# "%pad) d
         Label lid       -> bprint (F.build%":") lid
-        Jmp kind lid    -> bprint ("j"%pad%" "%pad) kind lid
+        Jmp kind lid    -> bprint ("j"%pad%" "%pad) kind (JmpLabelForm lid)
         ResizeStack d k ->
             let op    = case d of { Backward -> "addl"; Forward -> "subl" }
                 shift = Const . fromIntegral $ k * 4
@@ -146,9 +165,13 @@ instance Buildable Program where
 |]
 
 withStackSpace
-    :: (Snoc s s Inst Inst, Cons s s Inst Inst)
-    => Int -> s -> s
-withStackSpace k = (ResizeStack Forward k <| ) . ( |> ResizeStack Backward k)
+    :: InstContainer l => Int -> l -> l
+withStackSpace 0 insts = insts
+withStackSpace k insts = mconcat
+    [ one $ ResizeStack Forward k
+    , insts
+    , one $ ResizeStack Backward k
+    ]
 
 traverseOperands :: Applicative f => (Operand -> f Operand) -> Inst -> f Inst
 traverseOperands f (Mov a b)         = Mov <$> f a <*> f b
@@ -163,3 +186,12 @@ traverseOperands _ o@Comment{}       = pure o
 traverseOperands _ o@Label{}         = pure o
 traverseOperands _ o@Jmp{}           = pure o
 traverseOperands _ o@ResizeStack{}   = pure o
+
+type InstContainer l =
+    ( Monoid l
+    , Container l
+    , One l
+    , IsList l
+    , Item l ~ Inst
+    , OneItem l ~ Inst
+    )

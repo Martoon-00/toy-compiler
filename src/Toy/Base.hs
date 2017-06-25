@@ -5,4 +5,5 @@ module Toy.Base
        ) where
 
 import           Toy.Base.Data     as M
+import           Toy.Base.Fun      as M
 import           Toy.Base.Parsable as M

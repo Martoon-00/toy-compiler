@@ -6,15 +6,15 @@ module Toy.Execution.Exec
     , BinaryFile (..)
     ) where
 
-import           Control.Lens               ((%~), _Left)
+import           Control.Lens               (_Left)
 import           Control.Monad.Catch        (SomeException, try)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Data.Conduit               (ConduitM, ($$), ($=))
 import qualified Data.Conduit.List          as C
-import qualified Data.Text                  as T
+import qualified Data.Text.Lazy             as LT
 import           GHC.Exts                   (IsString (..))
 import           System.Process             (readProcess)
-import           Universum                  (Text, toText)
+import           Universum
 
 import           Toy.Base                   (Value, getOutputValues)
 import           Toy.Execution.Data         (In, InOut, withEmptyInput)
@@ -30,7 +30,8 @@ condExec :: Monad m => ConduitM Value Value m () -> In -> m InOut
 condExec ex input =
     C.sourceList input $$ do
         out   <- ex $= C.consume
-        remIn <- C.consume
+        remIn <- C.take 100
+        -- ^ don't take too much for the sake of infinite inputs
         return (remIn, out)
 
 instance Executable L.Program where
@@ -47,13 +48,12 @@ newtype BinaryFile = BinaryFile FilePath
 
 instance Executable BinaryFile where
     exec (BinaryFile path) is = do
-        let input = unlines (show <$> is)
+        let input = LT.unlines (show <$> is)
         -- TODO: extract errors
-        output <- grab $ readProcess path [] input
+        output <- grab $ readProcess path [] (toString input)
         EitherT . return $
-            withEmptyInput . getOutputValues <$> parseData (T.pack output)
+            withEmptyInput . getOutputValues <$> parseData (toText output)
       where
-        showError :: SomeException -> Text
-        showError = toText . show
-
+        showError = show :: SomeException -> Text
         grab = EitherT . fmap (_Left %~ showError) . try
+

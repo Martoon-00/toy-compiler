@@ -38,4 +38,6 @@ Compiler `rc` accepts 2 arguments
 
 This repository contains tests written with `QuickCheck`. They can be run with `stack test` or `make build-in-tests`. They check for all basic features of compiler in all described modes and work quite fast.
 
-Repository also contains dedicated testing repository as submodule. One can run them with `make control-tests`, it may take [~~a week or two~~](https://github.com/anlun/compiler-tests/issues/2) several hours.
+(Of cource, *Preliminaries* section could be skipped if you're going to launch tests with *make* only.)
+
+Repository also contains dedicated testing repository as submodule. One can run those tests with `make control-tests`, it may take [~~a week or so~~](https://github.com/anlun/compiler-tests/issues/2) several hours.

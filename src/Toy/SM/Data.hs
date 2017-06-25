@@ -9,38 +9,54 @@ import           Data.Text.Buildable (Buildable (..))
 import qualified Data.Vector         as V
 import           Formatting          (bprint, (%))
 import qualified Formatting          as F
+import           Universum
 
-import           Toy.Base            (BinOp, FunSign (..), LocalVars, Value, Var)
+import           Toy.Base            (BinOp, FunSign (..), Value, Var (..),
+                                      stdFunExamples)
+import           Toy.Exp             (ExpRes, LocalVars)
 
 type IP = Int
 
 data LabelId
     = CLabel Int  -- ^ control
     | FLabel Var  -- ^ function
-    | ELabel Var  -- ^ function exit, used for correct `return`s in the middle
-                  -- of the code
+    | LLabel Int  -- ^ function-local labels
     deriving (Eq, Ord, Show)
 
 instance Buildable LabelId where
     build (CLabel l) = bprint ("L"%F.build) l
     build (FLabel n) = bprint F.build n
-    build (ELabel n) = bprint (F.build%"_exit") n
+    build (LLabel i) = bprint F.build i
+
+newtype JmpLabelForm = JmpLabelForm LabelId
+
+instance Buildable JmpLabelForm where
+    build (JmpLabelForm (LLabel i)) = bprint (F.build%"f") i  -- curently used for 'Ret' only
+    build (JmpLabelForm label)      = bprint F.build label
 
 -- | Statement of a program.
 data Inst
     = Push Value
+    | PushNull
     | Drop
+    | Dup
     | Bin BinOp
     | Load Var
+    | LoadNoGc Var
     | Store Var
+    | StoreInit Var  -- sets local to 0 without doing gc to old stored value
+    | ArrayMake Int
+    | ArrayAccess
+    | ArraySet
     | Label LabelId
-    | Jmp Int
-    | JmpIf Int
+    | Jmp LabelId
+    | JmpIf LabelId
     | Call FunSign
-    | Ret
+    | JumpToFunEnd
+    | FunExit
     | Nop
-    | Enter Var [Var]
-    deriving (Eq, Show)
+    | Enter Var [Var]  -- ^ function start indicator with fun name and args
+    deriving (Show, Eq)
 
 type Insts = V.Vector Inst
 
@@ -48,11 +64,11 @@ type Insts = V.Vector Inst
 data ExecState = ExecState
     { _esLocals :: LocalVars
       -- ^ local variables values
-    , _esStack  :: [Value]
+    , _esStack  :: [ExpRes]
       -- ^ current stack
     , _esIp     :: IP
       -- ^ instruction pointer, number of command to execute next
-    } deriving (Eq, Show)
+    } deriving (Show)
 
 makeLenses ''ExecState
 
@@ -64,6 +80,14 @@ initFunName = "main"
 
 externalFuns :: [FunSign]
 externalFuns =
-    [ FunSign "read" []
-    , FunSign "write" ["x"]
-    ]
+    stdFunExamples <&> \(name, args) ->
+        FunSign name $ zipWith const (Var . one <$> ['a'..'z']) args
+
+
+-- * Function local stuff
+
+exitLabel :: LabelId
+exitLabel = LLabel 10  -- make them memorable, right?
+
+funResVar :: Var
+funResVar = "_res"

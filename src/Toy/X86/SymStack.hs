@@ -14,16 +14,21 @@ module Toy.X86.SymStack
     , symStackSize
     , allocSymStackOp
     , popSymStackOp
+    , peekSymStackOp
     , occupiedRegs
+    , accountHardMem
     ) where
 
-import           Control.Lens        (ix, makeLenses, use, (%=), (<&>), (<-=), (<<+=),
-                                      (^?))
-import           Control.Monad.State (State, runState)
-import           Data.Default        (Default (..))
-import qualified Data.Vector         as V
+import           Control.Lens         (ix, makeLenses, (%=), (<-=), (<<+=))
+import           Control.Monad.Fix
+import           Control.Monad.State  (StateT, runStateT)
+import           Control.Monad.Writer (MonadWriter)
+import           Data.Default         (Default (..))
+import qualified Data.Vector          as V
+import           Universum
 
-import           Toy.X86.Data        (Operand (..))
+import           Toy.X86.Data         (Operand (..))
+
 
 regSymStack :: V.Vector Operand
 regSymStack = Reg <$> ["ecx", "ebx", "esi", "edi"]
@@ -43,33 +48,41 @@ makeLenses ''SymStackState
 instance Default SymStackState where
     def = SymStackState 0 0
 
-newtype SymStackHolder a = SymStackHolder (State SymStackState a)
-    deriving (Functor, Applicative, Monad)
+newtype SymStackHolder m a = SymStackHolder (StateT SymStackState m a)
+    deriving (Functor, Applicative, Monad, MonadWriter __, MonadFix)
 
 -- | How much space sym stack requires on real stack.
 newtype SymStackSpace = SymStackSpace Int
     deriving (Show, Eq, Ord, Enum, Num, Real, Integral)
 
-runSymStackHolder :: SymStackHolder a -> ((SymStackSpace, Int), a)
-runSymStackHolder (SymStackHolder a) =
-    let (res, SymStackState k totalSize) = runState a def
-        space = max 0 $ totalSize - V.length regSymStack
-    in ((SymStackSpace space, k), res)
+runSymStackHolder :: Monad m => SymStackHolder m a -> m ((SymStackSpace, Int), a)
+runSymStackHolder (SymStackHolder a) = do
+    (res, SymStackState k totalSize) <- runStateT a def
+    let space = max 0 $ totalSize - V.length regSymStack
+    return ((SymStackSpace space, k), res)
 
-updateSymMaxSize :: Int -> SymStackHolder ()
+updateSymMaxSize :: Monad m => Int -> SymStackHolder m ()
 updateSymMaxSize k = SymStackHolder $ symMaxSize %= max k
 
-symStackSize :: SymStackHolder Int
+symStackSize :: Monad m => SymStackHolder m Int
 symStackSize = SymStackHolder $ use symSize
 
-allocSymStackOp :: SymStackHolder Operand
+allocSymStackOp :: Monad m => SymStackHolder m Operand
 allocSymStackOp = do
     pos <- SymStackHolder $ symSize <<+= 1
     updateSymMaxSize (pos + 1)
     return $ atSymStack pos
 
-popSymStackOp :: SymStackHolder Operand
+popSymStackOp :: Monad m => SymStackHolder m Operand
 popSymStackOp = SymStackHolder $ (symSize <-= 1) <&> atSymStack
 
-occupiedRegs :: SymStackHolder [Operand]
+peekSymStackOp :: Monad m => SymStackHolder m Operand
+peekSymStackOp = SymStackHolder $ use symSize <&> atSymStack . pred
+
+occupiedRegs :: Monad m => SymStackHolder m [Operand]
 occupiedRegs = symStackSize <&> flip take (V.toList regSymStack)
+
+
+-- | @HardMem@s occupy same space as sym stack
+accountHardMem :: Monad m => Int -> SymStackHolder m ()
+accountHardMem = updateSymMaxSize . (+ V.length regSymStack)  -- TODO: dirty hack

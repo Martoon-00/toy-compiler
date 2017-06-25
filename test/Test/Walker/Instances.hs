@@ -1,11 +1,12 @@
-{-# LANGUAGE ApplicativeDo   #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE TypeFamilies  #-}
 
 module Test.Walker.Instances
     ( ProgramTestData (..)
     , FullTestData (..)
     ) where
+
+import           Universum
 
 import           Test.Walker.Extractor (Extension, TestCaseData (..), gatherFile,
                                         readTestCase)

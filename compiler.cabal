@@ -19,14 +19,18 @@ library
                        Toy.Util
                        Toy.X86
   other-modules:       Toy.Base.Data
+                       Toy.Base.Fun
                        Toy.Base.Parsable
 
                        Toy.Execution.Data
                        Toy.Execution.Exec
                        Toy.Execution.Trans
 
+                       Toy.Exp.Arrays
                        Toy.Exp.Data
+                       Toy.Exp.Ext
                        Toy.Exp.Operations
+                       Toy.Exp.RefEnv
                        Toy.Exp.Util
 
                        Toy.Lang.Data
@@ -37,7 +41,11 @@ library
 
                        Toy.SM.Data
                        Toy.SM.Interpreter
+                       Toy.SM.Util
 
+                       Toy.Util.Bits
+                       Toy.Util.Error
+                       Toy.Util.Instances
                        Toy.Util.Parsable
 
                        Toy.X86.Data
@@ -47,7 +55,8 @@ library
                        Toy.X86.SymStack
                        Toy.X86.Translator
 
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       autoexporter
+                     , base >= 4.7 && < 5
                      , conduit
                      , conduit-combinators
                      , containers
@@ -63,6 +72,7 @@ library
                      , mmorph
                      , mtl
                      , process
+                     , serokell-util
                      , spoon
                      , vector
                      , text
@@ -75,6 +85,20 @@ library
   default-extensions:  FlexibleContexts
                        FlexibleInstances
                        OverloadedStrings
+                       TypeOperators
+                       ConstraintKinds
+                       LambdaCase
+                       MultiParamTypeClasses
+                       MultiWayIf
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       ScopedTypeVariables
+                       TupleSections
+                       TypeApplications
+                       TypeOperators
+                       RecordWildCards
+                       ViewPatterns
+                       ExplicitForAll
 
 executable launch
   main-is:              Main.hs
@@ -88,10 +112,12 @@ executable launch
                       , text
                       , universum
 
-  hs-source-dirs:       launch
-  default-language:     Haskell2010
-  ghc-options:          -threaded -Wall -fno-warn-orphans
-  default-extensions:   OverloadedStrings
+  hs-source-dirs:      launch
+  default-language:    Haskell2010
+  ghc-options:         -threaded -Wall -fno-warn-orphans
+  default-extensions:  OverloadedStrings
+                       NoImplicitPrelude
+                       TypeApplications
 
 test-suite tests
   main-is:             Test.hs
@@ -101,7 +127,9 @@ test-suite tests
                        Test.Examples.BaseSpec
                        Test.Examples.ExpSpec
                        Test.Examples.FunSpec
+                       Test.Examples.IArraySpec
                        Test.Examples.KParserSpec
+                       Test.Examples.YComplexSpec
                        Test.Examples.ZControlSpec
                        Test.Walker
                        Test.Walker.Extractor
@@ -137,4 +165,11 @@ test-suite tests
   ghc-options:         -threaded -Wall -fno-warn-orphans
   default-extensions:  FlexibleContexts
                        FlexibleInstances
+                       MultiParamTypeClasses
+                       MultiWayIf
+                       NoImplicitPrelude
                        OverloadedStrings
+                       TypeApplications
+                       ScopedTypeVariables
+                       ViewPatterns
+                       RecordWildCards

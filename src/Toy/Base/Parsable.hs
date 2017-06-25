@@ -7,7 +7,7 @@ module Toy.Base.Parsable
 import           Control.Applicative   (many, (<|>))
 import           Text.Megaparsec       (char, eof, label, space, spaceChar)
 import           Text.Megaparsec.Lexer (integer, signed)
-import           Universum             (pass, void, ($>))
+import           Universum
 
 import           Toy.Base.Data         (Value)
 import           Toy.Util              (Parsable (..))

@@ -1,7 +1,5 @@
-{-# LANGUAGE RecordWildCards  #-}
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Test.Examples.ZControlSpec
     ( spec
@@ -9,7 +7,7 @@ module Test.Examples.ZControlSpec
 
 import           Test.Hspec      (Spec, describe)
 import           Test.QuickCheck (Property, counterexample)
-import           Universum       (Text, toString)
+import           Universum
 
 import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->))

@@ -1,5 +1,4 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
 
 module Test.Util
     ( Extract (..)
@@ -11,11 +10,12 @@ import           Control.Monad.Trans  (MonadIO (..))
 import           Test.Hspec.Core.Spec (SpecM (..))
 import           Test.QuickCheck      (Arbitrary (..), Large (..), NonNegative (..),
                                        Property, Small (..), conjoin, property, (.&&.))
+import           Universum
 
 import qualified Toy.SM               as SM
 
 instsSM :: SM.Insts -> SM.Insts
-instsSM = id
+instsSM = identity
 
 instance Monoid Property where
     mempty = property True
@@ -28,17 +28,21 @@ instance MonadIO (SpecM a) where
 
 newtype VerySmall a = VerySmall
     { getVerySmall :: a
-    } deriving (Eq, Ord, Show, Num)
+    } deriving (Eq, Ord, Show, Num, Enum)
 
-instance (Arbitrary a, Integral a) => Arbitrary (VerySmall a) where
-    arbitrary = VerySmall . flip rem 5 <$> arbitrary
+verySmallLimit :: Num a => a
+verySmallLimit = 5
+
+instance (Arbitrary a, Integral a, Enum a) => Arbitrary (VerySmall a) where
+    arbitrary = VerySmall . flip rem verySmallLimit <$> arbitrary
+    shrink k = [k + 1 .. verySmallLimit - 1]
 
 
 class Extract a p where
     extract :: p -> a
 
 instance Extract a a where
-    extract = id
+    extract = identity
 
 instance Extract a (Large a) where
     extract = getLarge

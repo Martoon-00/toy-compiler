@@ -1,15 +1,17 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE RecordWildCards           #-}
 
 module Toy.Execution.Trans
     ( TranslateWay (..)
     , (<~~>)
     , asIs
+    , transShow
 
     , ExecWay (..)
     , translateLang
     , compileX86
     , defCompileX86
+
+    , TranslateToSM
 
     , printMetaSM
     ) where
@@ -24,9 +26,9 @@ import           Data.Functor               (($>))
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (..))
 import qualified Formatting                 as F
-import           GHC.Exts                   (toList)
+import qualified Prelude
 import           System.IO.Unsafe           (unsafeInterleaveIO, unsafePerformIO)
-import           Universum                  (Text, (<>))
+import           Universum
 
 import           Toy.Execution.Data         (Meta, Meta (..))
 import           Toy.Execution.Exec         (BinaryFile (..), Executable (..))
@@ -52,6 +54,10 @@ tw1 <~~> tw2 =
 
 asIs :: TranslateWay a a
 asIs = TranslateWay "Interpret" return
+
+transShow :: Show a => TranslateWay a a
+transShow = TranslateWay "Interpret" $ \a ->
+    tell [Meta "Origin" $ F.sformat F.shown a] $> a
 
 instance Cat.Category TranslateWay where
     id = asIs

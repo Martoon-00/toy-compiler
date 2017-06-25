@@ -1,31 +1,30 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Toy.Exp.Util
     ( arithspoon
-    , bool
+    , boolL
     , asToBool
     , binResToBool
     ) where
 
 import           Control.DeepSeq           (NFData)
 import           Control.Exception         (ArithException, Handler (..))
-import           Control.Lens              (Iso', from, iso, (^.))
+import           Control.Lens              (Iso', from, iso)
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Spoon             (spoonWithHandles)
 import           Data.Maybe                (fromJust)
 import           Data.String               (IsString (..))
+import           Universum
 
 import           Toy.Base                  (Value)
 
 
-bool :: Iso' Value Bool
-bool = iso (/= 0) (fromIntegral . fromEnum)
+boolL :: Iso' Value Bool
+boolL = iso (/= 0) (fromIntegral . fromEnum)
 
 asToBool :: (Bool -> Bool -> Bool) -> Value -> Value -> Value
-asToBool f a b = f (a ^. bool) (b ^. bool) ^. from bool
+asToBool f a b = f (a ^. boolL) (b ^. boolL) ^. from boolL
 
 binResToBool :: (Value -> Value -> Bool) -> Value -> Value -> Value
-binResToBool f a b = f a b ^. from bool
+binResToBool f a b = f a b ^. from boolL
 
 -- | Like `teaspoon`, but for `ArithException` only and reports details
 -- in case of error

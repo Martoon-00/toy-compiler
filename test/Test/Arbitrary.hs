@@ -2,16 +2,20 @@ module Test.Arbitrary where
 
 import           Control.Monad   (liftM2)
 import           Data.String     (fromString)
-import           Test.QuickCheck (Arbitrary (..), choose, elements, frequency, getSmall)
-import           Universum       (toText)
+import           Test.QuickCheck (Arbitrary (..), choose, elements, frequency, getSmall,
+                                  suchThat)
+import           Universum
 
-import           Toy.Base        (Var (..))
+import           Toy.Base        (Value (..), Var (..))
 import           Toy.Exp
 import           Toy.Lang        (Stmt (..))
 import qualified Toy.Lang        as L
 
 instance Arbitrary Var where
     arbitrary = fromString . pure <$> choose ('a', 'z')
+
+instance Arbitrary Value where
+    arbitrary = (Value <$> arbitrary) `suchThat` (\x -> minBound <= x && x <= maxBound)
 
 instance Arbitrary Exp where
     arbitrary = frequency

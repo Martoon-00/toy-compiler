@@ -1,6 +1,3 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
-
 -- | This module contains operations to form function stack frame and access
 -- its elements.
 
@@ -12,11 +9,11 @@ module Toy.X86.Frame
     ) where
 
 import           Control.Applicative ((<|>))
-import           Control.Lens        ((%~))
 import qualified Data.Map            as M
 import           Data.Maybe          (fromMaybe)
 import qualified Data.Set            as S
-import           Formatting          (build, formatToString, (%))
+import           Formatting          (build, sformat, (%))
+import           Universum           hiding (Const)
 
 import           Toy.Base            (Var)
 import           Toy.X86.Data        (Inst, Operand (..), traverseOperands)
@@ -53,13 +50,14 @@ resolveMemRefs Frame{..} = fmap $ traverseOperands %~ \case
     Stack i  -> Mem i
     Backup i -> Mem (stSymSize + varsNum + i)
     Local n  ->
-        let noVar = error $
-                    formatToString ("No such variable / argument: "%build) n
+        let noVar = error $ sformat ("No such variable / argument: "%build) n
             asVar i = Mem (stSymSize + i)
             asArg i = Mem (stSymSize + varsNum + backupSize + 1 + i)
         in  fromMaybe noVar $ asVar <$> M.lookup n fVars
                           <|> asArg <$> M.lookup n fArgs
     o@HardMem{} -> o
+    o@HeapMem{} -> o
+    o@HeapMemExt{} -> o
     Mem _       -> error "Resolving Mem reference??"
     o@Reg{}     -> o
     o@Const{}   -> o

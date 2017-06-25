@@ -1,6 +1,4 @@
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE Rank2Types #-}
 
 module Toy.Util.Parsable
     ( Parser
@@ -12,7 +10,7 @@ module Toy.Util.Parsable
 import           Data.Proxy      (Proxy (..))
 import           Data.Text       (Text)
 import           Text.Megaparsec (Dec, Parsec, parse, parseErrorPretty)
-import           Universum       (first, toText)
+import           Universum
 
 type Parser = Parsec Dec Text
 

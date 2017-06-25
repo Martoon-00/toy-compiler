@@ -1,5 +1,4 @@
-{-# LANGUAGE OverloadedLists  #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module Test.Examples.FunSpec
     ( spec
@@ -7,13 +6,14 @@ module Test.Examples.FunSpec
 
 import           Control.Category (id, (.))
 import           Control.Lens     ((&))
+import           Data.Foldable    (for_)
 import           Prelude          hiding (id, (.))
 import           Test.Hspec       (Spec, describe, it)
 import           Test.QuickCheck  (NonNegative (..), Property, property)
 import           Universum        (one)
 
 import           Test.Arbitrary   ()
-import           Test.Execution   (describeExecWays, (>-*->), (~*~))
+import           Test.Execution   (describeExecWays, works, (>-*->), (~*~))
 import           Test.Util        (VerySmall (..))
 import           Toy.Base
 import           Toy.Execution    (ExecWay (..), defCompileX86, translateLang)
@@ -52,24 +52,28 @@ spec = do
                     fibTest way
                 it "gcd" $
                     gcdTest way
+            describe "standart functions presence" $ do
+                for_ stdFunExamples $ \args@(show -> name, _) ->
+                    it name $ stdFunCallTest args way
+
 
 singleFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body))
-    in  L.Program decl $ L.FunCall (name, args)
+    in  L.Program decl $ L.funCallS name args
 
 singleRetFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleRetFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body))
-    in  L.Program decl $ L.writeS (FunE (name, args))
+    in  L.Program decl $ L.writeS (FunE name args)
 
 singleRecFunProg :: [Var] -> [Exp] -> (Var -> L.Stmt) -> L.Program
 singleRecFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body name))
-    in  L.Program decl $ L.writeS (FunE (name, args))
+    in  L.Program decl $ L.writeS (FunE name args)
 
 noActionTest :: ExecWay L.Program -> Property
 noActionTest = sample & [] >-*-> []
@@ -122,7 +126,7 @@ recSimpleTest way = sample ~*~ fun $ way
   where
     sample = singleRecFunProg ["a"] [readE] $ \funName ->
              L.If ("a" ==: 0) (L.Return 1) $
-                L.Return (3 * FunE (funName, ["a" - 1]) * 2)
+                L.Return (3 * FunE funName ["a" - 1] * 2)
     fun :: NonNegative (VerySmall Value) -> Value
     fun (NonNegative (VerySmall x)) = 6 ^ x
 
@@ -131,7 +135,7 @@ fibTest = sample ~*~ fun
   where
     sample = singleRecFunProg ["a"] [readE] $ \funName ->
              L.If ("a" <: 2) (L.Return "a") $
-                L.Return (FunE (funName, ["a" - 1]) + FunE (funName, ["a" - 2]))
+                L.Return (FunE funName ["a" - 1] + FunE funName ["a" - 2])
     fun :: NonNegative (VerySmall Value) -> Value
     fun (NonNegative (VerySmall x)) = fibs !! fromIntegral x
     fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
@@ -141,6 +145,9 @@ gcdTest = sample ~*~ fun
   where
     sample = singleRecFunProg ["a", "b"] [readE, readE] $ \funName ->
              L.If ("b" ==: 0) (L.Return "a") $
-                L.Return (FunE (funName, ["b", "a" %: "b"]))
+                L.Return (FunE funName ["b", "a" %: "b"])
     fun :: NonNegative Value -> NonNegative Value -> Value
     fun (NonNegative x) (NonNegative y) = gcd x y
+
+stdFunCallTest :: (Var, [Exp]) -> ExecWay L.Program -> Property
+stdFunCallTest = works . L.Program mempty . uncurry L.funCallS
