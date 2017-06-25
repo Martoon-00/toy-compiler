@@ -127,7 +127,9 @@ test-suite tests
                        Test.Examples.BaseSpec
                        Test.Examples.ExpSpec
                        Test.Examples.FunSpec
+                       Test.Examples.IArraySpec
                        Test.Examples.KParserSpec
+                       Test.Examples.YComplexSpec
                        Test.Examples.ZControlSpec
                        Test.Walker
                        Test.Walker.Extractor

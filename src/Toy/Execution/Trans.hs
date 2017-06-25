@@ -11,6 +11,8 @@ module Toy.Execution.Trans
     , compileX86
     , defCompileX86
 
+    , TranslateToSM
+
     , printMetaSM
     ) where
 
