@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <sstream>
 
+#include "num.h"
+
 #define VALUE_SIZE sizeof(int)
 
 extern "C" {
@@ -35,6 +37,9 @@ namespace Arrays {
     }
 
     bool is_reference(int* ptr) {
+        int ptr_ = (int) ptr;
+        if (ptr_ < sizeof(array_meta))
+            return false;
         // TODO: understand from the pointer
         return ever_allocated.count(to_raw_ptr(ptr));
     }
@@ -61,6 +66,7 @@ namespace Arrays {
         // std::cerr << ptr << " - incremented " << counts << std::endl;
     }
 
+    // accepts normal number
     int* allocate(int size) {
         raw* raw_ptr = static_cast<raw*>(std::calloc(1, size * VALUE_SIZE + sizeof(array_meta)));
         allocated[raw_ptr] = size;
@@ -97,8 +103,9 @@ namespace Arrays {
         if (ptr == NULL)
             return;
 
-        if (!is_reference(ptr))
+        if (!is_reference(ptr)){
             return;
+        }
 
         if (!ever_allocated.count(to_raw_ptr(ptr)))
             throw std::runtime_error("Decrementing counter of not a reference!");
@@ -119,11 +126,12 @@ namespace Arrays {
     //////////////////////////////////////
 
     int arrlen(int* ptr) {
-        return access_array_meta(ptr).arr_length;
+        int len = access_array_meta(ptr).arr_length;
+        return to_31_num(len);
     }
 
     int* arrmake(int size, int def_val) {
-        int* res = allocate(size);
+        int* res = allocate(from_31_num(size));
         std::for_each(res, res + size, [&](int &it){
             it = def_val;
             ref_counter_increment((int*) def_val);

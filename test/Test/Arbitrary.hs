@@ -5,13 +5,17 @@ import           Data.String     (fromString)
 import           Test.QuickCheck (Arbitrary (..), choose, elements, frequency, getSmall)
 import           Universum
 
-import           Toy.Base        (Var (..))
+import           Toy.Base        (Value (..), Var (..))
 import           Toy.Exp
 import           Toy.Lang        (Stmt (..))
 import qualified Toy.Lang        as L
+import           Toy.Util        (clearPHBit)
 
 instance Arbitrary Var where
     arbitrary = fromString . pure <$> choose ('a', 'z')
+
+instance Arbitrary Value where
+    arbitrary = Value . clearPHBit <$> arbitrary
 
 instance Arbitrary Exp where
     arbitrary = frequency

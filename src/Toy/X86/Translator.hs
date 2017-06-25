@@ -23,8 +23,9 @@ import           System.FilePath.Posix ((</>))
 import           System.Process        (proc)
 import           Universum             hiding (Const, forM_)
 
-import           Toy.Base              (FunSign (..))
+import           Toy.Base              (FunSign (..), Value)
 import qualified Toy.SM                as SM
+import           Toy.Util.Bits         (clearHBit, setHBit)
 import           Toy.X86.Data          (Inst (..), InstContainer, Insts, Operand (..),
                                         Program (..), StackDirection (..), eax, edx, jmp,
                                         ret, withStackSpace, (//), (?))
@@ -72,8 +73,11 @@ step = \case
     SM.Nop        -> return ()
     SM.Push v     -> do
         op <- allocSymStackOp
-        tell [Mov (Const v) op]
-    SM.Drop       -> popSymStackOp >>= killReference  -- TODO: watch out for void funs
+        tell [Mov (Const $ nTo31 v) op]
+    SM.PushNull   -> do
+        op <- allocSymStackOp
+        tell [Mov (Const 0) op]
+    SM.Drop       -> popSymStackOp >>= killReference
     SM.Dup        -> do
         from <- peekSymStackOp
         to <- allocSymStackOp
@@ -101,28 +105,30 @@ step = \case
         op <- allocSymStackOp
         tell [Mov (Const $ fromIntegral k) op]
         mkCall "allocate" 1 False
-    SM.ArrayAccess -> do
+    SM.ArrayAccess -> censor ("array access" ?) $ do
         i   <- popSymStackOp
         a   <- popSymStackOp
         e   <- allocSymStackOp  -- @e@ shouldn't shadow @a@
         tmp <- allocSymStackOp
+        tell $ from31 i
         tell
             [ Mov a eax
             , Mov i edx
             , Mov (HeapMemExt eax edx) eax
             , Mov eax tmp
             ]
-        killReference a
+        killReference a  -- TODO: what if @e@ expires here as well?
         tell
-            [ Mov tmp e
+            [ Mov tmp eax, Mov eax e
             ]
         addReference e
         void popSymStackOp
-    SM.ArraySet -> do
+    SM.ArraySet -> censor ("array set" ?) $ do
         e <- popSymStackOp
         i <- popSymStackOp
         a <- popSymStackOp
         replicateM_ 2 allocSymStackOp  -- preserve for gc
+        tell $ from31 i
         tell
             [ Mov a eax
             , Mov i edx
@@ -143,7 +149,7 @@ step = \case
         op <- popSymStackOp
         tell
             [ Mov op eax
-            , BinOp "cmp" (Const 0) eax
+            , BinOp "cmp" (Const $ nTo31 0) eax
             , Jmp "ne" lid
             ]
     SM.Call (FunSign name args) -> mkCall name (length args) True
@@ -152,7 +158,7 @@ step = \case
     SM.FunExit -> do
         op <- popSymStackOp
         tell [Mov op eax]
-        -- ret is performed outside bacause of stack shift
+        -- ret is performed outside because of stack shift
     SM.Enter{} -> tell
         [ NoopOperator "int3"  -- don't step out!
         ]
@@ -269,44 +275,62 @@ inRegsWith aux op           f = [Mov op aux] <> f aux <> [Mov aux op]
 inRegs1 :: InstContainer r => Operand -> (Operand -> r) -> r
 inRegs1 = inRegsWith eax
 
+-- | Apply operations to work with 31-byte arithmetics
+in31BA :: InstContainer r => Operand -> Operand -> r -> r
+in31BA op1 op2 insts = mconcat
+    [ from31 op1, from31 op2
+    , insts
+    , to31 op1, to31 op2
+    ]
+
+-- Convertions between 31-bit (with lowest bit = 1) numbers and normal numbers
+from31, to31 :: InstContainer r => Operand -> r
+from31 op = [ UnaryOp "sarl" op ]
+to31 op   = [ UnaryOp "shll" op, BinOp "addl" (Const 1) op ]
+
+nTo31 :: Value -> Value
+nTo31 x = (if x < 0 then setHBit else clearHBit) $ x * 2 + 1
+
 binop :: InstContainer r => Operand -> Operand -> Text -> r
-binop op1 op2 action = action ? case action of
-    "+" -> inRegs1 op1 $ \op1' -> [BinOp "addl" op1' op2]
-    "-" -> inRegs1 op1 $ \op1' -> [BinOp "subl" op2 op1', Mov op1' op2]
-    "*" -> inRegs1 op2 $ \op2' -> [BinOp "imull" op1 op2']
-    "/" -> idiv eax
-    "%" -> idiv edx
+binop op1 op2 action =
+    (action ?) . in31BA op1 op2 $
+    case action of
+        "+" -> inRegs1 op1 $ \op1' -> [BinOp "addl" op1' op2]
+        "-" -> inRegs1 op1 $ \op1' -> [BinOp "subl" op2 op1', Mov op1' op2]
+        "*" -> inRegs1 op2 $ \op2' -> [BinOp "imull" op1 op2']
+        "/" -> idiv eax
+        "%" -> idiv edx
 
-    "<"  -> cmp "l"
-    ">"  -> cmp "g"
-    "<=" -> cmp "le"
-    ">=" -> cmp "ge"
-    "==" -> cmp "e"
-    "!=" -> cmp "ne"
+        "<"  -> cmp "l"
+        ">"  -> cmp "g"
+        "<=" -> cmp "le"
+        ">=" -> cmp "ge"
+        "==" -> cmp "e"
+        "!=" -> cmp "ne"
 
-    "^" -> inRegs1 op1 $ \op1' -> [BinOp "xorl" op1' op2]
-    "&" -> inRegs1 op1 $ \op1' -> [BinOp "andl" op1' op2]
-    "|" -> inRegs1 op1 $ \op1' -> [BinOp "orl" op1' op2]
-    "&&" ->
-        [ BinOp "xor" eax eax
-        , Mov op1 edx
-        , BinOp "andl" edx edx
-        , UnaryOp "setne" (Reg "ah")
-        , Mov op2 edx
-        , BinOp "andl" edx edx
-        , UnaryOp "setne" (Reg "al")
-        , BinOp "and" (Reg "ah") (Reg "al")
-        , BinOp "xor" (Reg "ah") (Reg "ah")
-        , Mov eax op2
-        ]
-    "||" -> inRegs1 op2 $ \op2' ->
-        [ BinOp "xor" edx edx
-        , BinOp "orl" op1 op2'
-        , UnaryOp "setne" (Reg "dl")
-        , Mov edx op2'
-        ]
+        "^" -> inRegs1 op1 $ \op1' -> [BinOp "xorl" op1' op2]
+        "&" -> inRegs1 op1 $ \op1' -> [BinOp "andl" op1' op2]
+        "|" -> inRegs1 op1 $ \op1' -> [BinOp "orl" op1' op2]
+        "&&" ->
+          [ BinOp "xor" eax eax
+          , Mov op1 edx
+          , BinOp "andl" edx edx
+          , UnaryOp "setne" (Reg "ah")
+          , Mov op2 edx
+          , BinOp "andl" edx edx
+          , UnaryOp "setne" (Reg "al")
+          , BinOp "and" (Reg "ah") (Reg "al")
+          , BinOp "xor" (Reg "ah") (Reg "ah")
+          , Mov eax op2
+          ]
+        "||" -> inRegs1 op2 $ \op2' ->
+          [ BinOp "xor" edx edx
+          , BinOp "orl" op1 op2'
+          , UnaryOp "setne" (Reg "dl")
+          , Mov edx op2'
+          ]
 
-    unknown -> error $ "Unsupported operation: " <> show unknown
+        unknown -> error $ "Unsupported operation: " <> show unknown
   where
     idiv res =
         [ Mov op1 eax

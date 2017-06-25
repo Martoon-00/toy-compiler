@@ -37,6 +37,7 @@ instance Buildable JmpLabelForm where
 -- | Statement of a program.
 data Inst
     = Push Value
+    | PushNull
     | Drop
     | Dup
     | Bin BinOp

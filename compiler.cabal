@@ -43,6 +43,7 @@ library
                        Toy.SM.Interpreter
                        Toy.SM.Util
 
+                       Toy.Util.Bits
                        Toy.Util.Error
                        Toy.Util.Instances
                        Toy.Util.Parsable

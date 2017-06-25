@@ -46,7 +46,7 @@ toIntermediate (L.Program funcs main) = do
             convert stmt
             -- could just push on stack, but jump after that would fail due to
             -- SM interpreter laws
-            tell [SM.Push 0, SM.Store SM.funResVar, SM.Label SM.exitLabel]
+            tell [SM.PushNull, SM.Store SM.funResVar, SM.Label SM.exitLabel]
         when (name == SM.initFunName) memCheck
         tell [SM.LoadNoGc SM.funResVar, SM.FunExit]
 

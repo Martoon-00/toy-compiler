@@ -3,11 +3,15 @@
 module Toy.Base.Data where
 
 import           Control.Monad.Trans.Either (EitherT (..))
+import           Data.Bits                  (Bits, FiniteBits)
 import           Data.Conduit               (ConduitM)
 import           Data.Int                   (Int32)
 import           Data.String                (IsString (..))
+import           Prelude                    (Read (readsPrec))
 import qualified Prelude
 import           Universum
+
+import           Toy.Util.Bits              (clearPHBit)
 
 -- | Variable name
 newtype Var = Var Text
@@ -17,7 +21,19 @@ instance Show Var where
     show (Var name) = show name
 
 -- | Expression type
-type Value = Int32
+newtype Value = Value Int32
+    deriving (Eq, Ord, Enum, Num, Real, Integral, Bits, FiniteBits, NFData
+             , Buildable)
+
+instance Read Value where
+    readsPrec = map (first Value) ... readsPrec
+
+instance Show Value where
+    show (Value v) = show v
+
+instance Bounded Value where
+    minBound = Value $ clearPHBit minBound
+    maxBound = Value $ clearPHBit maxBound
 
 type UnaryOp = Text
 

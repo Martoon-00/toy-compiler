@@ -46,6 +46,7 @@ execute insts =
 
     step = \case
         Push v      -> push (ValueR v)
+        PushNull    -> push (ValueR 0)
         Drop        -> pop >>= changeRefCounter (-)
         Dup         -> replicateM_ 2 . push =<< pop
         Bin op      -> do
