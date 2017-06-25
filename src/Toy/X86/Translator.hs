@@ -25,7 +25,6 @@ import           Universum             hiding (Const, forM_)
 
 import           Toy.Base              (FunSign (..), Value)
 import qualified Toy.SM                as SM
-import           Toy.Util.Bits         (clearHBit, setHBit)
 import           Toy.X86.Data          (Inst (..), InstContainer, Insts, Operand (..),
                                         Program (..), StackDirection (..), eax, edx, jmp,
                                         ret, withStackSpace, (//), (?))
@@ -283,13 +282,27 @@ in31BA op1 op2 insts = mconcat
     , to31 op1, to31 op2
     ]
 
--- Convertions between 31-bit (with lowest bit = 1) numbers and normal numbers
+-- Convertions between 31-bit (with lowest bit = 1) numbers and normal numbers.
+-- Normal number: sign  sign  value
+--                  1     1     30
+-- 31-bit number: sign  value   1
+--                  1     30    1
 from31, to31 :: InstContainer r => Operand -> r
-from31 op = [ UnaryOp "sarl" op ]
-to31 op   = [ UnaryOp "shll" op, BinOp "addl" (Const 1) op ]
+from31 op = "from31" ?
+    [ UnaryOp "sarl" op
+    ]
+to31 op   = "to31" ?
+    [ Mov op eax
+    , BinOp "andl" (Const $ 2 ^ (31 :: Int)) eax
+    , UnaryOp "sall" op
+    , BinOp "addl" (Const 1) op
+    , Mov (Const $ 2 ^ (31 :: Int) - 1) edx
+    , BinOp "andl" edx op
+    , BinOp "addl" eax op
+    ]
 
-nTo31 :: Value -> Value
-nTo31 x = (if x < 0 then setHBit else clearHBit) $ x * 2 + 1
+nTo31 :: Value -> Int32
+nTo31 x = fromIntegral x * 2 + 1
 
 binop :: InstContainer r => Operand -> Operand -> Text -> r
 binop op1 op2 action =

@@ -27,6 +27,7 @@ module Toy.X86.Data
     , InstContainer
     ) where
 
+import           Data.Int               (Int32)
 import           Data.List              (intersperse)
 import           Data.Monoid            ((<>))
 import           Data.Text              (Text)
@@ -41,14 +42,14 @@ import           Prelude                hiding (null, unlines)
 import qualified Text.RawString.QQ      as QQ
 import           Universum              (Container (null), One (..))
 
-import           Toy.Base               (Value, Var)
+import           Toy.Base               (Var)
 import           Toy.SM                 (JmpLabelForm (..), LabelId)
 
 -- TODO: Aaa, 100500 constructors. Decrease?
 data Operand
     = Reg Text
     -- ^ Register
-    | Const Value
+    | Const Int32
     -- ^ Constant
     | Mem Int
     -- ^ Memory reference. This keeps amount of /qword/s to look back on stack
@@ -75,7 +76,7 @@ esp = Reg "esp"
 
 instance Buildable Operand where
     build (Reg   r)        = "%" <> build r
-    build (Const v)        = "$" <> build v
+    build (Const v)        = "$" <> build (toInteger v)
     build (Mem   i)        = bprint (int%"("%F.build%")") (4 * i) esp
     build (HardMem i)      = build (Mem i)
     build (HeapMem b)      = bprint ("("%F.build%")") b

@@ -6,7 +6,7 @@ module Test.Examples.BaseSpec
     ) where
 
 import           Test.Hspec      (Spec, describe, it)
-import           Test.QuickCheck (Property, conjoin, counterexample, property)
+import           Test.QuickCheck (Large (..), Property, conjoin, counterexample, property)
 import           Universum
 
 import           Test.Arbitrary  ()
@@ -71,18 +71,18 @@ ifFalseTest = sample & [] >-*-> [1]
   where
     sample = If 0 (L.writeS 0) (L.writeS 1)
 
+writeTest :: ExecWay Stmt -> Large Value -> Property
+writeTest way (Large v) = sample & [] >-*-> [v] $ way
+  where
+    sample = L.writeS (ValueE v)
+
 ioTest :: ExecWay Stmt -> Property
-ioTest = sample ~*~ identity @Value
+ioTest = sample ~*~ getLarge @Value
   where
     sample = mconcat
         [ L.readS "a"
         , L.writeS "a"
         ]
-
-writeTest :: ExecWay Stmt -> Value -> Property
-writeTest way v = sample & [] >-*-> [v] $ way
-  where
-    sample = L.writeS (ValueE v)
 
 whileTest :: ExecWay Stmt -> Property
 whileTest = sample & [] >-*-> [0 .. 4]
