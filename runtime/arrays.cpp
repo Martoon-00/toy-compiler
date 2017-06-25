@@ -68,6 +68,12 @@ namespace Arrays {
 
     // accepts normal number
     int* allocate(int size) {
+        if (size < 0) {
+            std::stringbuf desc;
+            std::ostream(&desc) << "Can't allocate with negative size " << size;
+            throw std::runtime_error(desc.str());
+        }
+
         raw* raw_ptr = static_cast<raw*>(std::calloc(1, size * VALUE_SIZE + sizeof(array_meta)));
         allocated[raw_ptr] = size;
         ever_allocated.insert(raw_ptr);
@@ -130,8 +136,9 @@ namespace Arrays {
         return to_31_num(len);
     }
 
-    int* arrmake(int size, int def_val) {
-        int* res = allocate(from_31_num(size));
+    int* arrmake(int _size, int def_val) {
+        int size = from_31_num(_size);
+        int* res = allocate(size);
         std::for_each(res, res + size, [&](int &it){
             it = def_val;
             ref_counter_increment((int*) def_val);
