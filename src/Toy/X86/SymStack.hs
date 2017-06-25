@@ -16,6 +16,7 @@ module Toy.X86.SymStack
     , popSymStackOp
     , peekSymStackOp
     , occupiedRegs
+    , accountHardMem
     ) where
 
 import           Control.Lens         (ix, makeLenses, (%=), (<-=), (<<+=))
@@ -80,3 +81,8 @@ peekSymStackOp = SymStackHolder $ use symSize <&> atSymStack . pred
 
 occupiedRegs :: Monad m => SymStackHolder m [Operand]
 occupiedRegs = symStackSize <&> flip take (V.toList regSymStack)
+
+
+-- | @HardMem@s occupy same space as sym stack
+accountHardMem :: Monad m => Int -> SymStackHolder m ()
+accountHardMem = updateSymMaxSize . (+ V.length regSymStack)  -- TODO: dirty hack

@@ -55,7 +55,7 @@ toIntermediate (L.Program funcs main) = do
         [ SM.StoreInit var ]
     freeRef :: Var -> D.DList SM.Inst
     freeRef var =
-        [ SM.Load var, SM.Call $ FunSign "free" ["X"], SM.Drop ]
+        [ SM.Load var, SM.Call $ FunSign "array_free" ["X"], SM.Drop ]
 
     bracketLocals :: TransState () -> TransState ()
     bracketLocals action = pass $ do

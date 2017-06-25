@@ -31,8 +31,9 @@ import           Toy.X86.Data          (Inst (..), InstContainer, Insts, Operand
 import           Toy.X86.Frame         (evalStackShift, mkFrame, resolveMemRefs)
 import           Toy.X86.Optimize      (optimize)
 import           Toy.X86.Process       (readCreateProcess)
-import           Toy.X86.SymStack      (SymStackHolder, allocSymStackOp, occupiedRegs,
-                                        peekSymStackOp, popSymStackOp, runSymStackHolder)
+import           Toy.X86.SymStack      (SymStackHolder, accountHardMem, allocSymStackOp,
+                                        occupiedRegs, peekSymStackOp, popSymStackOp,
+                                        runSymStackHolder)
 
 
 compile :: SM.Insts -> Insts
@@ -76,7 +77,7 @@ step = \case
     SM.PushNull   -> do
         op <- allocSymStackOp
         tell [Mov (Const 0) op]
-    SM.Drop       -> popSymStackOp >>= killReference
+    SM.Drop       -> void popSymStackOp -- >>= killReference
     SM.Dup        -> do
         from <- peekSymStackOp
         to <- allocSymStackOp
@@ -169,6 +170,8 @@ step = \case
         replicateM_ argsNum allocSymStackOp  -- preserve them for gc
         tmpTop <- allocSymStackOp
 
+        accountHardMem argsNum
+
         backupingOps toBackupWithoutRes $ censor (withStackSpace argsNum) $ do
             forM_ (zip [0..] stackArgOps) $ \(i, op) ->
                 tell [Mov op eax, Mov eax (HardMem i)]
@@ -185,8 +188,11 @@ step = \case
                         [ Mov op eax
                         , Mov eax (HardMem 0)
                         , Call "ref_counter_decrement"
-
-                        , Mov (Const 0) eax
+                        ]
+            censor ("ref cleaup" ?) $
+                forM_ stackArgOps $ \op ->
+                    tell
+                        [ Mov (Const 0) eax
                         , Mov eax op
                         ]
 

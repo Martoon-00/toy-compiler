@@ -21,6 +21,9 @@ namespace Arrays {
 
     struct raw {};
 
+    // always return a value
+    typedef int toy_void;
+
     std::map<raw*, int> allocated = std::map<raw*, int>();
     std::set<raw*> ever_allocated = std::set<raw*>();
 
@@ -37,19 +40,27 @@ namespace Arrays {
     }
 
     bool is_reference(int* ptr) {
-        int ptr_ = (int) ptr;
-        if (ptr_ < sizeof(array_meta))
+        int ptr_i = (int) ptr;
+        if (ptr_i <= sizeof(array_meta))
             return false;
-        // TODO: understand from the pointer
-        return ever_allocated.count(to_raw_ptr(ptr));
+
+        if (ptr_i % 2 != 0)
+            return false;
+
+        if (!ever_allocated.count(to_raw_ptr(ptr))) {
+            std::cerr << "False reference!: " << ptr << std::endl;
+            return false;
+        }
+
+        return true;
     }
 
-    void ref_counter_increment(int* ptr) {
+    toy_void ref_counter_increment(int* ptr) {
         if (ptr == NULL)
-            return;
+            return 0;
 
         if (!is_reference(ptr))
-            return;
+            return 0;
 
         raw* raw_ptr = to_raw_ptr(ptr);
 
@@ -64,6 +75,8 @@ namespace Arrays {
 
         int counts = ++access_array_meta(ptr).ref_counter;
         // std::cerr << ptr << " - incremented " << counts << std::endl;
+
+        return 0;
     }
 
     // accepts normal number
@@ -83,10 +96,10 @@ namespace Arrays {
         return ptr;
     }
 
-    void ref_counter_decrement(int* ptr);
+    toy_void ref_counter_decrement(int* ptr);
 
     // internal
-    void deallocate(int* ptr) {
+    toy_void deallocate(int* ptr) {
         if (!is_reference(ptr))
             throw std::runtime_error("Deallocating not a reference!");
 
@@ -95,6 +108,7 @@ namespace Arrays {
         if (allocated.count(raw_ptr)) {
             int len = access_array_meta(ptr).arr_length;
             int** ptr_ = reinterpret_cast<int**>(ptr);
+
             std::for_each(ptr_, ptr_ + len, ref_counter_decrement);
             std::free(raw_ptr);
             allocated.erase(raw_ptr);
@@ -103,15 +117,16 @@ namespace Arrays {
             std::ostream(&desc) << "Freeing freed pointer!: " << raw_ptr;
             throw std::runtime_error(desc.str());
         }
+
+        return 0;
     }
 
-    void ref_counter_decrement(int* ptr) {
+    toy_void ref_counter_decrement(int* ptr) {
         if (ptr == NULL)
-            return;
+            return 0;
 
-        if (!is_reference(ptr)){
-            return;
-        }
+        if (!is_reference(ptr))
+            return 0;
 
         if (!ever_allocated.count(to_raw_ptr(ptr)))
             throw std::runtime_error("Decrementing counter of not a reference!");
@@ -125,6 +140,8 @@ namespace Arrays {
         } else if (!counts) {
             deallocate(ptr);
         }
+
+        return 0;
     }
 
     //////////////////////////////////////
@@ -150,11 +167,11 @@ namespace Arrays {
         return arrmake(size, (int) def_val);
     }
 
-    void free(int* ptr) {
-        ref_counter_decrement(ptr);
+    toy_void array_free(int* ptr) {
+        return ref_counter_decrement(ptr);
     }
 
-    void ensure_no_allocations() {
+    toy_void ensure_no_allocations() {
         if (!allocated.empty()) {
             std::cerr << "Unfreed memory pointers:";
             std::for_each(allocated.begin(), allocated.end(), [](decltype(*allocated.begin()) &it){
@@ -165,6 +182,7 @@ namespace Arrays {
                 });
             throw std::runtime_error("Memory leaked!");
         }
+        return 0;
     }
 
 }

@@ -5,12 +5,17 @@
 extern "C" {
 namespace Toy {
 
-    void debug_write(int val) {
+    // always return a value
+    typedef int toy_void;
+
+    toy_void debug_write(int val) {
         printf("%d\n", val);
+        return 0;
     }
 
-    void write(int val) {
+    toy_void write(int val) {
         printf("%d\n", from_31_num(val));
+        return 0;
     }
 
     int read() {

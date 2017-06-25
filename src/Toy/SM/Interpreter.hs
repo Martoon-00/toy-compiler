@@ -123,7 +123,7 @@ execute insts =
                 l <- pop
                 a <- arrayMake l (ValueR 0)
                 push a
-            "free" -> do
+            "array_free" -> do
                 a <- pop
                 arrayFree a
                 push (ValueR 0)
