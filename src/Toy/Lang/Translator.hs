@@ -12,7 +12,7 @@ import           Control.Monad.State        (MonadState)
 import           Control.Monad.Trans.Except (ExceptT, runExceptT)
 import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import           Control.Monad.Trans.RWS    (RWST, evalRWST)
-import           Control.Monad.Writer       (pass, tell)
+import           Control.Monad.Writer       (listen, pass, tell)
 import qualified Data.DList                 as D
 import           Data.Foldable              (find)
 import qualified Data.Map                   as M
@@ -23,7 +23,7 @@ import           Formatting                 (build, sformat, (%))
 import           Universum                  hiding (find, pass)
 
 import           Toy.Base                   (FunSign (..), Var)
-import           Toy.Exp.Data               (Exp (..))
+import           Toy.Exp.Data               (Exp (..), UserLabelId)
 import qualified Toy.Lang.Data              as L
 import qualified Toy.SM                     as SM
 
@@ -35,18 +35,19 @@ type TransState =
 
 toIntermediate :: L.Program -> Either Text SM.Insts
 toIntermediate (L.Program funcs main) = do
-    res <- fmap (V.fromList . D.toList) . execTransState funcs $ do
+    fmap (V.fromList . D.toList) . execTransState funcs $ do
         mapM_ convertFun $ snd <$> M.toList funcs
         convertFun (FunSign SM.initFunName [], main)
-    return res
   where
     convertFun (FunSign name args, stmt) = do
-        tell [ SM.Enter name args, SM.Label (SM.FLabel name) ]
+        tell [SM.Enter name args, SM.Label (SM.FLabel name)]
         bracketLocals $ do
-            convert stmt
-            -- could just push on stack, but jump after that would fail due to
-            -- SM interpreter laws
-            tell [SM.PushNull, SM.Store SM.funResVar, SM.Label SM.exitLabel]
+            bracketNonlocalLabels $ do
+                convert stmt
+                -- could just push on stack, but jump after that would fail due to
+                -- SM interpreter laws
+                tell [SM.PushNull, SM.Store SM.funResVar, SM.Jmp SM.exitLabel]
+            tell [SM.Label SM.exitLabel]
         when (name == SM.initFunName) memCheck
         tell [SM.LoadNoGc SM.funResVar, SM.FunExit]
 
@@ -69,6 +70,34 @@ toIntermediate (L.Program funcs main) = do
                 ]
 
     memCheck = tell [ SM.Call $ FunSign "ensure_no_allocations" [], SM.Drop ]
+
+    makeTransition :: UserLabelId -> TransState ()
+    makeTransition userL =
+        tell
+            [ SM.Load SM.outLabelVar
+            , SM.Push $ fromIntegral userL
+            , SM.Bin "=="
+            , SM.JmpIf (SM.ULabel userL)
+            ]
+
+    bracketNonlocalLabels :: TransState () -> TransState ()
+    bracketNonlocalLabels action = pass $ do
+        (_, insts) <- listen action
+        let ulabels  = SM.gatherLocalULabels insts
+        let hasGotos = SM.countOutLabels insts
+        (_, table) <- listen $ mapM makeTransition (toList ulabels)
+        return . pure . const $
+            mconcat $
+                [ insts
+                , [SM.Label SM.nonlocalLabelsTableLabel]
+                ]
+            <> if not hasGotos then [] else
+                [ [SM.SwitchOutIndicator False]
+                , table
+                , [SM.Load SM.outLabelVar, SM.Store SM.funResVar]
+                , [SM.SwitchOutIndicator True, SM.Jmp SM.exitLabel]
+                ]
+
 
 execTransState :: L.FunDecls -> TransState () -> Either Text (D.DList SM.Inst)
 execTransState funcs action =
@@ -98,6 +127,10 @@ convert (L.ArrayAssign a i e) = do
     pushExp i
     pushExp e
     tell [SM.ArraySet]
+convert (L.Label l) = tell [SM.Label (SM.ULabel l)]
+convert (L.Goto e) = do
+    pushExp e
+    tell [SM.Store SM.outLabelVar, SM.Jmp SM.nonlocalLabelsTableLabel]
 
 genLabel :: MonadState LabelsCounter m => m SM.LabelId
 genLabel = SM.CLabel <$> (identity <<+= 1)
@@ -118,6 +151,7 @@ pushExp (ArrayAccessE a i) = do
     pushExp a
     pushExp i
     tell [SM.ArrayAccess]
+pushExp (LabelE l) = tell [SM.Push $ fromIntegral l]
 
 callFun :: Var -> [Exp] -> TransState ()
 callFun name (D.fromList . reverse -> args) = do
@@ -128,3 +162,8 @@ callFun name (D.fromList . reverse -> args) = do
 
     mapM_ pushExp args
     tell [SM.Call sign]
+
+    tell
+        [ SM.TestOutIndicator
+        , SM.JmpIf SM.nonlocalLabelsTableLabel
+        ]

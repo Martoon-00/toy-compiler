@@ -37,6 +37,7 @@ eval executor = \case
         ar <- evalRec a
         ir <- evalRec i
         arrayAccess ar ir
+    LabelE l       -> return $ LabelR l
   where
     evalRec = eval executor
     evalRecV e = evalRec e `valueOnly` "Arithmetic operation on reference"

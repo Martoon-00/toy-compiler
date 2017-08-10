@@ -27,8 +27,8 @@ import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess
                                             checkNoExpResRefs, runWholeRefCountingGc,
                                             valueOnly)
 import           Toy.SM.Data               (ExecState (..), IP, Inst (..), Insts,
-                                            LabelId (..), esIp, esLocals, esStack,
-                                            exitLabel, initFunName)
+                                            LabelId (..), esIp, esLocals, esOutIndicator,
+                                            esStack, exitLabel, initFunName)
 import           Toy.Util.Error            (mapError)
 
 execute :: MonadIO m => Insts -> Exec m ()
@@ -78,6 +78,8 @@ execute insts =
         Label{}     -> step Nop
         Jmp lid     -> do
             ensureStackSize 0 "jump"
+            step (JmpUnsafe lid)
+        JmpUnsafe lid     -> do
             case lid of
                 l@LLabel{} -> do
                     ip <- use esIp
@@ -85,6 +87,7 @@ execute insts =
                     case V.elemIndex (Label l) (V.drop ip insts) of
                         Nothing    -> throwError $ "No label " <> show l <> " ahead"
                         Just relIp -> esIp .= ip + relIp
+
                 other -> (esIp .= ) =<< getLabel other
         JmpIf lid   -> do
             cond <- pop `valueOnly` "If on reference"
@@ -93,8 +96,10 @@ execute insts =
             processCall name args
         JumpToFunEnd -> step $ Jmp exitLabel
         FunExit    -> lift mzero
+        SwitchOutIndicator b -> esOutIndicator .= if b then 1 else 0
+        TestOutIndicator -> push . ValueR =<< use esOutIndicator
         Enter{}    -> throwError "Got into out of nowhere"
-        Nop        -> return ()
+        Nop        -> pass
 
     push v = esStack %= (v:)
     pop = use esStack >>= \case
@@ -103,9 +108,9 @@ execute insts =
     ensureStackSize size reason = do
         st <- use esStack
         when (length st /= size) . throwError $
-            sformat ("Stack has size "%int%", but expected to have "%
-                            int%" instead, reason: "%string)
-                           (length st) size reason
+            sformat ("Stack has size "%int%", but expected to have "
+                    %int%" instead, reason: "%string)
+                    (length st) size reason
     badStackAtFunEnd = sformat ("Not 1 argument on function end: "%shown)
     getLabel :: MonadError Text m => LabelId -> m IP
     getLabel = buildLabelsMap insts
@@ -145,9 +150,10 @@ execute insts =
                 stack <- esStack <<%= drop (length args)
                 entry <- getLabel (FLabel name)
                 let funExecState = ExecState
-                        { _esLocals = M.fromList (zip args stack)
-                        , _esStack  = []
-                        , _esIp     = entry
+                        { _esLocals       = M.fromList (zip args stack)
+                        , _esStack        = []
+                        , _esIp           = entry
+                        , _esOutIndicator = 0
                         }
                 -- run execution with its own `ExecState`, not allowing it to
                 -- infulence on our current state

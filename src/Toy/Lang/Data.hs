@@ -17,7 +17,7 @@ import           Universum                 hiding (toList)
 
 import           Toy.Base                  (FunSign (..), Var (..))
 import           Toy.Exp                   (Exp (..), ExpRes, LocalVars, MonadRefEnv,
-                                            readE, (==:))
+                                            UserLabelId, readE, (==:))
 import           Toy.Util.Error            (mapError)
 
 -- | Statement of a program.
@@ -30,6 +30,8 @@ data Stmt
     | ArrayAssign Exp Exp Exp  -- ^ array, index and value to assign
     | Seq Stmt Stmt
     | Skip
+    | Label UserLabelId
+    | Goto Exp
     deriving (Show)
 
 infix 2 :=

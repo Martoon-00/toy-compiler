@@ -61,6 +61,7 @@ resolveMemRefs Frame{..} = fmap $ traverseOperands %~ \case
     Mem _       -> error "Resolving Mem reference??"
     o@Reg{}     -> o
     o@Const{}   -> o
+    o@GlobalVar{} -> o
   where
     backupSize = length regSymStack
     stSymSize  = fromIntegral fSym

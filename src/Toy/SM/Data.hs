@@ -13,20 +13,22 @@ import           Universum
 
 import           Toy.Base            (BinOp, FunSign (..), Value, Var (..),
                                       stdFunExamples)
-import           Toy.Exp             (ExpRes, LocalVars)
+import           Toy.Exp             (ExpRes, LocalVars, UserLabelId)
 
 type IP = Int
 
 data LabelId
-    = CLabel Int  -- ^ control
-    | FLabel Var  -- ^ function
-    | LLabel Int  -- ^ function-local labels
+    = CLabel Int          -- ^ control
+    | FLabel Var          -- ^ function
+    | LLabel Int          -- ^ function-local labels
+    | ULabel UserLabelId  -- ^ user-defined labels
     deriving (Eq, Ord, Show)
 
 instance Buildable LabelId where
     build (CLabel l) = bprint ("L"%F.build) l
     build (FLabel n) = bprint F.build n
     build (LLabel i) = bprint F.build i
+    build (ULabel i) = bprint (F.build%":") i
 
 newtype JmpLabelForm = JmpLabelForm LabelId
 
@@ -51,9 +53,12 @@ data Inst
     | Label LabelId
     | Jmp LabelId
     | JmpIf LabelId
+    | JmpUnsafe LabelId  -- doesn't check stack emptiness
     | Call FunSign
     | JumpToFunEnd
     | FunExit
+    | SwitchOutIndicator Bool  -- global variable which says whether we're in nonlocal jump
+    | TestOutIndicator
     | Nop
     | Enter Var [Var]  -- ^ function start indicator with fun name and args
     deriving (Show, Eq)
@@ -62,18 +67,21 @@ type Insts = V.Vector Inst
 
 -- | State of execution
 data ExecState = ExecState
-    { _esLocals :: LocalVars
+    { _esLocals       :: LocalVars
       -- ^ local variables values
-    , _esStack  :: [ExpRes]
+    , _esStack        :: [ExpRes]
       -- ^ current stack
-    , _esIp     :: IP
+    , _esIp           :: IP
       -- ^ instruction pointer, number of command to execute next
+    , _esOutIndicator :: Value
+      -- ^ whether value just returned by the function is actually a label to
+      --   jump to
     } deriving (Show)
 
 makeLenses ''ExecState
 
 instance Default ExecState where
-    def = ExecState M.empty [] 0
+    def = ExecState M.empty [] 0 0
 
 initFunName :: Var
 initFunName = "main"
@@ -91,3 +99,9 @@ exitLabel = LLabel 10  -- make them memorable, right?
 
 funResVar :: Var
 funResVar = "_res"
+
+nonlocalLabelsTableLabel :: LabelId
+nonlocalLabelsTableLabel = LLabel 20
+
+outLabelVar :: Var
+outLabelVar = "_label"

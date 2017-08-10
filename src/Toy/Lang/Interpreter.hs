@@ -69,6 +69,10 @@ executeDo = \case
         mapM_ executeDo [stmt0, stmt1]
 
     Skip -> return ()
+
+    Label{} -> error "Labels are not supported by Lang interpreter :/"
+
+    Goto{} -> error "Labels are not supported by Lang interpreter :/"
   where
     eval = E.eval execFun
 

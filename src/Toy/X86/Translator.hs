@@ -23,12 +23,14 @@ import           System.FilePath.Posix ((</>))
 import           System.Process        (proc)
 import           Universum             hiding (Const, forM_)
 
-import           Toy.Base              (FunSign (..), Value)
+import           Toy.Base              (FunSign (..))
 import qualified Toy.SM                as SM
+import           Toy.X86.Convertion    (nTo31)
 import           Toy.X86.Data          (Inst (..), InstContainer, Insts, Operand (..),
                                         Program (..), StackDirection (..), eax, edx, jmp,
                                         ret, withStackSpace, (//), (?))
 import           Toy.X86.Frame         (evalStackShift, mkFrame, resolveMemRefs)
+import           Toy.X86.Globals       (outIndicatorVar)
 import           Toy.X86.Optimize      (optimize)
 import           Toy.X86.Process       (readCreateProcess)
 import           Toy.X86.SymStack      (SymStackHolder, accountHardMem, allocSymStackOp,
@@ -142,7 +144,7 @@ step = \case
             ]
         killReference i
         killReference a
-        replicateM_ 2 popSymStackOp  -- preserve for gc
+        replicateM_ 2 popSymStackOp
     SM.Label lid -> tell [Label lid]
     SM.Jmp   lid -> tell [jmp lid]
     SM.JmpIf lid -> do
@@ -152,9 +154,16 @@ step = \case
             , BinOp "cmp" (Const $ nTo31 0) eax
             , Jmp "ne" lid
             ]
+    SM.JmpUnsafe lid -> step (SM.Jmp lid)
     SM.Call (FunSign name args) -> mkCall name (length args) True
     SM.JumpToFunEnd -> do
         tell [jmp SM.exitLabel]
+    SM.SwitchOutIndicator b -> do
+        let v = nTo31 $ if b then 0 else 1
+        tell [Mov (Const v) (GlobalVar outIndicatorVar)]
+    SM.TestOutIndicator -> do
+        op <- allocSymStackOp
+        tell [Mov (GlobalVar outIndicatorVar) eax, Mov eax op]
     SM.FunExit -> do
         op <- popSymStackOp
         tell [Mov op eax]
@@ -288,11 +297,6 @@ in31BA op1 op2 insts = mconcat
     , to31 op1, to31 op2
     ]
 
--- Convertions between 31-bit (with lowest bit = 1) numbers and normal numbers.
--- Normal number: sign  sign  value
---                  1     1     30
--- 31-bit number: sign  value   1
---                  1     30    1
 from31, to31 :: InstContainer r => Operand -> r
 from31 op = "from31" ?
     [ UnaryOp "sarl" op
@@ -306,9 +310,6 @@ to31 op   = "to31" ?
     , BinOp "andl" edx op
     , BinOp "addl" eax op
     ]
-
-nTo31 :: Value -> Int32
-nTo31 x = fromIntegral x * 2 + 1
 
 binop :: InstContainer r => Operand -> Operand -> Text -> r
 binop op1 op2 action =

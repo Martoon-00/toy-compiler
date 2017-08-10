@@ -13,6 +13,8 @@ import           Universum
 import           Toy.Base.Data  (BinOp, UnaryOp, Value, Var)
 import           Toy.Exp.RefEnv (MRef, MRefId)
 
+type UserLabelId = Int
+
 -- | Expression
 data Exp
     = ValueE Value
@@ -22,6 +24,7 @@ data Exp
     | FunE Var [Exp]
     | ArrayUninitE Int  -- ^ uninitialized array
     | ArrayAccessE Exp Exp  -- array & index
+    | LabelE UserLabelId
     deriving (Show)
 
 instance IsString Exp where
@@ -58,11 +61,13 @@ instance Show ArrayInnards where
 data ExpRes
    = ValueR Value
    | ArrayR (MRef (Maybe ArrayInnards))
+   | LabelR UserLabelId
    | NotInitR
 
 instance Show ExpRes where
     show (ValueR n) = show n
     show (ArrayR _) = "<array>"
+    show (LabelR v) = ":" <> show v
     show NotInitR   = "<undefined>"
 
 makeLenses ''ArrayInnards

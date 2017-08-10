@@ -40,10 +40,12 @@ import           GHC.Exts               (IsList (..))
 import           GHC.Exts               (toList)
 import           Prelude                hiding (null, unlines)
 import qualified Text.RawString.QQ      as QQ
-import           Universum              (Container (null), One (..))
+import           Universum              (Container (null), One (..), (<&>))
 
 import           Toy.Base               (Var)
 import           Toy.SM                 (JmpLabelForm (..), LabelId)
+import           Toy.X86.Convertion     (nTo31)
+import           Toy.X86.Globals        (globalVars)
 
 -- TODO: Aaa, 100500 constructors. Decrease?
 data Operand
@@ -65,6 +67,8 @@ data Operand
     -- ^ Stack reference. Temporally used in conversion from symbolic stack
     | Backup Int
     -- ^ Space for registers backup on function call
+    | GlobalVar Var
+    -- ^ Global variables
     deriving (Show, Eq)
 
 eax, edx, esi, edi, esp :: Operand
@@ -81,6 +85,7 @@ instance Buildable Operand where
     build (HardMem i)      = build (Mem i)
     build (HeapMem b)      = bprint ("("%F.build%")") b
     build (HeapMemExt a b) = bprint ("("%F.build%", "%F.build%", 4)") a b
+    build (GlobalVar v)    = build v
     build (Local _)        = error "Local var reference remains upon compilation"
     build (Stack _)        = error "Stack reference remains upon compilation"
     build (Backup _)       = error "Backup reference remains upon compilation"
@@ -155,14 +160,24 @@ newtype Program = Program Insts
     deriving (Eq, Show)
 
 instance Buildable Program where
-    build (Program insts) =
-        prefix <> mconcat (("\t" <>) . (<> "\n") . build <$> toList insts)
+    build (Program insts) = dataSection <> codeSection
       where
-        prefix = [QQ.r|
+        dataSection = dataPrefix <> dataBody :: Builder
+        dataPrefix =
+            [QQ.r|
+.section     .data
+|] :: Builder
+        dataBody = mconcat $ globalVars <&> \(name, defVal) ->
+            F.bprint (F.build%":    .int "%F.build%"\n") name (nTo31 defVal) :: Builder
+
+        codePrefix =
+            [QQ.r|
 .section     .text
 .global      main
 
 |]
+        codeSection =
+            codePrefix <> mconcat (("\t" <>) . (<> "\n") . build <$> toList insts)
 
 withStackSpace
     :: InstContainer l => Int -> l -> l
