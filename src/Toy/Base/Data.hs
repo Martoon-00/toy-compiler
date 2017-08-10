@@ -12,6 +12,7 @@ import           Prelude                    (Read (readsPrec))
 import qualified Prelude
 import           Universum
 
+import qualified Toy.Constants              as C
 import           Toy.Util.Bits              (clearPHBit, setPHBit)
 
 -- | Variable name
@@ -37,7 +38,9 @@ instance Bounded Value where
     maxBound = Value $ clearPHBit maxBound
 
 keep31 :: Int32 -> Value
-keep31 x = Value $ (if testBit x 31 then setBit else clearBit) x 30
+keep31 x
+    | C.use31Arith = Value $ (if testBit x 31 then setBit else clearBit) x 30
+    | otherwise    = Value x
 
 instance Num Value where
     Value a + Value b = keep31 $ a + b

@@ -2,6 +2,7 @@ sudo: required
 language: c
 env:
   - TESTS_MODE=build-in-tests TEST_RUNS=1000
+  - TESTS_MODE=build-in-tests TEST_RUNS=1000 DISABLE_GC=1
   - TESTS_MODE=travis-tests
 cache:
   directories:

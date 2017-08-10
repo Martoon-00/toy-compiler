@@ -7,17 +7,16 @@ import           Control.Monad              (forever)
 import           Control.Monad.Trans        (liftIO)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Data.Conduit               (awaitForever, yield, ($$), (=$=))
-import           Data.Maybe                 (fromMaybe)
 import qualified Data.Text.IO               as T
 import           Formatting                 (sformat, string, (%))
 import           GHC.IO.Handle              (hFlush)
 import           GHC.IO.Handle.FD           (stdout)
 import           Prelude                    (readLn)
-import           System.Environment         (lookupEnv)
 import           System.FilePath.Lens       (basename, filename)
 import           Universum                  hiding (interact)
 
 import           Toy.Base                   (Exec)
+import           Toy.Constants              (runtimePath)
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
 import           Toy.Util                   (parseData)
@@ -35,7 +34,6 @@ launch [mode, inputFile] = do
         "-o" -> do
             let insts      = X86.compile $ either error identity $ L.toIntermediate prog
                 outputPath = inputFile & filename %~ view basename
-            runtimePath <- fromMaybe "./runtime" <$> lookupEnv "RC_RUNTIME"
             X86.produceBinary runtimePath outputPath insts
                 `whenLeftM` \err -> error $ "Compilation error: " <> err
         other -> error $ sformat ("Unrecognised mode: "%string) other

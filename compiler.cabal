@@ -12,6 +12,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Toy.Base
+                       Toy.Constants
                        Toy.Execution
                        Toy.Exp
                        Toy.Lang

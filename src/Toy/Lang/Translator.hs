@@ -23,6 +23,7 @@ import           Formatting                 (build, sformat, (%))
 import           Universum                  hiding (find, pass)
 
 import           Toy.Base                   (FunSign (..), Var)
+import qualified Toy.Constants              as C
 import           Toy.Exp.Data               (Exp (..), UserLabelId)
 import qualified Toy.Lang.Data              as L
 import qualified Toy.SM                     as SM
@@ -59,17 +60,20 @@ toIntermediate (L.Program funcs main) = do
         [ SM.Load var, SM.Call $ FunSign "array_free" ["X"], SM.Drop ]
 
     bracketLocals :: TransState () -> TransState ()
-    bracketLocals action = pass $ do
-        action
-        return . pure $ \insts -> do
-            let locals = SM.gatherLocals insts
-            mconcat
-                [ foldMap initRef locals  -- don't want to clean trash afterwards
-                , insts
-                , foldMap freeRef (S.delete SM.funResVar locals)
-                ]
+    bracketLocals action
+        | C.useGC = pass $ do
+            action
+            return . pure $ \insts -> do
+                let locals = SM.gatherLocals insts
+                mconcat
+                    [ foldMap initRef locals  -- don't want to clean trash afterwards
+                    , insts
+                    , foldMap freeRef (S.delete SM.funResVar locals)
+                    ]
+        | otherwise = action
 
-    memCheck = tell [ SM.Call $ FunSign "ensure_no_allocations" [], SM.Drop ]
+    memCheck = when C.useGC $
+        tell [ SM.Call $ FunSign "ensure_no_allocations" [], SM.Drop ]
 
     makeTransition :: UserLabelId -> TransState ()
     makeTransition userL =

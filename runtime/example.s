@@ -1,259 +1,214 @@
+.section     .data
+       out_indicator:    .int 1
+       
        .section     .text
        .global      main
-
+       
        	# Function "main"
        	int3
        	main:
-       	subl	$24,	%esp
-       	movl	$0,	%eax
-       	movl	%eax,	0(%esp)
+       	subl	$36,	%esp
        	movl	$0,	%eax
        	movl	%eax,	4(%esp)
-       	movl	$11,	%ecx
-       	movl	$7,	%ebx
-       	# call
+       	movl	$0,	%eax
+       	movl	%eax,	8(%esp)
+       	movl	$0,	%eax
+       	movl	%eax,	12(%esp)
+       	movl	$0,	%eax
+       	movl	%eax,	16(%esp)
+       	movl	$1,	%ecx
+       	# call  
        	# buckup
-       	movl	%ecx,	8(%esp)
-       	movl	%ebx,	12(%esp)
+       	movl	%ecx,	20(%esp)
        	# buckup end
-       	subl	$8,	%esp
-       	movl	%ebx,	%eax
-       	movl	%eax,	0(%esp)
-       	movl	%ecx,	%eax
-       	movl	%eax,	4(%esp)
-       	call	arrmake
-       	movl	%eax,	%esi
-       	addl	$8,	%esp
-       	# restore
-       	movl	8(%esp),	%ecx
-       	movl	12(%esp),	%ebx
-       	# restore end
-
-push %esi
-push %ebx
-push %ecx
-push $30
-call debug_write
-pop %eax
-pop %ecx
-pop %ebx
-pop %esi
-
-       	# buckup
-       	movl	%ecx,	8(%esp)
-       	movl	%ebx,	12(%esp)
-       	movl	%esi,	16(%esp)
-       	# buckup end
-       	# gc args
        	subl	$4,	%esp
-       	movl	%ebx,	%eax
+       	movl	%ecx,	%eax
        	movl	%eax,	0(%esp)
-       	call	ref_counter_decrement
-       	movl	$0,	%eax
+       	call	allocate
        	movl	%eax,	%ebx
        	addl	$4,	%esp
-       	# gc args end
        	# restore
-       	movl	8(%esp),	%ecx
-       	movl	12(%esp),	%ebx
-       	movl	16(%esp),	%esi
+       	movl	20(%esp),	%ecx
        	# restore end
-       	# buckup
-       	movl	%ecx,	8(%esp)
-       	movl	%ebx,	12(%esp)
-       	movl	%esi,	16(%esp)
-       	# buckup end
-       	# gc args
-       	subl	$4,	%esp
-       	movl	%ecx,	%eax
-       	movl	%eax,	0(%esp)
-       	call	ref_counter_decrement
-       	movl	$0,	%eax
-       	movl	%eax,	%ecx
-       	addl	$4,	%esp
-       	# gc args end
-       	# restore
-       	movl	8(%esp),	%ecx
-       	movl	12(%esp),	%ebx
-       	movl	16(%esp),	%esi
-       	# restore end
-       	movl	%esi,	%eax
+       	movl	%ebx,	%eax
        	movl	%eax,	%ecx
        	# call end
        	movl	%ecx,	%eax
-       	movl	0(%esp),	%edx
-       	movl	%eax,	0(%esp)
+       	movl	12(%esp),	%edx
+       	movl	%eax,	12(%esp)
        	movl	%edx,	%ecx
+       	movl	12(%esp),	%eax
+       	movl	%eax,	%ecx
+       	movl	$1,	%ebx
+       	movl	$3,	%esi
+       	# array set
+       	# from31
+       	sarl	%ebx
+       	# from31 end
        	movl	%ecx,	%eax
-       	# call
+       	movl	%ebx,	%edx
+       	leal	(%eax, %edx, 4),	%eax
+       	movl	(%eax),	%edx
+       	movl	%edx,	%ebx
+       	movl	%esi,	%edx
+       	movl	%edx,	(%eax)
+       	# array set end
+       	movl	$1,	%ecx
+       	# call  
        	# buckup
-       	movl	%ecx,	8(%esp)
+       	movl	%ecx,	20(%esp)
        	# buckup end
        	subl	$4,	%esp
        	movl	%ecx,	%eax
        	movl	%eax,	0(%esp)
-       	call	ref_counter_decrement
+       	call	allocate
        	movl	%eax,	%ebx
        	addl	$4,	%esp
        	# restore
-       	movl	8(%esp),	%ecx
+       	movl	20(%esp),	%ecx
        	# restore end
        	movl	%ebx,	%eax
        	movl	%eax,	%ecx
        	# call end
+       	movl	%ecx,	%eax
+       	movl	16(%esp),	%edx
+       	movl	%eax,	16(%esp)
+       	movl	%edx,	%ecx
+       	movl	16(%esp),	%eax
+       	movl	%eax,	%ecx
+       	movl	$1,	%ebx
+       	movl	$5,	%esi
+       	# array set
+       	# from31
+       	sarl	%ebx
+       	# from31 end
+       	movl	%ecx,	%eax
+       	movl	%ebx,	%edx
+       	leal	(%eax, %edx, 4),	%eax
+       	movl	(%eax),	%edx
+       	movl	%edx,	%ebx
+       	movl	%esi,	%edx
+       	movl	%edx,	(%eax)
+       	# array set end
+       	movl	$1,	%ecx
+       	# call  
+       	# buckup
+       	movl	%ecx,	20(%esp)
+       	# buckup end
+       	subl	$4,	%esp
+       	movl	%ecx,	%eax
+       	movl	%eax,	0(%esp)
+       	call	allocate
+       	movl	%eax,	%ebx
+       	addl	$4,	%esp
+       	# restore
+       	movl	20(%esp),	%ecx
+       	# restore end
+       	movl	%ebx,	%eax
+       	movl	%eax,	%ecx
+       	# call end
+       	movl	%ecx,	%eax
+       	movl	8(%esp),	%edx
+       	movl	%eax,	8(%esp)
+       	movl	%edx,	%ecx
+       	movl	8(%esp),	%eax
+       	movl	%eax,	%ecx
+       	movl	$1,	%ebx
+       	movl	12(%esp),	%eax
+       	movl	%eax,	%esi
+       	# array set
+       	# from31
+       	sarl	%ebx
+       	# from31 end
+       	movl	%ecx,	%eax
+       	movl	%ebx,	%edx
+       	leal	(%eax, %edx, 4),	%eax
+       	movl	(%eax),	%edx
+       	movl	%edx,	%ebx
+       	movl	%esi,	%edx
+       	movl	%edx,	(%eax)
+       	# array set end
+       	movl	8(%esp),	%eax
+       	movl	%eax,	%ecx
+       	movl	$1,	%ebx
+       	movl	16(%esp),	%eax
+       	movl	%eax,	%esi
+       	# array set
+       	# from31
+       	sarl	%ebx
+       	# from31 end
+       	movl	%ecx,	%eax
+       	movl	%ebx,	%edx
+       	leal	(%eax, %edx, 4),	%eax
+       	movl	(%eax),	%edx
+       	movl	%edx,	%ebx
+       	movl	%esi,	%edx
+       	movl	%edx,	(%eax)
+       	# array set end
        	movl	$0,	%ecx
        	movl	%ecx,	%eax
        	movl	4(%esp),	%edx
        	movl	%eax,	4(%esp)
        	movl	%edx,	%ecx
-       	movl	%ecx,	%eax
-       	# call
-       	# buckup
-       	movl	%ecx,	8(%esp)
-       	# buckup end
-       	subl	$4,	%esp
-       	movl	%ecx,	%eax
-       	movl	%eax,	0(%esp)
-       	call	ref_counter_decrement
-       	movl	%eax,	%ebx
-       	addl	$4,	%esp
-       	# restore
-       	movl	8(%esp),	%ecx
-       	# restore end
-       	movl	%ebx,	%eax
-       	movl	%eax,	%ecx
-       	# call end
+       	jmp     10f   
+       	20:
        	10:
-
-
-push %esi
-push %ebx
-push %ecx
-push $10
-call debug_write
-pop %eax
-pop %ecx
-pop %ebx
-pop %esi
-
-
-        movl	0(%esp),	%eax
+       	movl	8(%esp),	%eax
        	movl	%eax,	%ecx
-       	movl	%eax,	%ebx
-       	# call
+       	# call  
        	# buckup
-       	movl	%ecx,	8(%esp)
-       	movl	%ebx,	12(%esp)
-       	# buckup end
-       	subl	$4,	%esp
-       	movl	%ebx,	%eax
-       	movl	%eax,	0(%esp)
-       	call	ref_counter_increment
-       	movl	%eax,	%esi
-       	addl	$4,	%esp
-       	# restore
-       	movl	8(%esp),	%ecx
-       	movl	12(%esp),	%ebx
-       	# restore end
-       	movl	%esi,	%eax
-       	movl	%eax,	%ebx
-       	# call end
-
-push %esi
-push %ebx
-push %ecx
-push $5
-call debug_write
-pop %eax
-pop %ecx
-pop %ebx
-pop %esi
-
-       	# call
-       	# buckup
-       	movl	%ecx,	8(%esp)
+       	movl	%ecx,	20(%esp)
        	# buckup end
        	subl	$4,	%esp
        	movl	%ecx,	%eax
        	movl	%eax,	0(%esp)
-       	call	free
+       	call	array_free
        	movl	%eax,	%ebx
        	addl	$4,	%esp
        	# restore
-       	movl	8(%esp),	%ecx
-       	# restore end
-       	# buckup
-       	movl	%ecx,	8(%esp)
-       	movl	%ebx,	12(%esp)
-       	# buckup end
-       	# gc args
-       	subl	$4,	%esp
-       	movl	%ecx,	%eax
-       	movl	%eax,	0(%esp)
-       	call	ref_counter_decrement
-       	movl	$0,	%eax
-       	movl	%eax,	%ecx
-       	addl	$4,	%esp
-       	# gc args end
-       	# restore
-       	movl	8(%esp),	%ecx
-       	movl	12(%esp),	%ebx
+       	movl	20(%esp),	%ecx
        	# restore end
        	movl	%ebx,	%eax
        	movl	%eax,	%ecx
        	# call end
-       	movl	%ecx,	%eax
-       	# call
+       	movl	12(%esp),	%eax
+       	movl	%eax,	%ecx
+       	# call  
        	# buckup
-       	movl	%ecx,	8(%esp)
+       	movl	%ecx,	20(%esp)
        	# buckup end
        	subl	$4,	%esp
        	movl	%ecx,	%eax
        	movl	%eax,	0(%esp)
-       	call	ref_counter_decrement
+       	call	array_free
        	movl	%eax,	%ebx
        	addl	$4,	%esp
        	# restore
-       	movl	8(%esp),	%ecx
+       	movl	20(%esp),	%ecx
        	# restore end
        	movl	%ebx,	%eax
        	movl	%eax,	%ecx
        	# call end
-
-push %esi
-push %ebx
-push %ecx
-push $1
-call debug_write
-pop %eax
-pop %ecx
-pop %ebx
-pop %esi
-
-       	# call
-       	call	ensure_no_allocations
+       	movl	16(%esp),	%eax
        	movl	%eax,	%ecx
-       	movl	%eax,	%ecx
-       	# call end
-       	movl	%ecx,	%eax
-       	# call
+       	# call  
        	# buckup
-       	movl	%ecx,	8(%esp)
+       	movl	%ecx,	20(%esp)
        	# buckup end
        	subl	$4,	%esp
        	movl	%ecx,	%eax
        	movl	%eax,	0(%esp)
-       	call	ref_counter_decrement
+       	call	array_free
        	movl	%eax,	%ebx
        	addl	$4,	%esp
        	# restore
-       	movl	8(%esp),	%ecx
+       	movl	20(%esp),	%ecx
        	# restore end
        	movl	%ebx,	%eax
        	movl	%eax,	%ecx
        	# call end
        	movl	4(%esp),	%eax
        	movl	%eax,	%ecx
-       	addl	$24,	%esp
+       	addl	$36,	%esp
        	ret
        	# Function "main" end

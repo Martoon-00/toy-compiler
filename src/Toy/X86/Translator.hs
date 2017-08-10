@@ -24,6 +24,7 @@ import           System.Process        (proc)
 import           Universum             hiding (Const, forM_)
 
 import           Toy.Base              (FunSign (..))
+import qualified Toy.Constants         as C
 import qualified Toy.SM                as SM
 import           Toy.X86.Convertion    (nTo31)
 import           Toy.X86.Data          (Inst (..), InstContainer, Insts, Operand (..),
@@ -188,7 +189,7 @@ step = \case
 
             tell [Mov eax tmpTop]
 
-        when doGc $ do
+        when (C.useGC && doGc) $ do
             forM_ stackArgOps $ \op -> do
                 toBackupWithRes <- occupiedRegs
                 backupingOps toBackupWithRes $
@@ -198,7 +199,7 @@ step = \case
                         , Mov eax (HardMem 0)
                         , Call "ref_counter_decrement"
                         ]
-            censor ("ref cleaup" ?) $
+            censor ("ref cleanup" ?) $
                 forM_ stackArgOps $ \op ->
                     tell
                         [ Mov (Const 0) eax
@@ -214,8 +215,8 @@ step = \case
         tell [Mov op eax, Mov eax op']
         mkCall funName 1 False
         void popSymStackOp
-    addReference = singleOpCall "ref_counter_increment"
-    killReference = singleOpCall "ref_counter_decrement"
+    addReference  = when C.useGC . singleOpCall "ref_counter_increment"
+    killReference = when C.useGC . singleOpCall "ref_counter_decrement"
 
 separateFuns :: SM.Insts -> [SM.Insts]
 separateFuns insts =
@@ -298,18 +299,22 @@ in31BA op1 op2 insts = mconcat
     ]
 
 from31, to31 :: InstContainer r => Operand -> r
-from31 op = "from31" ?
-    [ UnaryOp "sarl" op
-    ]
-to31 op   = "to31" ?
-    [ Mov op eax
-    , BinOp "andl" (Const $ 2 ^ (31 :: Int)) eax
-    , UnaryOp "sall" op
-    , BinOp "addl" (Const 1) op
-    , Mov (Const $ 2 ^ (31 :: Int) - 1) edx
-    , BinOp "andl" edx op
-    , BinOp "addl" eax op
-    ]
+from31 op
+    | C.use31Arith = "from31" ?
+        [ UnaryOp "sarl" op
+        ]
+    | otherwise = []
+to31 op
+    | C.use31Arith = "to31" ?
+        [ Mov op eax
+        , BinOp "andl" (Const $ 2 ^ (31 :: Int)) eax
+        , UnaryOp "sall" op
+        , BinOp "addl" (Const 1) op
+        , Mov (Const $ 2 ^ (31 :: Int) - 1) edx
+        , BinOp "andl" edx op
+        , BinOp "addl" eax op
+        ]
+    | otherwise = []
 
 binop :: InstContainer r => Operand -> Operand -> Text -> r
 binop op1 op2 action =
