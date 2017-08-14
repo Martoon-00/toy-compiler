@@ -27,8 +27,9 @@ import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess
                                             checkNoExpResRefs, runWholeRefCountingGc,
                                             valueOnly)
 import           Toy.SM.Data               (ExecState (..), IP, Inst (..), Insts,
-                                            LabelId (..), esIp, esLocals, esOutIndicator,
-                                            esStack, exitLabel, initFunName)
+                                            LabelId (..), esGlobals, esIp, esLocals,
+                                            esOutIndicator, esStack, exitLabel,
+                                            initFunName)
 import           Toy.Util.Error            (mapError)
 
 execute :: MonadIO m => Insts -> Exec m ()
@@ -78,8 +79,6 @@ execute insts =
         Label{}     -> step Nop
         Jmp lid     -> do
             ensureStackSize 0 "jump"
-            step (JmpUnsafe lid)
-        JmpUnsafe lid     -> do
             case lid of
                 l@LLabel{} -> do
                     ip <- use esIp
@@ -149,11 +148,12 @@ execute insts =
             _ -> do
                 stack <- esStack <<%= drop (length args)
                 entry <- getLabel (FLabel name)
+                preGlobals <- use esGlobals
                 let funExecState = ExecState
-                        { _esLocals       = M.fromList (zip args stack)
-                        , _esStack        = []
-                        , _esIp           = entry
-                        , _esOutIndicator = 0
+                        { _esLocals  = M.fromList (zip args stack)
+                        , _esStack   = []
+                        , _esIp      = entry
+                        , _esGlobals = preGlobals
                         }
                 -- run execution with its own `ExecState`, not allowing it to
                 -- infulence on our current state
@@ -165,6 +165,7 @@ execute insts =
                 case _esStack funEndExecState of
                     [x]   -> esStack %= (x:)
                     other -> throwError $ badStackAtFunEnd other
+                esGlobals .= _esGlobals funEndExecState
 
 
 buildLabelsMap :: MonadError Text m => Insts -> LabelId -> m IP

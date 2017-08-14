@@ -42,6 +42,7 @@ toIntermediate (L.Program funcs main) = do
   where
     convertFun (FunSign name args, stmt) = do
         tell [SM.Enter name args, SM.Label (SM.FLabel name)]
+        tell [SM.StoreInit SM.outLabelVar]
         bracketLocals $ do
             bracketNonlocalLabels $ do
                 convert stmt
@@ -88,15 +89,12 @@ toIntermediate (L.Program funcs main) = do
     bracketNonlocalLabels action = pass $ do
         (_, insts) <- listen action
         let ulabels  = SM.gatherLocalULabels insts
-        let hasGotos = SM.countOutLabels insts
         (_, table) <- listen $ mapM makeTransition (toList ulabels)
         return . pure . const $
             mconcat $
                 [ insts
                 , [SM.Label SM.nonlocalLabelsTableLabel]
-                ]
-            <> if not hasGotos then [] else
-                [ [SM.SwitchOutIndicator False]
+                , [SM.SwitchOutIndicator False]
                 , table
                 , [SM.Load SM.outLabelVar, SM.Store SM.funResVar]
                 , [SM.SwitchOutIndicator True, SM.Jmp SM.exitLabel]
@@ -168,6 +166,8 @@ callFun name (D.fromList . reverse -> args) = do
     tell [SM.Call sign]
 
     tell
-        [ SM.TestOutIndicator
+        [ SM.Store SM.outLabelVar
+        , SM.TestOutIndicator
         , SM.JmpIf SM.nonlocalLabelsTableLabel
+        , SM.Load SM.outLabelVar
         ]

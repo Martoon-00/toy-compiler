@@ -14,8 +14,9 @@ gatherLocals :: Foldable t => t Inst -> S.Set Var
 gatherLocals = foldMap gather
   where
     gather :: Inst -> S.Set Var
-    gather (Store v) = one v
-    gather _         = mempty
+    gather (Store v)     = one v
+    gather (StoreInit v) = one v
+    gather _             = mempty
 
 gatherLocalULabels :: Foldable t => t Inst -> S.Set UserLabelId
 gatherLocalULabels = foldMap $ \case

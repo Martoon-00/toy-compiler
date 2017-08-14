@@ -52,8 +52,7 @@ data Inst
     | ArraySet
     | Label LabelId
     | Jmp LabelId
-    | JmpIf LabelId
-    | JmpUnsafe LabelId  -- doesn't check stack emptiness
+    | JmpIf LabelId  -- no unsafe versions - not to ruin symstack invariants in X86
     | Call FunSign
     | JumpToFunEnd
     | FunExit
@@ -65,23 +64,37 @@ data Inst
 
 type Insts = V.Vector Inst
 
--- | State of execution
-data ExecState = ExecState
-    { _esLocals       :: LocalVars
-      -- ^ local variables values
-    , _esStack        :: [ExpRes]
-      -- ^ current stack
-    , _esIp           :: IP
-      -- ^ instruction pointer, number of command to execute next
-    , _esOutIndicator :: Value
+-- | Global stuff of execution
+data GlobalState = GlobalState
+    { _gsOutIndicator :: Value
       -- ^ whether value just returned by the function is actually a label to
       --   jump to
+    } deriving (Show)
+
+makeLenses ''GlobalState
+
+instance Default GlobalState where
+    def = GlobalState 0
+
+-- | State of execution
+data ExecState = ExecState
+    { _esLocals  :: LocalVars
+      -- ^ local variables values
+    , _esStack   :: [ExpRes]
+      -- ^ current stack
+    , _esGlobals :: GlobalState
+      -- ^ global variables
+    , _esIp      :: IP
+      -- ^ instruction pointer, number of command to execute next
     } deriving (Show)
 
 makeLenses ''ExecState
 
 instance Default ExecState where
-    def = ExecState M.empty [] 0 0
+    def = ExecState M.empty [] def 0
+
+esOutIndicator :: Lens' ExecState Value
+esOutIndicator = esGlobals . gsOutIndicator
 
 initFunName :: Var
 initFunName = "main"

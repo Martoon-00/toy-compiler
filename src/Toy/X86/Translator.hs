@@ -155,7 +155,6 @@ step = \case
             , BinOp "cmp" (Const $ nTo31 0) eax
             , Jmp "ne" lid
             ]
-    SM.JmpUnsafe lid -> step (SM.Jmp lid)
     SM.Call (FunSign name args) -> mkCall name (length args) True
     SM.JumpToFunEnd -> do
         tell [jmp SM.exitLabel]

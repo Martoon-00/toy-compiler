@@ -49,6 +49,7 @@ namespace Arrays {
 
         if (!ever_allocated.count(to_raw_ptr(ptr))) {
             std::cerr << "False reference!: " << ptr << std::endl;
+            throw std::runtime_error("Bodyaga!");
             return false;
         }
 
