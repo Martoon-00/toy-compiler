@@ -1,13 +1,14 @@
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Toy.Lang.Translator
     ( toIntermediate
     ) where
 
 import           Control.Applicative        ((<|>))
-import           Control.Lens               (ix, (<<+=))
+import           Control.Lens               (at, ix, makeLenses, (<<+=))
 import           Control.Monad              (replicateM)
-import           Control.Monad.Error.Class  (throwError)
+import           Control.Monad.Error.Class  (catchError, throwError)
 import           Control.Monad.State        (MonadState)
 import           Control.Monad.Trans.Except (ExceptT, runExceptT)
 import           Control.Monad.Trans.Maybe  (MaybeT (..))
@@ -24,33 +25,47 @@ import           Universum                  hiding (find, pass)
 
 import           Toy.Base                   (FunSign (..), Var)
 import qualified Toy.Constants              as C
-import           Toy.Exp.Data               (Exp (..), UserLabelId)
+import qualified Toy.Exp.Data               as E
 import qualified Toy.Lang.Data              as L
+import           Toy.Lang.Util              (allFuns, gatherULabels)
 import qualified Toy.SM                     as SM
+import           Toy.Util                   (foldMapNoDups)
 
 type LabelsCounter = Int
 
+type ULabelsMap = M.Map E.UserLabelId SM.UserLabelId
+
+data TransEnv = TransEnv
+    { _teFunDecls   :: L.FunDecls
+    , _teULabelsMap :: ULabelsMap
+    }
+
+makeLenses ''TransEnv
+
 type TransState =
-    RWST L.FunDecls (D.DList SM.Inst) LabelsCounter $
+    RWST TransEnv (D.DList SM.Inst) LabelsCounter $
     ExceptT Text Identity
 
 toIntermediate :: L.Program -> Either Text SM.Insts
-toIntermediate (L.Program funcs main) = do
-    fmap (V.fromList . D.toList) . execTransState funcs $ do
+toIntermediate prog@(L.Program funcs main) = do
+    transEnv <- prepareTransEnv prog
+    fmap (V.fromList . D.toList) . execTransState transEnv $ do
         mapM_ convertFun $ snd <$> M.toList funcs
         convertFun (FunSign SM.initFunName [], main)
   where
+
     convertFun (FunSign name args, stmt) = do
+        let inMain = name == SM.initFunName
         tell [SM.Enter name args, SM.Label (SM.FLabel name)]
         tell [SM.StoreInit SM.outLabelVar]
         bracketLocals $ do
-            bracketNonlocalLabels $ do
+            bracketNonlocalLabels inMain $ do
                 convert stmt
                 -- could just push on stack, but jump after that would fail due to
                 -- SM interpreter laws
                 tell [SM.PushNull, SM.Store SM.funResVar, SM.Jmp SM.exitLabel]
             tell [SM.Label SM.exitLabel]
-        when (name == SM.initFunName) memCheck
+        when inMain memCheck
         tell [SM.LoadNoGc SM.funResVar, SM.FunExit]
 
     initRef :: Var -> D.DList SM.Inst
@@ -76,7 +91,7 @@ toIntermediate (L.Program funcs main) = do
     memCheck = when C.useGC $
         tell [ SM.Call $ FunSign "ensure_no_allocations" [], SM.Drop ]
 
-    makeTransition :: UserLabelId -> TransState ()
+    makeTransition :: SM.UserLabelId -> TransState ()
     makeTransition userL =
         tell
             [ SM.Load SM.outLabelVar
@@ -85,25 +100,43 @@ toIntermediate (L.Program funcs main) = do
             , SM.JmpIf (SM.ULabel userL)
             ]
 
-    bracketNonlocalLabels :: TransState () -> TransState ()
-    bracketNonlocalLabels action = pass $ do
+    bracketNonlocalLabels :: Bool -> TransState () -> TransState ()
+    bracketNonlocalLabels inMain action = pass $ do
         (_, insts) <- listen action
-        let ulabels  = SM.gatherLocalULabels insts
+        let ulabels = SM.gatherULabels insts
         (_, table) <- listen $ mapM makeTransition (toList ulabels)
         return . pure . const $
-            mconcat $
+            mconcat
                 [ insts
                 , [SM.Label SM.nonlocalLabelsTableLabel]
-                , [SM.SwitchOutIndicator False]
+                , [SM.SwitchOutIndicator False]  -- TODO: remove?
                 , table
-                , [SM.Load SM.outLabelVar, SM.Store SM.funResVar]
-                , [SM.SwitchOutIndicator True, SM.Jmp SM.exitLabel]
                 ]
+            <> if inMain
+                 then [ SM.Interrupt ]
+                 else
+                      [ SM.Load SM.outLabelVar
+                      , SM.Store SM.funResVar
+                      , SM.SwitchOutIndicator True
+                      , SM.Jmp SM.exitLabel
+                      ]
 
 
-execTransState :: L.FunDecls -> TransState () -> Either Text (D.DList SM.Inst)
+
+execTransState :: TransEnv -> TransState () -> Either Text (D.DList SM.Inst)
 execTransState funcs action =
     runIdentity . runExceptT $ snd <$> evalRWST action funcs 0
+
+prepareTransEnv :: L.Program -> Either Text TransEnv
+prepareTransEnv prog = do
+    let bodies = allFuns prog
+    perFunULabels <- mapM gatherULabels bodies
+    uLabels <- maybe (throwError "Duplicated label!") pure $
+               foldMapNoDups identity perFunULabels
+
+    let _teULabelsMap = M.fromList . flip zip [1000..] $ toList uLabels
+        _teFunDecls = L.pFunDecls prog
+    return TransEnv{..}
 
 convert :: L.Stmt -> TransState ()
 convert L.Skip         = tell [SM.Nop]
@@ -129,7 +162,9 @@ convert (L.ArrayAssign a i e) = do
     pushExp i
     pushExp e
     tell [SM.ArraySet]
-convert (L.Label l) = tell [SM.Label (SM.ULabel l)]
+convert (L.Label l) = do
+    l' <- convertULabel l `catchError` error
+    tell [SM.Label (SM.ULabel l')]
 convert (L.Goto e) = do
     pushExp e
     tell [SM.Store SM.outLabelVar, SM.Jmp SM.nonlocalLabelsTableLabel]
@@ -137,28 +172,35 @@ convert (L.Goto e) = do
 genLabel :: MonadState LabelsCounter m => m SM.LabelId
 genLabel = SM.CLabel <$> (identity <<+= 1)
 
+convertULabel :: E.UserLabelId -> TransState SM.UserLabelId
+convertULabel l' =
+    maybe (throwError $ sformat ("Uknown label: "%build) l') pure =<<
+    view (teULabelsMap . at l')
+
 -- | Gives instructions which effectively push value, which equals to given
 -- expression, on stack.
-pushExp :: Exp -> TransState ()
-pushExp (ValueE k)    = tell [SM.Push k]
-pushExp (VarE n)      = tell [SM.Load n]
-pushExp (UnaryE _ _)  = throwError "SM doesn't support unary operations for now"
-pushExp (BinE op a b) = do
+pushExp :: E.Exp -> TransState ()
+pushExp (E.ValueE k)    = tell [SM.Push k]
+pushExp (E.VarE n)      = tell [SM.Load n]
+pushExp (E.UnaryE _ _)  = throwError "SM doesn't support unary operations for now"
+pushExp (E.BinE op a b) = do
     pushExp a
     pushExp b
     tell [SM.Bin op]
-pushExp (FunE n args) = callFun n args
-pushExp (ArrayUninitE k) = tell [SM.ArrayMake k]
-pushExp (ArrayAccessE a i) = do
+pushExp (E.FunE n args) = callFun n args
+pushExp (E.ArrayUninitE k) = tell [SM.ArrayMake k]
+pushExp (E.ArrayAccessE a i) = do
     pushExp a
     pushExp i
     tell [SM.ArrayAccess]
-pushExp (LabelE l) = tell [SM.Push $ fromIntegral l]
+pushExp (E.LabelE l) = do
+    l' <- convertULabel l
+    tell [SM.Push $ fromIntegral l']
 
-callFun :: Var -> [Exp] -> TransState ()
+callFun :: Var -> [E.Exp] -> TransState ()
 callFun name (D.fromList . reverse -> args) = do
     sign <- fmap fromJust . runMaybeT $
-            MaybeT (preview (ix name . _1))
+            MaybeT (preview (teFunDecls . ix name . _1))
         <|> MaybeT (return $ find (\(FunSign n _) -> n == name) SM.externalFuns)
         <|> throwError (sformat ("No such function: "%build) name)
 

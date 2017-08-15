@@ -97,6 +97,7 @@ execute insts =
         FunExit    -> lift mzero
         SwitchOutIndicator b -> esOutIndicator .= if b then 1 else 0
         TestOutIndicator -> push . ValueR =<< use esOutIndicator
+        Interrupt  -> throwError "Interrupt"
         Enter{}    -> throwError "Got into out of nowhere"
         Nop        -> pass
 

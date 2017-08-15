@@ -7,8 +7,8 @@ import qualified Data.Set      as S
 import           Universum     hiding (Foldable, foldMap)
 
 import           Toy.Base      (Var)
-import           Toy.Exp       (UserLabelId)
-import           Toy.SM.Data   (Inst (..), LabelId (..), nonlocalLabelsTableLabel)
+import           Toy.SM.Data   (Inst (..), LabelId (..), UserLabelId,
+                                nonlocalLabelsTableLabel)
 
 gatherLocals :: Foldable t => t Inst -> S.Set Var
 gatherLocals = foldMap gather
@@ -18,8 +18,8 @@ gatherLocals = foldMap gather
     gather (StoreInit v) = one v
     gather _             = mempty
 
-gatherLocalULabels :: Foldable t => t Inst -> S.Set UserLabelId
-gatherLocalULabels = foldMap $ \case
+gatherULabels :: Foldable t => t Inst -> S.Set UserLabelId
+gatherULabels = foldMap $ \case
     (Label (ULabel id)) -> one id
     _                   -> mempty
 

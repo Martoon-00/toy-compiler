@@ -13,9 +13,11 @@ import           Universum
 
 import           Toy.Base            (BinOp, FunSign (..), Value, Var (..),
                                       stdFunExamples)
-import           Toy.Exp             (ExpRes, LocalVars, UserLabelId)
+import           Toy.Exp             (ExpRes, LocalVars)
 
 type IP = Int
+
+type UserLabelId = Int
 
 data LabelId
     = CLabel Int          -- ^ control
@@ -28,7 +30,7 @@ instance Buildable LabelId where
     build (CLabel l) = bprint ("L"%F.build) l
     build (FLabel n) = bprint F.build n
     build (LLabel i) = bprint F.build i
-    build (ULabel i) = bprint (F.build%":") i
+    build (ULabel i) = bprint ("U"%F.build) i
 
 newtype JmpLabelForm = JmpLabelForm LabelId
 
@@ -59,6 +61,7 @@ data Inst
     | SwitchOutIndicator Bool  -- global variable which says whether we're in nonlocal jump
     | TestOutIndicator
     | Nop
+    | Interrupt
     | Enter Var [Var]  -- ^ function start indicator with fun name and args
     deriving (Show, Eq)
 

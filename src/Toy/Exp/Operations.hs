@@ -158,3 +158,4 @@ arrayFree
 arrayFree =
     -- argument expiration + actual deallocation
     replicateM_ 2 . changeRefCounter (-)
+

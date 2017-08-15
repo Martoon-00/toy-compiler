@@ -159,7 +159,7 @@ step = \case
     SM.JumpToFunEnd -> do
         tell [jmp SM.exitLabel]
     SM.SwitchOutIndicator b -> do
-        let v = nTo31 $ if b then 0 else 1
+        let v = nTo31 $ if b then 1 else 0
         tell [Mov (Const v) (GlobalVar outIndicatorVar)]
     SM.TestOutIndicator -> do
         op <- allocSymStackOp
@@ -168,7 +168,8 @@ step = \case
         op <- popSymStackOp
         tell [Mov op eax]
         -- ret is performed outside because of stack shift
-    SM.Enter{} -> tell
+    SM.Enter{} -> step SM.Interrupt
+    SM.Interrupt -> tell
         [ NoopOperator "int3"  -- don't step out!
         ]
   where

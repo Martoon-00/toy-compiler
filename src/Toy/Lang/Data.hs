@@ -125,3 +125,7 @@ arrayS f exps = mconcat
     [ arrayVarS "_" exps
     , f "_"
     ]
+
+-- | Goto given label by name.
+gotoS :: UserLabelId -> Stmt
+gotoS = Goto . LabelE

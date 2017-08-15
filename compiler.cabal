@@ -39,12 +39,14 @@ library
                        Toy.Lang.Interpreter
                        Toy.Lang.Parser
                        Toy.Lang.Translator
+                       Toy.Lang.Util
 
                        Toy.SM.Data
                        Toy.SM.Interpreter
                        Toy.SM.Util
 
                        Toy.Util.Bits
+                       Toy.Util.Containers
                        Toy.Util.Error
                        Toy.Util.Instances
                        Toy.Util.Parsable

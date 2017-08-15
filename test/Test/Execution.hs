@@ -9,6 +9,7 @@ module Test.Execution
     , (~~)
     , (~*~)
     , works
+    , transFails
 
     , describeExecWays
     ) where
@@ -83,6 +84,8 @@ works prog way =
                 Left err -> counterexample (toString err) False
                 Right _  -> property True
 
+transFails :: l -> ExecWay l -> Property
+transFails = flip propTranslationFails
 
 class Equivalence f where
     equivalent :: f -> ([Value] -> EitherT Text IO Value) -> [Value] -> Property
@@ -142,3 +145,12 @@ propTranslating (Ex way) prog testExec =
             Left err -> property failed
                         { reason = "Translation failed: " ++ toString err }
             Right e  -> testExec e
+
+propTranslationFails :: ExecWay l -> l -> Property
+propTranslationFails (Ex way) prog =
+    let (eExec, metas) = runWriter . runEitherT $ translatingIn way prog
+    in  metaCounterexample metas $
+        case eExec of
+            Left _  -> property True
+            Right _ -> property failed
+                       { reason = "Translation passed successfully" }
