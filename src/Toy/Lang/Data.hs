@@ -55,6 +55,9 @@ data Program = Program
     , pMain     :: Stmt
     } deriving (Show)
 
+toProgram :: Stmt -> Program
+toProgram = Program mempty
+
 data ExecInterrupt
     = Error Text       -- ^ Execution exception
     | Returned ExpRes  -- ^ Function returns

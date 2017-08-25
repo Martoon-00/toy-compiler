@@ -1,5 +1,7 @@
-{-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedLists           #-}
+{-# LANGUAGE TemplateHaskell           #-}
+{-# LANGUAGE TypeFamilies              #-}
 
 module Test.Examples.BaseSpec
     ( spec
@@ -54,8 +56,9 @@ spec = do
             it "while simple" $
                 whileTest way
 
-      describeDir "./test/cases/exec"
-          fileTest
+    describeExecWays ways $ \way -> do
+      describeDir "./test/cases/exec" $
+          fileTest way
 
 
 noActions :: ExecWay Stmt -> Property
@@ -102,8 +105,8 @@ errorsTest = conjoin $
     , L.writeS "x"
     ] <&> [] >--> X
 
-fileTest :: Either Text FullTestData -> Property
-fileTest (Left err) =
+fileTest :: ExecWay L.Program -> Either Text FullTestData -> Property
+fileTest _ (Left err) =
     counterexample ("Parse failed: " ++ toString err) False
-fileTest (Right FullTestData{..}) =
-    ftdProgram & ftdInput >--> TestRes ftdOutput
+fileTest way (Right FullTestData{..}) =
+    ftdProgram & ftdInput >-*-> TestRes ftdOutput $ way

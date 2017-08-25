@@ -1,0 +1,8 @@
+fun meme() begin
+    goto :abac
+end
+
+meme();
+write 1;
+:abac;
+write 2;

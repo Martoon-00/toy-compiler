@@ -12,7 +12,7 @@ import           Test.QuickCheck (NonNegative (..), Property, Small (..), counte
 import           Universum
 
 import           Test.Arbitrary  ()
-import           Test.Execution  (TestRes (..), describeExecWays, (>-->), (~*~))
+import           Test.Execution  (TestRes (..), describeExecWays, (>-*->), (~*~))
 import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Base
 import           Toy.Execution   (ExecWay (..), defCompileX86, transShow, translateLang,
@@ -41,11 +41,11 @@ spec = do
                 it "gcd" $
                     property $ gcdTest way
 
-      describeDir "./test/cases/exec"
-          fileTest
+      describeDir "./test/cases/exec" $
+          fileTest way
 
-fibTest :: ExecWay Stmt -> Property
-fibTest = sample ~*~ fib . getNonNegative
+fibTest :: ExecWay L.Program -> Property
+fibTest = L.toProgram sample ~*~ fib . getNonNegative
   where
     sample = mconcat
         [ "a" := 0
@@ -64,8 +64,8 @@ fibTest = sample ~*~ fib . getNonNegative
     fib :: Small Value -> Value
     fib = (fibs !!) . fromIntegral . getSmall
 
-gcdTest :: ExecWay Stmt -> Property
-gcdTest = sample ~*~ gcd'
+gcdTest :: ExecWay L.Program -> Property
+gcdTest = L.toProgram sample ~*~ gcd'
   where
     sample = mconcat
         [ L.readS "a"
@@ -80,8 +80,8 @@ gcdTest = sample ~*~ gcd'
     gcd' :: NonNegative Value -> NonNegative Value -> Value
     gcd' (NonNegative a) (NonNegative b) = gcd a b
 
-minTest :: ExecWay Stmt -> Property
-minTest = sample ~*~ min @Value
+minTest :: ExecWay L.Program -> Property
+minTest = L.toProgram sample ~*~ min @Value
   where
     sample = mconcat
         [ L.readS "a"
@@ -92,8 +92,8 @@ minTest = sample ~*~ min @Value
         , L.writeS "c"
         ]
 
-fileTest :: Either Text FullTestData -> Property
-fileTest (Left err) =
+fileTest :: ExecWay L.Program -> Either Text FullTestData -> Property
+fileTest _ (Left err) =
     counterexample ("Parse failed: " ++ toString err) False
-fileTest (Right FullTestData{..}) =
-    ftdProgram & ftdInput >--> TestRes ftdOutput
+fileTest way (Right FullTestData{..}) =
+    ftdProgram & ftdInput >-*-> TestRes ftdOutput $ way

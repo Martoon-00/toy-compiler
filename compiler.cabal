@@ -65,6 +65,7 @@ library
                      , conduit
                      , conduit-combinators
                      , containers
+                     , contravariant
                      , data-default
                      , deepseq
                      , dlist
@@ -77,6 +78,7 @@ library
                      , mmorph
                      , mtl
                      , process
+                     , profunctors
                      , serokell-util
                      , spoon
                      , vector

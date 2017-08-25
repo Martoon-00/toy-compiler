@@ -23,6 +23,8 @@ import           Control.Monad.Trans        (lift)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Writer       (Writer, tell)
 import           Data.Functor               (($>))
+import           Data.Functor.Contravariant (Contravariant (..))
+import           Data.Profunctor            (Profunctor (..))
 import qualified Data.Text                  as T
 import           Data.Text.Buildable        (Buildable (..))
 import qualified Formatting                 as F
@@ -46,6 +48,12 @@ instance Buildable (TranslateWay a b) where
 
 instance Show (TranslateWay a b) where
     show = F.formatToString F.build
+
+instance Profunctor TranslateWay where
+    dimap f g (TranslateWay d t) = TranslateWay d (fmap g . t . f)
+
+instance Functor (TranslateWay src) where
+    fmap = rmap
 
 (<~~>) :: TranslateWay a b -> TranslateWay b c -> TranslateWay a c
 tw1 <~~> tw2 =
@@ -108,3 +116,7 @@ instance Buildable (ExecWay l) where
 
 instance Show (ExecWay l) where
     show = F.formatToString F.build
+
+instance Contravariant ExecWay where
+    contramap f (Ex t) = Ex (lmap f t)
+

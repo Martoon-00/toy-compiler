@@ -62,6 +62,7 @@ elemP = sp $ label "Expression atom" $
     choice
     [ paren expP
     , ArrayUninitE 0 <$ (char '{' >> space >> char '}')
+    , LabelE <$> (char ':' *> varP)
     , ValueE <$> mkParser
     , do var <- varP
          FunE var <$> funCallArgsP ?> VarE var
@@ -145,7 +146,9 @@ stmtP = sp $
                 <*> (char ','          *> stmtP )
                 <*> (keywordP "do"     *> stmtsP)
                 <*   keywordP "od"
-    <|> Return  <$> (keywordP "Return" *> expP)
+    <|> Return  <$> (keywordP "Return" *> expP  )
+    <|> Label   <$> (char ':'          *> varP  )
+    <|> Goto    <$> (keywordP "Goto"   *> expP  )
     <|> Skip    <$   keywordP "Skip"
     <|> withName
   where
