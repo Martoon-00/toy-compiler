@@ -21,8 +21,8 @@ import qualified Toy.Lang         as L
 spec :: Spec
 spec = do
     let ways =
-            [ -- Ex id
-              Ex translateLang
+            [ Ex id
+            , Ex translateLang
             , Ex $ defCompileX86 . translateLang
             ]
     describe "nonlocal jumps" $ do

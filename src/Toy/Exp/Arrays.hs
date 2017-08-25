@@ -47,6 +47,16 @@ valueOnly action desc = do
         formatToString ("Not initialized variable! ("%stext%")") desc
     preview _ValueR value `whenNothing` throwError (fromString $ toString desc)
 
+labelOnly
+    :: MonadArrays __ m
+    => m ExpRes -> Text -> m UserLabelId
+labelOnly action desc = do
+    value <- action
+    when (_NotInitR `has` value) $
+        throwError . fromString $
+        formatToString ("Not initialized variable! ("%stext%")") desc
+    preview _LabelR value `whenNothing` throwError (fromString $ toString desc)
+
 arrayShell
     :: MonadArrays __ m
     => m ExpRes -> Text -> m (MRef (Maybe ArrayInnards))

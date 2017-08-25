@@ -3,7 +3,7 @@
 
 module Toy.Lang.Data where
 
-import           Control.Lens              (makePrisms)
+import           Control.Lens              (makeLenses, makePrisms)
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Reader      (MonadReader)
 import           Control.Monad.State       (MonadState)
@@ -67,9 +67,22 @@ toProgram = Program . mainToFunDecls
 mkProgram :: FunDecls -> Stmt -> Program
 mkProgram decls main = Program $ decls <> mainToFunDecls main
 
+data Branch
+    = LeftPath
+    | RightPath
+    deriving (Eq, Show)
+
+type StmtCoord = [Branch]
+
+data StmtFunCoord = StmtFunCoord
+    { sfcFun   :: FunName
+    , sfcCoord :: StmtCoord
+    } deriving (Eq, Show)
+
 data ExecInterrupt
-    = Error Text       -- ^ Execution exception
-    | Returned ExpRes  -- ^ Function returns
+    = Error Text           -- ^ Execution exception
+    | Returned ExpRes      -- ^ Function returns
+    | Jumped StmtFunCoord  -- ^ Jump outside of function
     deriving (Show)
 makePrisms ''ExecInterrupt
 
@@ -79,11 +92,21 @@ instance IsString ExecInterrupt where
 prefixError :: MonadError ExecInterrupt m => Text -> m a -> m a
 prefixError desc = mapError (_Error %~ (desc <>))
 
+type ULabelCoords = M.Map UserLabelId StmtFunCoord
+
+data ExecEnv = ExecEnv
+    { _evFunDecls     :: FunDecls
+    , _evULabelCoords :: ULabelCoords
+    , _evCurFun       :: FunName
+    }
+
+makeLenses ''ExecEnv
+
 type MonadExec m =
     ( MonadIO m
     , MonadError ExecInterrupt m
     , MonadState LocalVars m
-    , MonadReader FunDecls m
+    , MonadReader ExecEnv m
     , MonadRefEnv ExpRes m
     )
 
@@ -92,5 +115,4 @@ withStmt :: MonadError ExecInterrupt m => Stmt -> m a -> m a
 withStmt stmt =
     flip catchError $
     throwError . (_Error %~ sformat (shown%": "%stext) stmt)
-
 

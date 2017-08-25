@@ -2,6 +2,7 @@
 
 module Toy.Lang.Eval
     ( eval
+    , findDefinedFun
     ) where
 
 import           Control.Lens              (at, (.=), (<<.=))
@@ -17,7 +18,8 @@ import           Toy.Base                  (ExecInOut, FunName (..), FunSign (..
 import           Toy.Exp                   (Exp (..), ExpRes (..), arithspoon,
                                             arrayAccess, arrayLength, arrayMake,
                                             arrayMakeU, binOp, unaryOp, valueOnly)
-import           Toy.Lang.Data             (ExecInterrupt (..), MonadExec, Stmt (..))
+import           Toy.Lang.Data             (ExecInterrupt (..), FunDecl, MonadExec,
+                                            Stmt (..), evCurFun, evFunDecls)
 
 type FunExecutor m = Stmt -> ExecInOut m ExpRes
 
@@ -80,15 +82,21 @@ callFun executor name args = case name of
     --     let err = funName <> ": not an array given"
     --     eval executor expr `arrayOnly` err
 
+findDefinedFun :: MonadExec m => FunName -> m FunDecl
+findDefinedFun name =
+    view (evFunDecls . at name) `whenNothingM` throwError noFun
+  where
+    noFun = Error $ sformat ("No function "%shown%" defined") name
+
 callDefinedFun
     :: MonadExec m
     => FunExecutor m -> FunName -> [Exp] -> ExecInOut m ExpRes
 callDefinedFun executor name args = do
-    (FunSign _ argNames, body) <- view (at name) `whenNothingM` throwError noFun
+    (FunSign _ argNames, body) <- findDefinedFun name
     when (length argNames /= length args) $
         throwError "Invalid number of arguments passed to function"
     args' <- forM args $ eval executor
     curVars <- identity <<.= M.fromList (zip argNames args')
-    executor body <* (identity .= curVars)
+    withEnv (executor body) <* (identity .= curVars)
   where
-    noFun = Error $ sformat ("No function "%shown%" defined") name
+    withEnv = local $ evCurFun .~ name

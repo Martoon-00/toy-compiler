@@ -14,51 +14,76 @@ import           Control.Monad.Trans        (MonadIO)
 import           Control.Monad.Trans.Either (EitherT, bimapEitherT)
 import           Data.Conduit.Lift          (evalStateC)
 import           Data.Default               (def)
-import           Data.Maybe                 (fromMaybe)
 import           Universum                  hiding (StateT)
 
 import           Toy.Base                   (Exec, ExecInOut, FunName (..))
 import           Toy.Exp                    (ExpRes (..), LocalVars, NoGcEnv (..),
-                                             arraySet, valueOnly)
-import           Toy.Lang.Data              (ExecInterrupt (..), FunDecls, Program,
-                                             Program (..), Stmt (..), withStmt, _Error)
+                                             arraySet, labelOnly, valueOnly)
+import           Toy.Lang.Data              (Branch (..), ExecEnv (..),
+                                             ExecInterrupt (..), Program, Program (..),
+                                             Stmt (..), StmtCoord, StmtFunCoord (..),
+                                             evCurFun, evULabelCoords, withStmt)
 import qualified Toy.Lang.Eval              as E
+import           Toy.Lang.Util              (balanceProgram, buildULabelsMap)
 
 
 type ExecProcess m =
     ExecInOut $
     NoGcEnv $
-    ReaderT FunDecls $
+    ReaderT ExecEnv $
     StateT LocalVars $
     EitherT ExecInterrupt m
 
 execute :: MonadIO m => Program -> Exec m ()
-execute (Program funDecls) =
-    hoist simplifyErr .
-    evalStateC def .
-    hoist (`runReaderT` funDecls) .
-    hoist getNoGcEnv .
-    executeDo =<< getMainStmt
+execute (balanceProgram -> prog@Program{..}) =
+    hoist simplifyErr $
+    evalStateC def $
+    hoist (`runReaderT` env) $
+    hoist getNoGcEnv $
+    launch =<< getMainStmt
   where
+    env = ExecEnv getProgram (buildULabelsMap prog) def
+
+    launch mainStmt = do
+        let action c = executeDo c mainStmt
+            handler (Jumped (StmtFunCoord MainFunName c)) = action (Just c)
+            handler e                                     = throwError e
+        action Nothing `catchError` handler
+
     getMainStmt = note "No entry point found" $
-                  funDecls ^? ix MainFunName . _2
-    simplifyErr = bimapEitherT toSimpleErr identity
-    toSimpleErr = fromMaybe "Return at global scope" . ( ^? _Error)
+                  getProgram ^? ix MainFunName . _2
+
+    simplifyErr = bimapEitherT handleErr identity
+    handleErr = \case
+        Error e -> e
+        Returned _ -> "Return at global scope"
+        Jumped _ -> "Jumped outside of main"
 
 -- TODO: do smth with 'withStmt' everywhere
 -- | Execute given statement.
-executeDo :: MonadIO m => Stmt -> ExecProcess m ()
-executeDo = \case
+-- If coordinates are specified, all statements till referenced point are omitted.
+executeDo :: MonadIO m => Maybe StmtCoord -> Stmt -> ExecProcess m ()
+executeDo mcoord = \case
     stmt@(var := expr) -> do
         value <- withStmt stmt $ eval expr
         at var ?= value
 
     stmt@(If cond stmt0 stmt1) -> do
         cond' <- withStmt stmt $ eval cond `valueOnly` "If on reference"
-        executeDo $ if cond' /= 0 then stmt0 else stmt1
+        case mcoord of
+            Nothing ->
+                executeDo Nothing $
+                    if cond' /= 0 then stmt0 else stmt1
+            Just (LeftPath : path) ->
+                executeDo (Just path) stmt0
+            Just (RightPath : path) ->
+                executeDo (Just path) stmt0
+            Just [] ->
+                error "Coordinates doesn't fit"
 
-    while@(DoWhile body cond) ->
-        executeDo $ Seq body (If cond while Skip)
+    while@(DoWhile body cond) -> do
+        executeDo mcoord body
+        executeDo Nothing (If cond while Skip)
 
     stmt@(Return expr) -> do
         value <- withStmt stmt $ eval expr
@@ -68,18 +93,38 @@ executeDo = \case
         join $ arraySet <$> eval a <*> eval i <*> eval e
 
     Seq stmt0 stmt1 ->
-        mapM_ executeDo [stmt0, stmt1]
+        case mcoord of
+            Nothing ->
+                mapM_ (executeDo Nothing) [stmt0, stmt1]
+            Just (LeftPath : path) -> do
+                executeDo (Just path) stmt0
+                executeDo Nothing stmt1
+            Just (RightPath : path) ->
+                executeDo (Just path) stmt1
+            Just [] ->
+                error "Coordinates doesn't fit"
 
     Skip -> return ()
 
-    Label{} -> error "Labels are not supported by Lang interpreter :/"
+    Label{} -> return ()
 
-    Goto{} -> error "Labels are not supported by Lang interpreter :/"
+    Goto ul -> do
+        ul' <- eval ul `labelOnly` "Goto not on label"
+        mc <- view (evULabelCoords . at ul')
+        case mc of
+            Nothing -> throwError . fromString $ "No such label: " <> show ul'
+            Just c  -> throwError (Jumped c)
   where
-    eval = E.eval execFun
+    eval = E.eval (execFun Nothing)
 
-execFun :: MonadIO m => Stmt -> ExecProcess m ExpRes
-execFun stmt = (NotInitR <$ executeDo stmt) `catchError` handler
+execFun :: MonadIO m => Maybe StmtCoord -> Stmt -> ExecProcess m ExpRes
+execFun mcoord stmt = (NotInitR <$ executeDo mcoord stmt) `catchError` handler
   where
     handler e@(Error _)  = throwError e
     handler (Returned v) = return v
+    handler e@(Jumped c) = do
+        curFun <- view evCurFun
+        if curFun == sfcFun c
+            then execFun (Just $ sfcCoord c) stmt
+            else throwError e
+
