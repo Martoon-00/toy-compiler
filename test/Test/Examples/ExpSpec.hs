@@ -72,7 +72,7 @@ uniopTest
     -> (Exp -> Exp)
     -> Property
 uniopTest way f1 f2 =
-    let sample = L.readS "a" <> L.writeS (f2 "a")
+    let sample = L.read "a" <> L.write (f2 "a")
     in  way & sample ~*~ f1
 
 binopTest
@@ -87,16 +87,16 @@ binopTest way f1 f2 = head
         way & sample ~*~ \(Large a) (Large b) -> f1 a b
     ]
   where
-    sample = L.readS "a" <> L.readS "b" <> L.writeS ("a" `f2` "b")
+    sample = L.read "a" <> L.read "b" <> L.write ("a" `f2` "b")
 
 complexArithTest :: ExecWay L.Stmt -> Property
 complexArithTest = sample ~*~ fun
   where
     sample = mconcat
-        [ L.readS "a"
-        , L.readS "b"
-        , L.readS "c"
-        , L.writeS $ "a" +: "b" *: 10 -: "c" %: 2
+        [ L.read "a"
+        , L.read "b"
+        , L.read "c"
+        , L.write $ "a" +: "b" *: 10 -: "c" %: 2
         ]
     fun :: Value -> Value -> Value -> Value
     fun a b c = a + b * 10 - (c `rem` 2)
@@ -105,12 +105,12 @@ boolTest :: ExecWay L.Stmt -> Property
 boolTest = sample ~*~ fun
   where
     sample = mconcat
-        [ L.readS "a"
-        , L.readS "b"
-        , L.readS "c"
-        , L.readS "d"
-        , L.readS "e"
-        , L.writeS $ "a" ==: "b" &&: "c" <=: "d" ^: "e"
+        [ L.read "a"
+        , L.read "b"
+        , L.read "c"
+        , L.read "d"
+        , L.read "e"
+        , L.write $ "a" ==: "b" &&: "c" <=: "d" ^: "e"
         ]
     fun :: Value -> Value -> Value -> Value -> Value -> Value
     fun a b c d e = if (a == b) && (c <= xor d e) then 1 else 0
@@ -118,4 +118,4 @@ boolTest = sample ~*~ fun
 largeTest :: ExecWay L.Stmt -> Property
 largeTest = sample & [] >-*-> [55]
   where
-    sample = L.writeS $ foldr (+) 0 (ValueE <$> [1..10] :: [Exp])
+    sample = L.write $ foldr (+) 0 (ValueE <$> [1..10] :: [Exp])

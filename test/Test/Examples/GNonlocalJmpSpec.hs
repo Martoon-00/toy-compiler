@@ -56,13 +56,13 @@ localForwardTest :: ExecWay L.Program -> Property
 localForwardTest = sample & [] >-*-> [2]
   where
     fun = function "lol" [] $ mconcat
-        [ L.gotoS "l"
-        , L.writeS 1
+        [ L.goto "l"
+        , L.write 1
         , L.Label "l"
-        , L.writeS 2
+        , L.write 2
         ]
     sample =
-        L.Program [fun] $ L.funCallS "lol" []
+        L.Program [fun] $ L.funCall "lol" []
 
 localBackwardTest :: ExecWay L.Program -> Property
 localBackwardTest = sample & [] >-*-> [3]
@@ -71,47 +71,47 @@ localBackwardTest = sample & [] >-*-> [3]
         [ "i" L.:= 0
         , L.Label "l"
         , L.If ("i" <: 3)
-              (("i" L.:= "i" + 1) <> L.gotoS "l")
+              (("i" L.:= "i" + 1) <> L.goto "l")
               L.Skip
-        , L.writeS "i"
+        , L.write "i"
         ]
     sample =
-        L.Program [fun] $ L.funCallS "lol" []
+        L.Program [fun] $ L.funCall "lol" []
 
 nonlocalForwardTest :: ExecWay L.Program -> Property
 nonlocalForwardTest = sample & [] >-*-> [1, 4]
   where
     fun = function "lol" [] $ mconcat
-        [ L.writeS 1
-        , L.gotoS "l"
-        , L.writeS 2
+        [ L.write 1
+        , L.goto "l"
+        , L.write 2
         ]
     sample =
         L.Program [fun] $ mconcat
-            [ L.funCallS "lol" []
-            , L.writeS 3
+            [ L.funCall "lol" []
+            , L.write 3
             , L.Label "l"
-            , L.writeS 4
+            , L.write 4
             ]
 
 nonlocalBackwardTest :: ExecWay L.Program -> Property
 nonlocalBackwardTest = sample & [] >-*-> [0, 1, 0, 1, 0, 3]
   where
     fun = function "lol" [] $ mconcat
-        [ L.writeS 1
-        , L.gotoS "l"
-        , L.writeS 2
+        [ L.write 1
+        , L.goto "l"
+        , L.write 2
         ]
     sample =
         L.Program [fun] $ mconcat
             [ "i" L.:= 0
             , L.Label "l"
-            , L.writeS 0
+            , L.write 0
             , "i" L.:= "i" + 1
             , L.If ("i" <: 3)
-                  (L.funCallS "lol" [])
+                  (L.funCall "lol" [])
                   L.Skip
-            , L.writeS 3
+            , L.write 3
             ]
 
 nonlocalRecTest :: ExecWay L.Program -> Property
@@ -119,28 +119,28 @@ nonlocalRecTest = sample & [] >-*-> [13, 8, 3, 2000]
   where
     fun = function "lol" ["a"] $ mconcat
         [ L.If ("a" <: 0)
-            (L.gotoS "l")
+            (L.goto "l")
             L.Skip
-        , L.writeS "a"
-        , L.funCallS "lol" ["a" - 5]
+        , L.write "a"
+        , L.funCall "lol" ["a" - 5]
         ]
     sample =
         L.Program [fun] $ mconcat
-            [ L.funCallS "lol" [13]
-            , L.writeS 1000
+            [ L.funCall "lol" [13]
+            , L.write 1000
             , L.Label "l"
-            , L.writeS 2000
+            , L.write 2000
             ]
 
 nonlabelTest :: ExecWay L.Program -> Property
 nonlabelTest = transFails sample
   where
     fun = function "lol" [] $ mconcat
-        [ L.gotoS "k"
+        [ L.goto "k"
         , L.Label "l"
         ]
     sample =
-        L.Program [fun] $ L.funCallS "lol" []
+        L.Program [fun] $ L.funCall "lol" []
 
 duplicatedLocalLabelTest :: ExecWay L.Program -> Property
 duplicatedLocalLabelTest = transFails sample
@@ -158,8 +158,8 @@ duplicatedNonlocalLabelTest = transFails sample
 unavailableLabelTest :: ExecWay L.Program -> Property
 unavailableLabelTest = sample & [] >-*-> X
   where
-    fun1 = function "lol" [] $ L.gotoS "l"
+    fun1 = function "lol" [] $ L.goto "l"
     fun2 = function "mem" [] $ L.Label "l"
     sample =
-        L.Program [fun1, fun2] $ L.funCallS "lol" []
+        L.Program [fun1, fun2] $ L.funCall "lol" []
 

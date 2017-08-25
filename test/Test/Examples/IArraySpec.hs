@@ -68,27 +68,27 @@ spec = do
 arrayAllocTest :: ExecWay Stmt -> Property
 arrayAllocTest = sample & [] >-*-> []
   where
-    sample = "a" `L.arrayVarS` []
+    sample = "a" `L.arrayVar` []
 
 arrayAlloc2Test :: ExecWay Stmt -> Property
 arrayAlloc2Test = sample & [] >-*-> []
   where
-    sample = mconcat . replicate 2 $ "a" `L.arrayVarS` []
+    sample = mconcat . replicate 2 $ "a" `L.arrayVar` []
 
 arrayLengthTest :: ExecWay Stmt -> (NonNegative (Small Value)) -> Property
 arrayLengthTest way (NonNegative (Small k)) =
     sample & [] >-*-> [k] $ way
   where
-    sample = L.writeS $ FunE "arrlen" [ArrayUninitE $ fromIntegral k]
+    sample = L.write $ FunE "arrlen" [ArrayUninitE $ fromIntegral k]
 
 arraySimpleTest :: ExecWay Stmt -> (NonNegative (Small Value)) -> Property
 arraySimpleTest way (NonNegative (Small k)) =
     k `elem` range ==> ([k] >-*-> [k]) sample way
   where
     sample = mconcat
-        [ "a" `L.arrayVarS` (ValueE <$> range)
+        [ "a" `L.arrayVar` (ValueE <$> range)
         , "i" := readE
-        , L.writeS ("a" !!: "i")
+        , L.write ("a" !!: "i")
         ]
     range = [0 .. 5]
 
@@ -96,9 +96,9 @@ safeStoreTest :: ExecWay Stmt -> Property
 safeStoreTest = sample & [] >-*-> [11]
   where
     sample = mconcat
-        [ "a" `L.arrayVarS` [11]
+        [ "a" `L.arrayVar` [11]
         , "a" := "a"
-        , L.writeS ("a" !!: 0)
+        , L.write ("a" !!: 0)
         ]
 
 arrayDeepTest :: ExecWay Stmt
@@ -111,29 +111,29 @@ arrayDeepTest way (NonNegative (VerySmall k1)) (NonNegative (VerySmall k2)) =
     sample = mconcat
         [ "a" := 7
         , mconcat . replicate (fromIntegral k1) $  -- {{{... 1 ...}}}
-              ("a" :=) `L.arrayS` ["a"]
-        , L.forS ("i" := 0) ("i" <: ValueE k2) ("i" := "i" + 1) $
+              ("a" :=) `L.array` ["a"]
+        , L.for ("i" := 0) ("i" <: ValueE k2) ("i" := "i" + 1) $
               "a" := "a" !!: 0
-        , L.writeS "a"
+        , L.write "a"
         ]
 
 arrayLongNestedTest :: ExecWay Stmt -> ([Value], [Value]) -> Property
 arrayLongNestedTest way (vs0, vs1) = sample & [] >-*-> [100500] $ way
   where
     sample = mconcat
-        [ "a0" `L.arrayVarS` (ValueE <$> vs0)
-        , "a1" `L.arrayVarS` (ValueE <$> vs1)
-        , "a" `L.arrayVarS` ["a0", "a1"]
-        , L.writeS 100500
+        [ "a0" `L.arrayVar` (ValueE <$> vs0)
+        , "a1" `L.arrayVar` (ValueE <$> vs1)
+        , "a" `L.arrayVar` ["a0", "a1"]
+        , L.write 100500
         ]
 
 arraySetGcTest  :: ExecWay Stmt -> Property
 arraySetGcTest = sample & [] >-*-> []
   where
     sample = mconcat
-        [ "a0"  `L.arrayVarS` (ValueE <$> [1])
-        , "a0_" `L.arrayVarS` (ValueE <$> [2])
-        , "a" `L.arrayVarS` ["a0"]
+        [ "a0"  `L.arrayVar` (ValueE <$> [1])
+        , "a0_" `L.arrayVar` (ValueE <$> [2])
+        , "a" `L.arrayVar` ["a0"]
         , ArrayAssign "a" 0 "a0_"
         ]
 
@@ -141,18 +141,18 @@ arraySetGcTest = sample & [] >-*-> []
 arrayArgTest :: ExecWay L.Program -> Property
 arrayArgTest = sample & [] >-*-> [5]
   where
-    fun = ("lol", (FunSign "lol" ["x"], L.writeS $ ArrayAccessE "x" 0))
+    fun = ("lol", (FunSign "lol" ["x"], L.write $ ArrayAccessE "x" 0))
     sample =
         L.Program [fun] $ mconcat
-            [ "a" `L.arrayVarS` [5]
-            , L.funCallS "lol" ["a"]
+            [ "a" `L.arrayVar` [5]
+            , L.funCall "lol" ["a"]
             ]
 
 arrayReturnTest :: ExecWay L.Program -> Property
 arrayReturnTest = sample & [] >-*-> [7]
   where
-    fun =  ("lol", (FunSign "lol" [], L.Return `L.arrayS` [7]))
+    fun =  ("lol", (FunSign "lol" [], L.Return `L.array` [7]))
     sample =
         L.Program [fun] $ mconcat
-            [ L.writeS $ FunE "lol" [] `ArrayAccessE` 0
+            [ L.write $ FunE "lol" [] `ArrayAccessE` 0
             ]

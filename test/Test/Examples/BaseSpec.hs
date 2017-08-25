@@ -67,24 +67,24 @@ noActions = mempty & [] >-*-> []
 ifTrueTest :: ExecWay Stmt -> Property
 ifTrueTest = sample & [] >-*-> [0]
   where
-    sample = If 1 (L.writeS 0) (L.writeS 1)
+    sample = If 1 (L.write 0) (L.write 1)
 
 ifFalseTest :: ExecWay Stmt -> Property
 ifFalseTest = sample & [] >-*-> [1]
   where
-    sample = If 0 (L.writeS 0) (L.writeS 1)
+    sample = If 0 (L.write 0) (L.write 1)
 
 writeTest :: ExecWay Stmt -> Large Value -> Property
 writeTest way (Large v) = sample & [] >-*-> [v] $ way
   where
-    sample = L.writeS (ValueE v)
+    sample = L.write (ValueE v)
 
 ioTest :: ExecWay Stmt -> Property
 ioTest = sample ~*~ getLarge @Value
   where
     sample = mconcat
-        [ L.readS "a"
-        , L.writeS "a"
+        [ L.read "a"
+        , L.write "a"
         ]
 
 whileTest :: ExecWay Stmt -> Property
@@ -92,17 +92,17 @@ whileTest = sample & [] >-*-> [0 .. 4]
   where
     sample = mconcat
         [ "i" := 0
-        , L.whileS ("i" <: 5) $ mconcat
-            [ L.writeS "i"
+        , L.while ("i" <: 5) $ mconcat
+            [ L.write "i"
             , "i" := "i" +: 1
             ]
         ]
 
 errorsTest :: Property
 errorsTest = conjoin $
-    [ L.writeS (5 /: 0)
-    , L.readS "x"
-    , L.writeS "x"
+    [ L.write (5 /: 0)
+    , L.read "x"
+    , L.write "x"
     ] <&> [] >--> X
 
 fileTest :: ExecWay L.Program -> Either Text FullTestData -> Property

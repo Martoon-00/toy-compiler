@@ -61,19 +61,19 @@ singleFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body))
-    in  L.Program decl $ L.funCallS name args
+    in  L.Program decl $ L.funCall name args
 
 singleRetFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleRetFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body))
-    in  L.Program decl $ L.writeS (FunE name args)
+    in  L.Program decl $ L.write (FunE name args)
 
 singleRecFunProg :: [Var] -> [Exp] -> (Var -> L.Stmt) -> L.Program
 singleRecFunProg argNames args body =
     let name = "testfunc"
         decl = one (name, (FunSign name argNames, body name))
-    in  L.Program decl $ L.writeS (FunE name args)
+    in  L.Program decl $ L.write (FunE name args)
 
 noActionTest :: ExecWay L.Program -> Property
 noActionTest = sample & [] >-*-> []
@@ -83,25 +83,25 @@ noActionTest = sample & [] >-*-> []
 withBodyTest :: ExecWay L.Program -> Property
 withBodyTest = sample & [] >-*-> [1]
   where
-    sample = singleFunProg [] [] $ L.writeS 1
+    sample = singleFunProg [] [] $ L.write 1
 
 singleArgumentTest :: ExecWay L.Program -> Property
 singleArgumentTest = sample & [] >-*-> [5]
   where
-    sample = singleFunProg ["a"] [5] $ L.writeS "a"
+    sample = singleFunProg ["a"] [5] $ L.write "a"
 
 argumentsOrderTest :: ExecWay L.Program -> Property
 argumentsOrderTest = sample & [] >-*-> [1]
   where
     sample = singleFunProg ["a", "b"] (ValueE <$> [1, 0]) $
-             L.writeS ("a" - "b")
+             L.write ("a" - "b")
 
 multipleArgumentsTest :: ExecWay L.Program -> Property
 multipleArgumentsTest = sample & [] >-*-> [22020]
   where
     input  = ValueE . (10 ^) <$> [4 :: Int, 3..0]
     sample = singleFunProg ["a", "b", "c", "d", "e"] input $
-             L.writeS ("a" + "b" - "c" + "d" - "e" + 11111)
+             L.write ("a" + "b" - "c" + "d" - "e" + 11111)
 
 returnTest :: ExecWay L.Program -> Property
 returnTest = sample & [] >-*-> [7]
@@ -113,7 +113,7 @@ returnInTheMiddleTest = sample & [] >-*-> [15]
   where
     sample = singleRetFunProg [] [] $ mconcat
         [ "i" L.:= 0
-        , L.whileS (0 ==: 0) $ mconcat
+        , L.while (0 ==: 0) $ mconcat
             [ L.If ("i" >: 12)
                 (L.Return "i")
                 (L.Skip)
@@ -150,4 +150,4 @@ gcdTest = sample ~*~ fun
     fun (NonNegative x) (NonNegative y) = gcd x y
 
 stdFunCallTest :: (Var, [Exp]) -> ExecWay L.Program -> Property
-stdFunCallTest = works . L.Program mempty . uncurry L.funCallS
+stdFunCallTest = works . L.Program mempty . uncurry L.funCall

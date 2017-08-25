@@ -50,14 +50,14 @@ fibTest = L.toProgram sample ~*~ fib . getNonNegative
     sample = mconcat
         [ "a" := 0
         , "b" := 1
-        , L.readS "i"
-        , L.whileS ("i" >: 0) $ mconcat
+        , L.read "i"
+        , L.while ("i" >: 0) $ mconcat
             [ "c" := "b"
             , "b" := "a" +: "b"
             , "a" := "c"
             , "i" := "i" -: 1
             ]
-        , L.writeS "a"
+        , L.write "a"
         ]
     fibs :: [Value]
     fibs = 0 : 1 : zipWith (+) fibs (tail fibs)
@@ -68,14 +68,14 @@ gcdTest :: ExecWay L.Program -> Property
 gcdTest = L.toProgram sample ~*~ gcd'
   where
     sample = mconcat
-        [ L.readS "a"
-        , L.readS "b"
-        , L.whileS ("b" >: 0) $ mconcat
+        [ L.read "a"
+        , L.read "b"
+        , L.while ("b" >: 0) $ mconcat
             [ "r" := "a" %: "b"
             , "a" := "b"
             , "b" := "r"
             ]
-        , L.writeS "a"
+        , L.write "a"
         ]
     gcd' :: NonNegative Value -> NonNegative Value -> Value
     gcd' (NonNegative a) (NonNegative b) = gcd a b
@@ -84,12 +84,12 @@ minTest :: ExecWay L.Program -> Property
 minTest = L.toProgram sample ~*~ min @Value
   where
     sample = mconcat
-        [ L.readS "a"
-        , L.readS "b"
+        [ L.read "a"
+        , L.read "b"
         , If ("a" <: "b")
             ("c" := "a")
             ("c" := "b")
-        , L.writeS "c"
+        , L.write "c"
         ]
 
 fileTest :: ExecWay L.Program -> Either Text FullTestData -> Property

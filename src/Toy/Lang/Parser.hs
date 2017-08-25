@@ -18,9 +18,9 @@ import           Universum
 
 import           Toy.Base              (FunSign (..), Var (..))
 import           Toy.Exp               (Exp (..))
-import           Toy.Lang.Data         (FunDecl, Program, Program (..), Stmt (..), arrayS,
-                                        forS, funCallS, mkFunDecls, repeatS, whileS,
-                                        writeS)
+import           Toy.Lang.Data         (FunDecl, Program, Program (..), Stmt (..),
+                                        mkFunDecls)
+import qualified Toy.Lang.Primitives   as L
 import           Toy.Util              (Parsable (..), Parser)
 
 
@@ -131,25 +131,25 @@ skipP = space $> Skip
 
 stmtP :: Parser Stmt
 stmtP = sp $
-        writeS  <$> (keywordP "Write"  *> expP  )
-    <|> If      <$> (keywordP "If"     *> expP  )
-                <*> (keywordP "then"   *> stmtsP)
-                <*> ifContP
-                <*  keywordP "fi"
-    <|> whileS  <$> (keywordP "While"  *> expP  )
-                <*> (keywordP "do"     *> stmtsP)
-                <*   keywordP "od"
-    <|> repeatS <$> (keywordP "Repeat" *> stmtsP)
-                <*> (keywordP "until"  *> expP  )
-    <|> forS    <$> (keywordP "for"    *> stmtP )
-                <*> (char ','          *> expP  )
-                <*> (char ','          *> stmtP )
-                <*> (keywordP "do"     *> stmtsP)
-                <*   keywordP "od"
-    <|> Return  <$> (keywordP "Return" *> expP  )
-    <|> Label   <$> (char ':'          *> varP  )
-    <|> Goto    <$> (keywordP "Goto"   *> expP  )
-    <|> Skip    <$   keywordP "Skip"
+        L.write  <$> (keywordP "Write"  *> expP  )
+    <|> If       <$> (keywordP "If"     *> expP  )
+                 <*> (keywordP "then"   *> stmtsP)
+                 <*> ifContP
+                 <*  keywordP "fi"
+    <|> L.while  <$> (keywordP "While"  *> expP  )
+                 <*> (keywordP "do"     *> stmtsP)
+                 <*   keywordP "od"
+    <|> L.repeat <$> (keywordP "Repeat" *> stmtsP)
+                 <*> (keywordP "until"  *> expP  )
+    <|> L.for    <$> (keywordP "for"    *> stmtP )
+                 <*> (char ','          *> expP  )
+                 <*> (char ','          *> stmtP )
+                 <*> (keywordP "do"     *> stmtsP)
+                 <*   keywordP "od"
+    <|> Return   <$> (keywordP "Return" *> expP  )
+    <|> Label    <$> (char ':'          *> varP  )
+    <|> Goto     <$> (keywordP "Goto"   *> expP  )
+    <|> Skip     <$   keywordP "Skip"
     <|> withName
   where
     ifContP = If <$> (keywordP "elif" *> expP  )
@@ -161,7 +161,7 @@ stmtP = sp $
         var <- varP
         choice
             [ rvalue var
-            , funCallS var <$> funCallArgsP
+            , L.funCall var <$> funCallArgsP
             ]
     rvalue var = do
         assign <- sp . choice $
@@ -173,7 +173,7 @@ stmtP = sp $
             ]
         choice
             [ assign <$> expP
-            , arrayS assign <$> brackets (enumerationP expP)
+            , L.array assign <$> brackets (enumerationP expP)
             ]
 
 

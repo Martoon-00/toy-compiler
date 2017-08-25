@@ -46,7 +46,7 @@ instance Arbitrary Exp where
 instance Arbitrary Stmt where
     arbitrary = frequency
         [ (3, liftM2 (:=) arbitrary arbitrary)
-        , (2, L.writeS <$> arbitrary)
+        , (2, L.write <$> arbitrary)
         , (1, If <$> arbitrary <*> arbitrary <*> arbitrary)
         , (1, forLoop <$> (Var . toText . (:"_i") <$> choose ('a', 'z'))
                       <*> elements [0, 1] <*> arbitrary)
@@ -56,7 +56,7 @@ instance Arbitrary Stmt where
       where
         forLoop i n body = mconcat
             [ i := 0
-            , L.whileS (VarE i <=: n) $ mconcat
+            , L.while (VarE i <=: n) $ mconcat
                 [ body
                 , i := VarE i + 1
                 ]

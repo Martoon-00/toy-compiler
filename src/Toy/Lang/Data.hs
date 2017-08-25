@@ -17,7 +17,7 @@ import           Universum                 hiding (toList)
 
 import           Toy.Base                  (FunSign (..), Var (..))
 import           Toy.Exp                   (Exp (..), ExpRes, LocalVars, MonadRefEnv,
-                                            UserLabelId, readE, (==:))
+                                            UserLabelId)
 import           Toy.Util.Error            (mapError)
 
 -- | Statement of a program.
@@ -85,50 +85,3 @@ withStmt stmt =
     throwError . (_Error %~ sformat (shown%": "%stext) stmt)
 
 
--- TODO: move to separate module and remove suffix @s@
-
--- | Drops diven expression
-dropS :: Exp -> Stmt
-dropS e = "_" := e
-
--- | @while@ loop in terms of `Stmt`.
-whileS :: Exp -> Stmt -> Stmt
-whileS cond stmt = If cond (DoWhile stmt cond) Skip
-
--- | @repeat@ loop in terms of `Stmt`.
-repeatS :: Stmt -> Exp -> Stmt
-repeatS stmt stop = DoWhile stmt (stop ==: 0)
-
--- | @repeat@ loop in terms of `Stmt`.
-forS :: Stmt -> Exp -> Stmt -> Stmt -> Stmt
-forS s1 cond sr body = s1 <> whileS cond (body <> sr)
-
--- | @read@ to a given variable.
-readS :: Var -> Stmt
-readS v = v := readE
-
--- | Function call in terms of `Stmt`.
-funCallS :: Var -> [Exp] -> Stmt
-funCallS name args = dropS $ FunE name args
-
--- | @write@ given expression.
-writeS :: Exp -> Stmt
-writeS = funCallS "write" . pure
-
--- | Array initializer, which imideatelly writes to variable.
-arrayVarS :: Var -> [Exp] -> Stmt
-arrayVarS var exps = mconcat
-    [ var := ArrayUninitE (length exps)
-    , uncurry (ArrayAssign $ VarE var) `foldMap` (zip (map ValueE [0..]) exps)
-    ]
-
--- | Array initializer, which allows to get array as exression.
-arrayS :: (Exp -> Stmt) -> [Exp] -> Stmt
-arrayS f exps = mconcat
-    [ arrayVarS "_" exps
-    , f "_"
-    ]
-
--- | Goto given label by name.
-gotoS :: UserLabelId -> Stmt
-gotoS = Goto . LabelE
