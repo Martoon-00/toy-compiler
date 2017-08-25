@@ -16,10 +16,10 @@ import           Text.Megaparsec.Expr  (Operator (..), makeExprParser)
 import           Text.Megaparsec.Lexer (symbol, symbol')
 import           Universum
 
-import           Toy.Base              (FunSign (..), Var (..))
+import           Toy.Base              (FunName (..), FunSign (..), Var (..))
 import           Toy.Exp               (Exp (..))
 import           Toy.Lang.Data         (FunDecl, Program, Program (..), Stmt (..),
-                                        mkFunDecls)
+                                        mainToFunDecls, mkFunDecls)
 import qualified Toy.Lang.Primitives   as L
 import           Toy.Util              (Parsable (..), Parser)
 
@@ -65,7 +65,7 @@ elemP = sp $ label "Expression atom" $
     , LabelE <$> (char ':' *> varP)
     , ValueE <$> mkParser
     , do var <- varP
-         FunE var <$> funCallArgsP ?> VarE var
+         FunE (FunName var) <$> funCallArgsP ?> VarE var
     ]
 
 binopLaP' :: Text -> Text -> Operator Parser Exp
@@ -112,7 +112,7 @@ functionP = sp $ do
     keywordP "begin"
     body <- stmtsP ?> Skip
     keywordP "end"
-    return (FunSign name args, body)
+    return (FunSign (FunName name) args, body)
 
 funCallArgsP :: Parser [Exp]
 funCallArgsP =
@@ -189,6 +189,6 @@ instance Parsable Program where
     parserName _ = "Program"
     mkParser = do
         funs <- many functionP
-        prog <- stmtsP ?> Skip
+        main <- stmtsP ?> Skip
         eof
-        return $ Program (mkFunDecls funs) prog
+        return $ Program (mkFunDecls funs <> mainToFunDecls main)

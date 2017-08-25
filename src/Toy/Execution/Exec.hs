@@ -38,7 +38,7 @@ instance Executable L.Program where
     exec = condExec . L.execute
 
 instance Executable L.Stmt where
-    exec = exec . L.Program mempty
+    exec = exec . L.toProgram
 
 instance Executable SM.Insts where
     exec = condExec . SM.execute

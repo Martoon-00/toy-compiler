@@ -12,7 +12,8 @@ import qualified Data.Map                  as M
 import           Formatting                (build, sformat, shown, (%))
 import           Universum
 
-import           Toy.Base                  (ExecInOut, FunSign (..), Var (..))
+import           Toy.Base                  (ExecInOut, FunName (..), FunSign (..),
+                                            Var (..))
 import           Toy.Exp                   (Exp (..), ExpRes (..), arithspoon,
                                             arrayAccess, arrayLength, arrayMake,
                                             arrayMakeU, binOp, unaryOp, valueOnly)
@@ -44,7 +45,7 @@ eval executor = \case
 
 callFun
     :: MonadExec m
-    => FunExecutor m -> Var -> [Exp] -> ExecInOut m ExpRes
+    => FunExecutor m -> FunName -> [Exp] -> ExecInOut m ExpRes
 callFun executor name args = case name of
     "read" ->
         ValueR <$> await `whenNothingM` throwError "No input"
@@ -66,7 +67,9 @@ callFun executor name args = case name of
 
     _ -> callDefinedFun executor name args
   where
-    funName = case name of Var n -> n
+    funName = case name of
+        (FunName (Var n)) -> n
+        (MainFunName)     -> "#!@"
     expectArgs k f = do
         let err = Error $ funName <> ": wrong number of arguments"
         if length args == k then f args else throwError err
@@ -79,7 +82,7 @@ callFun executor name args = case name of
 
 callDefinedFun
     :: MonadExec m
-    => FunExecutor m -> Var -> [Exp] -> ExecInOut m ExpRes
+    => FunExecutor m -> FunName -> [Exp] -> ExecInOut m ExpRes
 callDefinedFun executor name args = do
     (FunSign _ argNames, body) <- view (at name) `whenNothingM` throwError noFun
     when (length argNames /= length args) $

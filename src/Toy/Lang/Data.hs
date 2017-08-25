@@ -8,6 +8,7 @@ import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Reader      (MonadReader)
 import           Control.Monad.State       (MonadState)
 import           Control.Monad.Trans       (MonadIO)
+import           Data.Default              (def)
 import qualified Data.Map                  as M
 import           Data.Monoid               ((<>))
 import           Data.String               (IsString (..))
@@ -15,7 +16,7 @@ import           Formatting                (sformat, sformat, shown, stext, (%))
 import           GHC.Exts                  (IsList (..))
 import           Universum                 hiding (toList)
 
-import           Toy.Base                  (FunSign (..), Var (..))
+import           Toy.Base                  (FunName, FunSign (..), Var (..))
 import           Toy.Exp                   (Exp (..), ExpRes, LocalVars, MonadRefEnv,
                                             UserLabelId)
 import           Toy.Util.Error            (mapError)
@@ -42,7 +43,13 @@ instance Monoid Stmt where
 
 type FunDecl = (FunSign, Stmt)
 
-type FunDecls = M.Map Var FunDecl
+type FunDecls = M.Map FunName FunDecl
+
+toFunDecls :: FunName -> [Var] -> Stmt -> FunDecls
+toFunDecls name args body = one (name, (FunSign name args, body))
+
+mainToFunDecls :: Stmt -> FunDecls
+mainToFunDecls = toFunDecls def []
 
 -- | Builds function declarations map
 mkFunDecls :: (IsList l, Item l ~ FunDecl) => l -> FunDecls
@@ -51,12 +58,14 @@ mkFunDecls = fromList . map doLol . toList
     doLol d@(FunSign n _, _) = (n, d)
 
 data Program = Program
-    { pFunDecls :: FunDecls
-    , pMain     :: Stmt
+    { getProgram :: FunDecls
     } deriving (Show)
 
 toProgram :: Stmt -> Program
-toProgram = Program mempty
+toProgram = Program . mainToFunDecls
+
+mkProgram :: FunDecls -> Stmt -> Program
+mkProgram decls main = Program $ decls <> mainToFunDecls main
 
 data ExecInterrupt
     = Error Text       -- ^ Execution exception

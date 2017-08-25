@@ -11,9 +11,9 @@ import           Formatting          (bprint, (%))
 import qualified Formatting          as F
 import           Universum
 
-import           Toy.Base            (BinOp, FunSign (..), Value, Var (..),
-                                      stdFunExamples)
-import           Toy.Exp             (ExpRes, LocalVars)
+import           Toy.Base            (BinOp, FunName (..), FunName, FunSign (..), Value,
+                                      Var (..))
+import           Toy.Exp             (ExpRes, LocalVars, stdFunExamples)
 
 type IP = Int
 
@@ -21,7 +21,7 @@ type UserLabelId = Int
 
 data LabelId
     = CLabel Int          -- ^ control
-    | FLabel Var          -- ^ function
+    | FLabel FunName      -- ^ function
     | LLabel Int          -- ^ function-local labels
     | ULabel UserLabelId  -- ^ user-defined labels
     deriving (Eq, Ord, Show)
@@ -62,7 +62,7 @@ data Inst
     | TestOutIndicator
     | Nop
     | Interrupt
-    | Enter Var [Var]  -- ^ function start indicator with fun name and args
+    | Enter FunName [Var]  -- ^ function start indicator with fun name and args
     deriving (Show, Eq)
 
 type Insts = V.Vector Inst
@@ -99,13 +99,10 @@ instance Default ExecState where
 esOutIndicator :: Lens' ExecState Value
 esOutIndicator = esGlobals . gsOutIndicator
 
-initFunName :: Var
-initFunName = "main"
-
 externalFuns :: [FunSign]
 externalFuns =
     stdFunExamples <&> \(name, args) ->
-        FunSign name $ zipWith const (Var . one <$> ['a'..'z']) args
+        FunSign (FunName name) $ zipWith const (Var . one <$> ['a'..'z']) args
 
 
 -- * Function local stuff

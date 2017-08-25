@@ -1,27 +1,33 @@
 module Toy.Base.Fun
-    ( FunSign (..)
-    , stdFunExamples
+    ( FunName (..)
+    , FunSign (..)
     ) where
 
-import           Toy.Base.Data (Var)
-import           Toy.Exp.Data  (Exp (..))
+import           Data.Default        (Default (..))
+import           Data.String         (IsString (..))
+import qualified Data.Text.Buildable
+import           Formatting          (bprint, build)
 import           Universum
 
+import           Toy.Base.Data       (Var)
+
+data FunName
+    = FunName Var
+    | MainFunName
+    deriving (Eq, Ord, Show)
+
+instance IsString FunName where
+    fromString = FunName . fromString
+
+instance Default FunName where
+    def = MainFunName
+
+instance Buildable FunName where
+    build (FunName v) = bprint build v
+    build MainFunName = "main"
+
 -- | Function signature
-data FunSign = FunSign Var [Var]
+data FunSign = FunSign FunName [Var]
     deriving (Show, Eq)
-
--- | Just for ~fun~ convinience.
-(%) :: Var -> [Exp] -> (Var, [Exp])
-(%) = (,)
-
-stdFunExamples :: [(Var, [Exp])]
-stdFunExamples =
-    [ "read"    % []
-    , "write"   % [0]
-    , "arrlen"  % [ArrayUninitE 0]
-    , "arrmake" % [3, 5]
-    , "Arrmake" % [2, ArrayUninitE 0]
-    ]
 
 

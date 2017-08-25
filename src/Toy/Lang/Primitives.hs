@@ -4,7 +4,7 @@ module Toy.Lang.Primitives where
 
 import           Universum          hiding (drop)
 
-import           Toy.Base           (Var)
+import           Toy.Base           (FunName (..), Var)
 import           Toy.Exp.Data       (Exp (..), UserLabelId, readE)
 import           Toy.Exp.Operations
 import           Toy.Lang.Data      (Stmt (..))
@@ -31,7 +31,7 @@ read v = v := readE
 
 -- | Function call in terms of `Stmt`.
 funCall :: Var -> [Exp] -> Stmt
-funCall name args = drop $ FunE name args
+funCall name args = drop $ FunE (FunName name) args
 
 -- | @write@ given expression.
 write :: Exp -> Stmt

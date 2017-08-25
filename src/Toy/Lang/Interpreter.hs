@@ -4,7 +4,7 @@ module Toy.Lang.Interpreter
     ( execute
     ) where
 
-import           Control.Lens               (at, (?=))
+import           Control.Lens               (at, ix, (?=))
 import           Control.Monad              (join)
 import           Control.Monad.Error.Class  (MonadError (..))
 import           Control.Monad.Morph        (hoist)
@@ -17,7 +17,7 @@ import           Data.Default               (def)
 import           Data.Maybe                 (fromMaybe)
 import           Universum                  hiding (StateT)
 
-import           Toy.Base                   (Exec, ExecInOut)
+import           Toy.Base                   (Exec, ExecInOut, FunName (..))
 import           Toy.Exp                    (ExpRes (..), LocalVars, NoGcEnv (..),
                                              arraySet, valueOnly)
 import           Toy.Lang.Data              (ExecInterrupt (..), FunDecls, Program,
@@ -33,13 +33,15 @@ type ExecProcess m =
     EitherT ExecInterrupt m
 
 execute :: MonadIO m => Program -> Exec m ()
-execute (Program funDecls stmt) =
-    hoist simplifyErr $
-    evalStateC def $
-    hoist (`runReaderT` funDecls) $
-    hoist getNoGcEnv $
-    executeDo stmt
+execute (Program funDecls) =
+    hoist simplifyErr .
+    evalStateC def .
+    hoist (`runReaderT` funDecls) .
+    hoist getNoGcEnv .
+    executeDo =<< getMainStmt
   where
+    getMainStmt = note "No entry point found" $
+                  funDecls ^? ix MainFunName . _2
     simplifyErr = bimapEitherT toSimpleErr identity
     toSimpleErr = fromMaybe "Return at global scope" . ( ^? _Error)
 

@@ -42,7 +42,7 @@ import           Prelude                hiding (null, unlines)
 import qualified Text.RawString.QQ      as QQ
 import           Universum              (Container (null), One (..), (<&>))
 
-import           Toy.Base               (Var)
+import           Toy.Base               (FunName (..), Var)
 import           Toy.SM                 (JmpLabelForm (..), LabelId)
 import           Toy.X86.Convertion     (nTo31)
 import           Toy.X86.Globals        (globalVars)
@@ -106,7 +106,7 @@ data Inst
     | Comment Text
     | Label LabelId
     | Jmp Text LabelId
-    | Call Var
+    | Call FunName
     | ResizeStack StackDirection Int
     deriving (Show, Eq)
 

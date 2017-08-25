@@ -6,11 +6,8 @@ import           Universum
 
 import qualified Data.Set      as S
 import           Toy.Exp       (UserLabelId)
-import           Toy.Lang.Data (Program (..), Stmt (..))
+import           Toy.Lang.Data (Stmt (..))
 import           Toy.Util      ((<?>))
-
-allFuns :: Program -> [Stmt]
-allFuns Program{..} = pMain : map snd (toList pFunDecls)
 
 gatherULabels :: Stmt -> Either Text (S.Set UserLabelId)
 gatherULabels = \case

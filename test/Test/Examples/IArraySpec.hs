@@ -141,9 +141,9 @@ arraySetGcTest = sample & [] >-*-> []
 arrayArgTest :: ExecWay L.Program -> Property
 arrayArgTest = sample & [] >-*-> [5]
   where
-    fun = ("lol", (FunSign "lol" ["x"], L.write $ ArrayAccessE "x" 0))
+    fun = L.toFunDecls "lol" ["x"] $ L.write (ArrayAccessE "x" 0)
     sample =
-        L.Program [fun] $ mconcat
+        L.mkProgram fun $ mconcat
             [ "a" `L.arrayVar` [5]
             , L.funCall "lol" ["a"]
             ]
@@ -151,8 +151,8 @@ arrayArgTest = sample & [] >-*-> [5]
 arrayReturnTest :: ExecWay L.Program -> Property
 arrayReturnTest = sample & [] >-*-> [7]
   where
-    fun =  ("lol", (FunSign "lol" [], L.Return `L.array` [7]))
+    fun = L.toFunDecls "lol" [] $ L.Return `L.array` [7]
     sample =
-        L.Program [fun] $ mconcat
+        L.mkProgram fun $ mconcat
             [ L.write $ FunE "lol" [] `ArrayAccessE` 0
             ]

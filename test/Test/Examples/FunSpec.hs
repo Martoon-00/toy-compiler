@@ -6,11 +6,10 @@ module Test.Examples.FunSpec
 
 import           Control.Category (id, (.))
 import           Control.Lens     ((&))
-import           Data.Foldable    (for_)
-import           Prelude          hiding (id, (.))
+import           Prelude          (tail, (!!))
 import           Test.Hspec       (Spec, describe, it)
 import           Test.QuickCheck  (NonNegative (..), Property, property)
-import           Universum        (one)
+import           Universum        hiding ((.))
 
 import           Test.Arbitrary   ()
 import           Test.Execution   (describeExecWays, works, (>-*->), (~*~))
@@ -60,20 +59,20 @@ spec = do
 singleFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleFunProg argNames args body =
     let name = "testfunc"
-        decl = one (name, (FunSign name argNames, body))
-    in  L.Program decl $ L.funCall name args
+        decls = L.toFunDecls (FunName name) argNames body
+    in  L.mkProgram decls $ L.funCall name args
 
 singleRetFunProg :: [Var] -> [Exp] -> L.Stmt -> L.Program
 singleRetFunProg argNames args body =
     let name = "testfunc"
-        decl = one (name, (FunSign name argNames, body))
-    in  L.Program decl $ L.write (FunE name args)
+        decl = L.toFunDecls name argNames body
+    in  L.mkProgram decl $ L.write (FunE name args)
 
-singleRecFunProg :: [Var] -> [Exp] -> (Var -> L.Stmt) -> L.Program
+singleRecFunProg :: [Var] -> [Exp] -> (FunName -> L.Stmt) -> L.Program
 singleRecFunProg argNames args body =
     let name = "testfunc"
-        decl = one (name, (FunSign name argNames, body name))
-    in  L.Program decl $ L.write (FunE name args)
+        decl = L.toFunDecls name argNames (body name)
+    in  L.mkProgram decl $ L.write (FunE name args)
 
 noActionTest :: ExecWay L.Program -> Property
 noActionTest = sample & [] >-*-> []
@@ -150,4 +149,4 @@ gcdTest = sample ~*~ fun
     fun (NonNegative x) (NonNegative y) = gcd x y
 
 stdFunCallTest :: (Var, [Exp]) -> ExecWay L.Program -> Property
-stdFunCallTest = works . L.Program mempty . uncurry L.funCall
+stdFunCallTest = works . L.toProgram . uncurry L.funCall

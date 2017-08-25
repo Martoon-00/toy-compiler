@@ -86,9 +86,7 @@ instance TranslateToSM L.Program where
         translatingIn printMetaSM prog
 
 instance TranslateToSM L.Stmt where
-    translateLang =
-        let tp = translateLang
-        in  tp { translatingIn = translatingIn tp . L.Program mempty }
+    translateLang = lmap L.toProgram translateLang
 
 mkBinaryUnsafe
     :: (Functor f)

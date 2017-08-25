@@ -11,6 +11,7 @@ import qualified Prelude
 import           Universum
 
 import           Toy.Base.Data  (BinOp, UnaryOp, Value, Var)
+import           Toy.Base.Fun   (FunName)
 import           Toy.Exp.RefEnv (MRef, MRefId)
 
 type UserLabelId = Var
@@ -21,7 +22,7 @@ data Exp
     | VarE Var
     | UnaryE UnaryOp Exp
     | BinE BinOp Exp Exp
-    | FunE Var [Exp]
+    | FunE FunName [Exp]
     | ArrayUninitE Int  -- ^ uninitialized array
     | ArrayAccessE Exp Exp  -- array & index
     | LabelE UserLabelId
@@ -72,3 +73,18 @@ instance Show ExpRes where
 
 makeLenses ''ArrayInnards
 makePrisms ''ExpRes
+
+
+-- | Just for ~fun~ convinience.
+(#) :: Var -> [Exp] -> (Var, [Exp])
+(#) = (,)
+
+stdFunExamples :: [(Var, [Exp])]
+stdFunExamples =
+    [ "read"    # []
+    , "write"   # [0]
+    , "arrlen"  # [ArrayUninitE 0]
+    , "arrmake" # [3, 5]
+    , "Arrmake" # [2, ArrayUninitE 0]
+    ]
+

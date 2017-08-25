@@ -20,7 +20,7 @@ import qualified Data.Vector               as V
 import           Formatting                (build, int, sformat, shown, string, (%))
 import           Universum
 
-import           Toy.Base                  (Exec, FunSign (..))
+import           Toy.Base                  (Exec, FunName (..), FunSign (..))
 import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess,
                                             arrayFree, arrayLength, arrayMake, arrayMakeU,
                                             arraySet, binOp, changeRefCounter,
@@ -28,8 +28,7 @@ import           Toy.Exp                   (ExpRes (..), arithspoon, arrayAccess
                                             valueOnly)
 import           Toy.SM.Data               (ExecState (..), IP, Inst (..), Insts,
                                             LabelId (..), esGlobals, esIp, esLocals,
-                                            esOutIndicator, esStack, exitLabel,
-                                            initFunName)
+                                            esOutIndicator, esStack, exitLabel)
 import           Toy.Util.Error            (mapError)
 
 execute :: MonadIO m => Insts -> Exec m ()
@@ -116,7 +115,7 @@ execute insts =
     getLabel = buildLabelsMap insts
     programEntry =
         either (error "No entry point exists") identity $
-        getLabel (FLabel initFunName)
+        getLabel (FLabel MainFunName)
 
     processCall name args = case name of
             "read"  ->

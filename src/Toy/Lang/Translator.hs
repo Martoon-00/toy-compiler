@@ -23,11 +23,11 @@ import qualified Data.Vector                as V
 import           Formatting                 (build, sformat, (%))
 import           Universum                  hiding (find, pass)
 
-import           Toy.Base                   (FunSign (..), Var)
+import           Toy.Base                   (FunName (..), FunSign (..), Var)
 import qualified Toy.Constants              as C
 import qualified Toy.Exp.Data               as E
 import qualified Toy.Lang.Data              as L
-import           Toy.Lang.Util              (allFuns, gatherULabels)
+import           Toy.Lang.Util              (gatherULabels)
 import qualified Toy.SM                     as SM
 import           Toy.Util                   (foldMapNoDups)
 
@@ -47,15 +47,14 @@ type TransState =
     ExceptT Text Identity
 
 toIntermediate :: L.Program -> Either Text SM.Insts
-toIntermediate prog@(L.Program funcs main) = do
+toIntermediate prog@L.Program{..} = do
     transEnv <- prepareTransEnv prog
     fmap (V.fromList . D.toList) . execTransState transEnv $ do
-        mapM_ convertFun $ snd <$> M.toList funcs
-        convertFun (FunSign SM.initFunName [], main)
+        mapM_ convertFun $ snd <$> M.toList getProgram
   where
 
     convertFun (FunSign name args, stmt) = do
-        let inMain = name == SM.initFunName
+        let inMain = name == MainFunName
         tell [SM.Enter name args, SM.Label (SM.FLabel name)]
         tell [SM.StoreInit SM.outLabelVar]
         bracketLocals $ do
@@ -129,13 +128,13 @@ execTransState funcs action =
 
 prepareTransEnv :: L.Program -> Either Text TransEnv
 prepareTransEnv prog = do
-    let bodies = allFuns prog
+    let bodies = map snd . toList $ L.getProgram prog
     perFunULabels <- mapM gatherULabels bodies
     uLabels <- maybe (throwError "Duplicated label!") pure $
                foldMapNoDups identity perFunULabels
 
     let _teULabelsMap = M.fromList . flip zip [1000..] $ toList uLabels
-        _teFunDecls = L.pFunDecls prog
+        _teFunDecls = L.getProgram prog
     return TransEnv{..}
 
 convert :: L.Stmt -> TransState ()
@@ -197,7 +196,7 @@ pushExp (E.LabelE l) = do
     l' <- convertULabel l
     tell [SM.Push $ fromIntegral l']
 
-callFun :: Var -> [E.Exp] -> TransState ()
+callFun :: FunName -> [E.Exp] -> TransState ()
 callFun name (D.fromList . reverse -> args) = do
     sign <- fmap fromJust . runMaybeT $
             MaybeT (preview (teFunDecls . ix name . _1))
