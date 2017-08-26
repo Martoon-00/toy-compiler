@@ -11,7 +11,7 @@ import           Control.Monad.Morph        (hoist)
 import           Control.Monad.Reader       (ReaderT, runReaderT)
 import           Control.Monad.State.Strict (StateT)
 import           Control.Monad.Trans        (MonadIO)
-import           Control.Monad.Trans.Either (EitherT, bimapEitherT)
+import           Control.Monad.Trans.Except (withExceptT)
 import           Data.Conduit.Lift          (evalStateC)
 import           Data.Default               (def)
 import           Universum                  hiding (StateT)
@@ -32,7 +32,7 @@ type ExecProcess m =
     NoGcEnv $
     ReaderT ExecEnv $
     StateT LocalVars $
-    EitherT ExecInterrupt m
+    ExceptT ExecInterrupt m
 
 execute :: MonadIO m => Program -> Exec m ()
 execute (balanceProgram -> prog@Program{..}) =
@@ -40,11 +40,12 @@ execute (balanceProgram -> prog@Program{..}) =
     evalStateC def $
     hoist (`runReaderT` env) $
     hoist getNoGcEnv $
-    launch =<< getMainStmt
+    launch
   where
     env = ExecEnv getProgram (buildULabelsMap prog) def
 
-    launch mainStmt = do
+    launch = do
+        mainStmt <- getMainStmt
         let action c = executeDo c mainStmt
             handler (Jumped (StmtFunCoord MainFunName c)) = action (Just c)
             handler e                                     = throwError e
@@ -53,13 +54,11 @@ execute (balanceProgram -> prog@Program{..}) =
     getMainStmt = note "No entry point found" $
                   getProgram ^? ix MainFunName . _2
 
-    simplifyErr = bimapEitherT handleErr identity
-    handleErr = \case
+    simplifyErr = withExceptT $ \case
         Error e -> e
         Returned _ -> "Return at global scope"
         Jumped _ -> "Jumped outside of main"
 
--- TODO: do smth with 'withStmt' everywhere
 -- | Execute given statement.
 -- If coordinates are specified, all statements till referenced point are omitted.
 executeDo :: MonadIO m => Maybe StmtCoord -> Stmt -> ExecProcess m ()
@@ -127,4 +126,3 @@ execFun mcoord stmt = (NotInitR <$ executeDo mcoord stmt) `catchError` handler
         if curFun == sfcFun c
             then execFun (Just $ sfcCoord c) stmt
             else throwError e
-

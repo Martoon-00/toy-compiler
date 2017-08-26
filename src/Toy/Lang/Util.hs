@@ -46,3 +46,4 @@ balanceStmt = identity  -- TODO
 
 balanceProgram :: Program -> Program
 balanceProgram (Program p) = Program (balanceStmt <<$>> p)
+

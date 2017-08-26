@@ -2,25 +2,24 @@ module Main
     ( main
     ) where
 
-import           Control.Lens               ((&))
-import           Control.Monad              (forever)
-import           Control.Monad.Trans        (liftIO)
-import           Control.Monad.Trans.Either (EitherT (..))
-import           Data.Conduit               (awaitForever, yield, ($$), (=$=))
-import qualified Data.Text.IO               as T
-import           Formatting                 (sformat, string, (%))
-import           GHC.IO.Handle              (hFlush)
-import           GHC.IO.Handle.FD           (stdout)
-import           Prelude                    (readLn)
-import           System.FilePath.Lens       (basename, filename)
-import           Universum                  hiding (interact)
+import           Control.Lens         ((&))
+import           Control.Monad        (forever)
+import           Control.Monad.Trans  (liftIO)
+import           Data.Conduit         (awaitForever, yield, ($$), (=$=))
+import qualified Data.Text.IO         as T
+import           Formatting           (sformat, string, (%))
+import           GHC.IO.Handle        (hFlush)
+import           GHC.IO.Handle.FD     (stdout)
+import           Prelude              (readLn)
+import           System.FilePath.Lens (basename, filename)
+import           Universum            hiding (interact)
 
-import           Toy.Base                   (Exec)
-import           Toy.Constants              (runtimePath)
-import qualified Toy.Lang                   as L
-import qualified Toy.SM                     as SM
-import           Toy.Util                   (parseData)
-import qualified Toy.X86                    as X86
+import           Toy.Base             (Exec)
+import           Toy.Constants        (runtimePath)
+import qualified Toy.Lang             as L
+import qualified Toy.SM               as SM
+import           Toy.Util             (parseData)
+import qualified Toy.X86              as X86
 
 main :: IO ()
 main = getArgs >>= launch
@@ -52,5 +51,5 @@ interact executor = handleRes $ readInput =$= executor $$ writeOutput
     readInput        = forever $ readValue >>= yield
     readValue        = liftIO $ putStr @Text "> " >> hFlush stdout >> readLn
     writeOutput      = awaitForever $ liftIO . print
-    handleRes action = runEitherT action `whenLeftM` printError
+    handleRes action = runExceptT action `whenLeftM` printError
     printError err   = error $ "Execution failed: " <> err

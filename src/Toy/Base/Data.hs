@@ -2,18 +2,17 @@
 
 module Toy.Base.Data where
 
-import           Control.Lens               (both)
-import           Control.Monad.Trans.Either (EitherT (..))
-import           Data.Bits                  (Bits (..), FiniteBits)
-import           Data.Conduit               (ConduitM)
-import           Data.Int                   (Int32)
-import           Data.String                (IsString (..))
-import           Prelude                    (Read (readsPrec))
+import           Control.Lens  (both)
+import           Data.Bits     (Bits (..), FiniteBits)
+import           Data.Conduit  (ConduitM)
+import           Data.Int      (Int32)
+import           Data.String   (IsString (..))
+import           Prelude       (Read (readsPrec))
 import qualified Prelude
 import           Universum
 
-import qualified Toy.Constants              as C
-import           Toy.Util.Bits              (clearPHBit, setPHBit)
+import qualified Toy.Constants as C
+import           Toy.Util.Bits (clearPHBit, setPHBit)
 
 -- | Variable name
 newtype Var = Var Text
@@ -65,4 +64,4 @@ type BinOp = Text
 type ExecInOut = ConduitM Value Value
 
 -- | Monad where execution happens
-type Exec m = ExecInOut $ EitherT Text m
+type Exec m = ExecInOut $ ExceptT Text m

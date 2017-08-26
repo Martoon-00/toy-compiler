@@ -82,7 +82,7 @@ data StmtFunCoord = StmtFunCoord
 data ExecInterrupt
     = Error Text           -- ^ Execution exception
     | Returned ExpRes      -- ^ Function returns
-    | Jumped StmtFunCoord  -- ^ Jump outside of function
+    | Jumped StmtFunCoord  -- ^ Jumped outside of function
     deriving (Show)
 makePrisms ''ExecInterrupt
 

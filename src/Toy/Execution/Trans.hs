@@ -20,7 +20,6 @@ import qualified Control.Category           as Cat
 import           Control.Monad              ((>=>))
 import           Control.Monad.Morph        (hoist)
 import           Control.Monad.Trans        (lift)
-import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Writer       (Writer, tell)
 import           Data.Functor               (($>))
 import           Data.Functor.Contravariant (Contravariant (..))
@@ -40,7 +39,7 @@ import qualified Toy.X86                    as X86
 
 data TranslateWay src dist = TranslateWay
     { showTranslateWay :: Text
-    , translatingIn    :: src -> EitherT Text (Writer [Meta]) dist
+    , translatingIn    :: src -> ExceptT Text (Writer [Meta]) dist
     }
 
 instance Buildable (TranslateWay a b) where
@@ -82,7 +81,7 @@ printMetaSM = TranslateWay "Log" $ \insts -> do
 instance TranslateToSM L.Program where
     translateLang = TranslateWay "Lang to SM" $ \orig -> do
         tell [Meta "Lang" $ F.sformat F.shown orig]
-        prog <- hoist lift $ EitherT . return $ L.toIntermediate orig
+        prog <- hoist lift $ ExceptT . return $ L.toIntermediate orig
         translatingIn printMetaSM prog
 
 instance TranslateToSM L.Stmt where
@@ -102,7 +101,7 @@ compileX86 :: FilePath -> FilePath -> TranslateWay SM.Insts BinaryFile
 compileX86 runtimePath outPath = TranslateWay "SM to binary" $ \insts -> do
     let prog = X86.compile insts
     tell [Meta "Asm" $ F.sformat F.build (X86.Program prog)]
-    EitherT . return $ mkBinaryUnsafe X86.produceBinary runtimePath outPath prog
+    ExceptT . return $ mkBinaryUnsafe X86.produceBinary runtimePath outPath prog
 
 defCompileX86 :: TranslateWay SM.Insts BinaryFile
 defCompileX86 = compileX86 "./runtime/" "./tmp/prog"

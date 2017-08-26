@@ -14,25 +14,25 @@ module Test.Execution
     , describeExecWays
     ) where
 
-import           Control.Lens               ((^?), _Right)
-import           Control.Monad              (forM_)
-import           Control.Monad.Trans.Either (EitherT (..))
-import           Control.Monad.Writer       (runWriter)
-import           Control.Spoon              (teaspoon)
-import           Formatting                 (formatToString, stext, (%))
-import qualified Formatting                 as F
-import           GHC.Exts                   (IsList (..))
-import           Prelude                    hiding (show)
-import           Test.Hspec.Core.Spec       (SpecWith, describe)
-import           Test.QuickCheck            (Arbitrary, Property, counterexample,
-                                             ioProperty, once, property, within, (===))
-import           Test.QuickCheck.Property   (failed, reason)
-import           Universum                  (Text, show, toString, (<>))
+import           Control.Lens             ((^?), _Right)
+import           Control.Monad            (forM_)
+import           Control.Monad.Writer     (runWriter)
+import           Control.Spoon            (teaspoon)
+import           Formatting               (formatToString, stext, (%))
+import qualified Formatting               as F
+import           GHC.Exts                 (IsList (..))
+import           Prelude                  hiding (show)
+import           Test.Hspec.Core.Spec     (SpecWith, describe)
+import           Test.QuickCheck          (Arbitrary, Property, counterexample,
+                                           ioProperty, once, property, within, (===))
+import           Test.QuickCheck.Property (failed, reason)
+import           Universum                (ExceptT (..), Text, runExceptT, show, toString,
+                                           (<>))
 
-import           Test.Util                  (Extract (..))
-import           Toy.Base                   (Value)
-import           Toy.Execution              (ExecWay (..), Executable (..), In, InOut,
-                                             Meta, Out, translatingIn, withEmptyInput)
+import           Test.Util                (Extract (..))
+import           Toy.Base                 (Value)
+import           Toy.Execution            (ExecWay (..), Executable (..), In, InOut, Meta,
+                                           Out, translatingIn, withEmptyInput)
 
 data TestRes
     = TestRes Out  -- execution produced given output
@@ -58,7 +58,7 @@ withTimeout = within 10000000
 infix 5 >-->
 (>-->) :: Executable e => In -> TestRes -> e -> Property
 (input >--> res) prog = withTimeout . ioProperty $ do
-    outcome <- runEitherT $ exec prog input
+    outcome <- runExceptT $ exec prog input
     return $ outcome ^? _Right === (withEmptyInput <$> expected res)
   where
     expected (TestRes out) = Just out
@@ -69,7 +69,7 @@ infix 5 >-*->
 (input >-*-> res) prog way =
     once $ propTranslating way prog $ \executable ->
         withTimeout . ioProperty $ do
-            outcome <- runEitherT $ exec executable input
+            outcome <- runExceptT $ exec executable input
             return $ outcome `assess` (withEmptyInput <$> expected res)
   where
     expected (TestRes out) = Just out
@@ -79,7 +79,7 @@ works :: l -> ExecWay l -> Property
 works prog way =
     once $ propTranslating way prog $ \executable ->
         withTimeout . ioProperty $ do
-            outcome <- runEitherT $ exec executable [0..]
+            outcome <- runExceptT $ exec executable [0..]
             return $ case outcome of
                 Left err -> counterexample (toString err) False
                 Right _  -> property True
@@ -88,11 +88,11 @@ transFails :: l -> ExecWay l -> Property
 transFails = flip propTranslationFails
 
 class Equivalence f where
-    equivalent :: f -> ([Value] -> EitherT Text IO Value) -> [Value] -> Property
+    equivalent :: f -> ([Value] -> ExceptT Text IO Value) -> [Value] -> Property
 
 instance Equivalence Value where
     equivalent r f0 args = withTimeout . ioProperty $ do
-        result <- runEitherT $ f0 (reverse args)
+        result <- runExceptT $ f0 (reverse args)
         let expected = teaspoon r
         return $ result `assess` expected
 
@@ -139,7 +139,7 @@ propTranslating
     -> (forall e . Executable e => e -> Property)
     -> Property
 propTranslating (Ex way) prog testExec =
-    let (eExec, metas) = runWriter . runEitherT $ translatingIn way prog
+    let (eExec, metas) = runWriter . runExceptT $ translatingIn way prog
     in  metaCounterexample metas $
         case eExec of
             Left err -> property failed
@@ -148,7 +148,7 @@ propTranslating (Ex way) prog testExec =
 
 propTranslationFails :: ExecWay l -> l -> Property
 propTranslationFails (Ex way) prog =
-    let (eExec, metas) = runWriter . runEitherT $ translatingIn way prog
+    let (eExec, metas) = runWriter . runExceptT $ translatingIn way prog
     in  metaCounterexample metas $
         case eExec of
             Left _  -> property True
