@@ -35,14 +35,17 @@ type ExecProcess m =
     ExceptT ExecInterrupt m
 
 execute :: MonadIO m => Program -> Exec m ()
-execute (balanceProgram -> prog@Program{..}) =
+execute (balanceProgram -> prog@Program{..}) = do
+    env <- either throwError pure mkEnv
     hoist simplifyErr $
-    evalStateC def $
-    hoist (`runReaderT` env) $
-    hoist getNoGcEnv $
-    launch
+        evalStateC def $
+        hoist (`runReaderT` env) $
+        hoist getNoGcEnv $
+        launch
   where
-    env = ExecEnv getProgram (buildULabelsMap prog) def
+    mkEnv = do
+        ulm <- buildULabelsMap prog
+        return $ ExecEnv getProgram ulm def
 
     launch = do
         mainStmt <- getMainStmt

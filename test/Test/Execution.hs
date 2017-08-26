@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE RankNTypes           #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -8,7 +9,10 @@ module Test.Execution
     , (>-*->)
     , (~~)
     , (~*~)
+
+    , WayRunner (..)
     , works
+    , runFails
     , transFails
 
     , describeExecWays
@@ -22,12 +26,13 @@ import           Formatting               (formatToString, stext, (%))
 import qualified Formatting               as F
 import           GHC.Exts                 (IsList (..))
 import           Prelude                  hiding (show)
+import qualified Prelude
 import           Test.Hspec.Core.Spec     (SpecWith, describe)
 import           Test.QuickCheck          (Arbitrary, Property, counterexample,
                                            ioProperty, once, property, within, (===))
 import           Test.QuickCheck.Property (failed, reason)
-import           Universum                (ExceptT (..), Text, runExceptT, show, toString,
-                                           (<>))
+import           Universum                (ExceptT (..), Text, isLeft, runExceptT, show,
+                                           toString, void, (<>))
 
 import           Test.Util                (Extract (..))
 import           Toy.Base                 (Value)
@@ -75,14 +80,28 @@ infix 5 >-*->
     expected (TestRes out) = Just out
     expected X             = Nothing
 
-works :: l -> ExecWay l -> Property
-works prog way =
+data WayRunner l = WayRunner
+    { runWayRunner :: l -> ExecWay l -> Property
+    , wrDesc       :: Text
+    }
+
+instance Show (WayRunner l) where
+    show = toString . wrDesc
+
+invoke :: (Either Text () -> Property) -> l -> ExecWay l -> Property
+invoke processRes prog way =
     once $ propTranslating way prog $ \executable ->
         withTimeout . ioProperty $ do
             outcome <- runExceptT $ exec executable [0..]
-            return $ case outcome of
-                Left err -> counterexample (toString err) False
-                Right _  -> property True
+            return $ processRes (void outcome)
+
+works :: l -> ExecWay l -> Property
+works = invoke $ \case
+    Left err -> counterexample (toString err) False
+    Right _  -> property True
+
+runFails :: l -> ExecWay l -> Property
+runFails = invoke $ property . isLeft
 
 transFails :: l -> ExecWay l -> Property
 transFails = flip propTranslationFails
@@ -130,7 +149,7 @@ infix 3 ~*~
 metaCounterexample :: [Meta] -> Property -> Property
 metaCounterexample = flip . foldr $ counterexample . F.formatToString F.build
 
-describeExecWays :: [ExecWay l] -> (ExecWay l -> SpecWith a) -> SpecWith a
+describeExecWays :: Show way => [way] -> (way -> SpecWith a) -> SpecWith a
 describeExecWays ways specs = forM_ ways $ describe <$> show <*> specs
 
 propTranslating

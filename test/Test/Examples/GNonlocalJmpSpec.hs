@@ -12,7 +12,8 @@ import           Test.QuickCheck  (Property)
 import           Universum        hiding ((.))
 
 import           Test.Arbitrary   ()
-import           Test.Execution   (TestRes (X), describeExecWays, transFails, (>-*->))
+import           Test.Execution   (TestRes (X), WayRunner (..), describeExecWays,
+                                   runFails, transFails, (>-*->))
 import           Toy.Execution    (ExecWay (..), defCompileX86, translateLang)
 import           Toy.Exp
 import qualified Toy.Lang         as L
@@ -21,12 +22,12 @@ import qualified Toy.Lang         as L
 spec :: Spec
 spec = do
     let ways =
-            [ Ex id
-            , Ex translateLang
-            , Ex $ defCompileX86 . translateLang
+            [ (Ex id, WayRunner runFails "execution should fail")
+            , (Ex translateLang, WayRunner transFails "tranlation should fail")
+            , (Ex $ defCompileX86 . translateLang, WayRunner transFails "tranlation should fail")
             ]
     describe "nonlocal jumps" $ do
-        describeExecWays ways $ \way -> do
+        describeExecWays ways $ \(way, failCheck) -> do
             it "local jump forward" $
                 localForwardTest way
             it "local jump backward" $
@@ -40,11 +41,11 @@ spec = do
 
             describe "errorneous scenarios" $ do
                 it "jump to non-label" $
-                  nonlabelTest way
+                  nonlabelTest failCheck way
                 it "duplicated local label" $
-                  duplicatedLocalLabelTest way
+                  duplicatedLocalLabelTest failCheck way
                 it "duplicated nonlocal label" $
-                  duplicatedNonlocalLabelTest way
+                  duplicatedNonlocalLabelTest failCheck way
                 it "jump to unavailable label" $
                   unavailableLabelTest way
 
@@ -128,8 +129,8 @@ nonlocalRecTest = sample & [] >-*-> [13, 8, 3, 2000]
             , L.write 2000
             ]
 
-nonlabelTest :: ExecWay L.Program -> Property
-nonlabelTest = transFails sample
+nonlabelTest :: WayRunner L.Program -> ExecWay L.Program -> Property
+nonlabelTest failCheck = runWayRunner failCheck sample
   where
     fun = L.toFunDecls "lol" [] $ mconcat
         [ L.goto "k"
@@ -138,13 +139,13 @@ nonlabelTest = transFails sample
     sample =
         L.mkProgram fun $ L.funCall "lol" []
 
-duplicatedLocalLabelTest :: ExecWay L.Program -> Property
-duplicatedLocalLabelTest = transFails sample
+duplicatedLocalLabelTest :: WayRunner L.Program -> ExecWay L.Program -> Property
+duplicatedLocalLabelTest failCheck = runWayRunner failCheck sample
   where
     sample = L.toProgram $ L.Label "l" <> L.Label "l"
 
-duplicatedNonlocalLabelTest :: ExecWay L.Program -> Property
-duplicatedNonlocalLabelTest = transFails sample
+duplicatedNonlocalLabelTest :: WayRunner L.Program -> ExecWay L.Program -> Property
+duplicatedNonlocalLabelTest failCheck = runWayRunner failCheck sample
   where
     fun = L.toFunDecls "lol" [] $ L.Label "l"
     sample =

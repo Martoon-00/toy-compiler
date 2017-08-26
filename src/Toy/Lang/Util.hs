@@ -10,14 +10,15 @@ import qualified Data.Set      as S
 import           Toy.Exp       (UserLabelId)
 import           Toy.Lang.Data (Branch (..), Program (..), Stmt (..), StmtCoord,
                                 StmtFunCoord (..), ULabelCoords)
-import           Toy.Util      ((<?>))
+import           Toy.Util      (foldMapNoDups, (<?>))
 
-buildULabelsMap :: Program -> ULabelCoords
-buildULabelsMap Program{..} =
-    mconcat $ M.toList getProgram <&> \(funName, (_, stmt)) ->
-        fmap (StmtFunCoord funName) $ findStmtLabels stmt
+buildULabelsMap :: Program -> Either Text ULabelCoords
+buildULabelsMap Program{..} = do
+    let ulmPerFun = M.toList getProgram <&> \(funName, (_, stmt)) ->
+            StmtFunCoord funName <<$>> findStmtLabels stmt
+    toEither $ foldMapNoDups one $ mconcat ulmPerFun
   where
-    findStmtLabels :: Stmt -> M.Map UserLabelId StmtCoord
+    findStmtLabels :: Stmt -> [(UserLabelId, StmtCoord)]
     findStmtLabels = \case
         If _ s1 s2    -> branch s1 s2
         Seq s1 s2     -> branch s1 s2
@@ -30,8 +31,12 @@ buildULabelsMap Program{..} =
         Skip          -> mempty
         Goto _        -> mempty
 
-    branch s1 s2 = fmap (LeftPath :) (findStmtLabels s1)
-                <> fmap (RightPath :) (findStmtLabels s2)
+    branch s1 s2 = do
+        let l = findStmtLabels s1
+        let r = findStmtLabels s2
+        ((LeftPath :) <<$>> l) <> ((RightPath :) <<$>> r)
+
+    toEither = maybe (Left "Duplicated user labels!") Right
 
 gatherULabels :: Stmt -> Either Text (S.Set UserLabelId)
 gatherULabels = \case
