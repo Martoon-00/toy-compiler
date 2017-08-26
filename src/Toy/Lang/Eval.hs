@@ -7,7 +7,7 @@ module Toy.Lang.Eval
 
 import           Control.Lens              (at, (.=), (<<.=))
 import           Control.Monad             (forM)
-import           Control.Monad.Error.Class (throwError)
+import           Control.Monad.Error.Class (MonadError (..))
 import           Data.Conduit              (await, yield)
 import qualified Data.Map                  as M
 import           Formatting                (build, sformat, shown, (%))
@@ -97,6 +97,11 @@ callDefinedFun executor name args = do
         throwError "Invalid number of arguments passed to function"
     args' <- forM args $ eval executor
     curVars <- identity <<.= M.fromList (zip argNames args')
-    withEnv (executor body) <* (identity .= curVars)
+    withEnv (executor body) `finallyE` (identity .= curVars)
   where
     withEnv = local $ evCurFun .~ name
+    finallyE :: MonadError e m => m a -> m b -> m a
+    finallyE a b = do
+        r <- (Right <$> a) `catchError` (return . Left)
+        _ <- b
+        either throwError pure r

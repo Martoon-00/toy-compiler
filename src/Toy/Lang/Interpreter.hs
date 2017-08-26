@@ -46,10 +46,7 @@ execute (balanceProgram -> prog@Program{..}) =
 
     launch = do
         mainStmt <- getMainStmt
-        let action c = executeDo c mainStmt
-            handler (Jumped (StmtFunCoord MainFunName c)) = action (Just c)
-            handler e                                     = throwError e
-        action Nothing `catchError` handler
+        catchingJumps $ \mcoord -> executeDo mcoord mainStmt
 
     getMainStmt = note "No entry point found" $
                   getProgram ^? ix MainFunName . _2
@@ -57,7 +54,7 @@ execute (balanceProgram -> prog@Program{..}) =
     simplifyErr = withExceptT $ \case
         Error e -> e
         Returned _ -> "Return at global scope"
-        Jumped _ -> "Jumped outside of main"
+        Jumped c -> "Jumped outside of main " <> show c
 
 -- | Execute given statement.
 -- If coordinates are specified, all statements till referenced point are omitted.
@@ -114,15 +111,28 @@ executeDo mcoord = \case
             Nothing -> throwError . fromString $ "No such label: " <> show ul'
             Just c  -> throwError (Jumped c)
   where
-    eval = E.eval (execFun Nothing)
+    eval = E.eval execFun
 
-execFun :: MonadIO m => Maybe StmtCoord -> Stmt -> ExecProcess m ExpRes
-execFun mcoord stmt = (NotInitR <$ executeDo mcoord stmt) `catchError` handler
+execFun :: MonadIO m => Stmt -> ExecProcess m ExpRes
+execFun stmt =
+    flip catchError handler $
+    catchingJumps $ \mcoord ->
+    NotInitR <$ executeDo mcoord stmt
   where
     handler e@(Error _)  = throwError e
     handler (Returned v) = return v
+    handler e@(Jumped _) = throwError e  -- to be processed by 'catchingJumps'
+
+catchingJumps
+    :: MonadIO m
+    => (Maybe StmtCoord -> ExecProcess m a) -> ExecProcess m a
+catchingJumps action = do
+    action Nothing `catchError` handler
+  where
     handler e@(Jumped c) = do
         curFun <- view evCurFun
         if curFun == sfcFun c
-            then execFun (Just $ sfcCoord c) stmt
+            then action (Just $ sfcCoord c) `catchError` handler
             else throwError e
+    handler e = throwError e
+

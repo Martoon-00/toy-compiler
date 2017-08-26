@@ -4,7 +4,7 @@ module Test.Examples.GNonlocalJmpSpec
     ( spec
     ) where
 
-import           Control.Category ((.))
+import           Control.Category (id, (.))
 import           Control.Lens     ((&))
 import           Prelude          hiding (id, (.))
 import           Test.Hspec       (Spec, describe, it)
@@ -91,7 +91,7 @@ nonlocalForwardTest = sample & [] >-*-> [1, 4]
             ]
 
 nonlocalBackwardTest :: ExecWay L.Program -> Property
-nonlocalBackwardTest = sample & [] >-*-> [0, 1, 0, 1, 0, 3]
+nonlocalBackwardTest = sample & [] >-*-> [100, 1, 101, 1, 102, 3]
   where
     fun = L.toFunDecls "lol" [] $ mconcat
         [ L.write 1
@@ -102,7 +102,7 @@ nonlocalBackwardTest = sample & [] >-*-> [0, 1, 0, 1, 0, 3]
         L.mkProgram fun $ mconcat
             [ "i" L.:= 0
             , L.Label "l"
-            , L.write 0
+            , L.write ("i" + 100)
             , "i" L.:= "i" + 1
             , L.If ("i" <: 3)
                   (L.funCall "lol" [])
