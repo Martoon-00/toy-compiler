@@ -1,6 +1,6 @@
 TESTS=local-backward-main local-backward local-forward-main local-forward nonlocal-backward-to-main nonlocal-backward nonlocal-forward-to-main nonlocal-forward long-jump recursion
 
-EXE_DIR=../../../../
+EXE_DIR=../../../
 
 .PHONY: check $(TESTS)
 

@@ -29,7 +29,7 @@ perfomance-tests: build
 	$(CHECK) $(TF)/performance
 
 jump-tests: build
-	$(CHECK) ./test/cases/control/jumps
+	$(CHECK) ./test/cases/jumps
 
 control-tests: core-tests expressions-tests deep-expressions-tests jump-tests
 
