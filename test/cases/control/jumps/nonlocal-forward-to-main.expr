@@ -1,0 +1,10 @@
+def f() begin
+    write(1);
+    goto :l;
+    write(2);
+end
+
+f();
+write(3);
+:l;
+write(4);

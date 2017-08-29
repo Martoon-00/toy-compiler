@@ -2,8 +2,8 @@ all: build-in-tests control-tests
 
 TF=compiler-tests
 RUNTIME=./runtime
-CHECK=make -j 4 -C $(TF)
-CLEAN=make clean -C $(TF)
+CHECK=make -j 4 -C
+CLEAN=make clean -C
 TEST_RUNS=100
 
 # up to functions
@@ -17,27 +17,31 @@ build-in-tests: build
 	stack --no-terminal test -j 4 --test-arguments --qc-max-success=$(TEST_RUNS)
 
 core-tests: build
-	$(CHECK)/core TESTS="$(CORE_TESTS)"
+	$(CHECK) $(TF)/core TESTS="$(CORE_TESTS)"
 
 expressions-tests: build
-	$(CHECK)/expressions
+	$(CHECK) $(TF)/expressions
 
 deep-expressions-tests: build
-	$(CHECK)/deep-expressions
+	$(CHECK) $(TF)/deep-expressions
 
 perfomance-tests: build
-	$(CHECK)/performance
+	$(CHECK) $(TF)/performance
 
-control-tests: core-tests expressions-tests deep-expressions-tests
+jump-tests: build
+	$(CHECK) ./test/cases/control/jumps
+
+control-tests: core-tests expressions-tests deep-expressions-tests jump-tests
 
 # this is separated because travis can't handle amount of 'expressions' tests
-travis-tests: core-tests deep-expressions-tests
+travis-tests: core-tests deep-expressions-tests jump-tests
 
 clean:
 	make clean -C $(RUNTIME)
-	$(CLEAN)/core
-	$(CLEAN)/expressions
-	$(CLEAN)/deep-expressions
-	$(CLEAN)/performance
+	$(CLEAN) $(TF)/core
+	$(CLEAN) $(TF)/expressions
+	$(CLEAN) $(TF)/deep-expressions
+	$(CLEAN) $(TF)/performance
+	$(CLEAN) ./test/cases/control/jumps
 
 .PHONY: build, clean

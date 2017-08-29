@@ -1,0 +1,14 @@
+def f() begin
+    write(1);
+    goto :l;
+    write(2);
+end
+
+def g() begin
+    f();
+    write(3);
+    :l;
+    write(4);
+end
+
+g();

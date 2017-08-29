@@ -1,0 +1,14 @@
+def f() begin
+    write(1);
+    goto :l;
+    write(2);
+end
+
+i := 0;
+:l;
+write(i + 100);
+i := i + 1;
+if i < 3
+    then f();
+fi;
+write(3);

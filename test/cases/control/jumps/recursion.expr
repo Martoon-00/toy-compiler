@@ -1,0 +1,12 @@
+def f(a) begin
+    if a < 0
+    then goto :l;
+    fi;
+    write (a);
+    f (a - 5);
+end
+
+f(13);
+write (1000);
+:l ;
+write (2000)

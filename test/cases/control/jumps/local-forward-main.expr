@@ -1,0 +1,4 @@
+goto :l;
+write(1);
+:l ;
+write(2);

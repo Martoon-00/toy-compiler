@@ -1,0 +1,10 @@
+def f () begin
+    i := 0;
+    :l ;
+    if i < 3
+    then i := i + 1; goto :l;
+    fi;
+    write i;
+end
+
+f();

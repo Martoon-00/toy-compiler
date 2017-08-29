@@ -1,0 +1,16 @@
+fun f() begin
+    write 1;
+    goto :l;
+    write -1;
+end
+
+fun g() begin
+    write 2;
+    goto f();
+    write -2;
+end
+
+g();
+write -5;
+:l;
+write 5;
