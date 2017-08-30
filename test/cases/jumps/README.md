@@ -29,13 +29,57 @@ statement in the function, function quites).
 Environment is preserved during jump, i.e. values of local variables and on
 stack (if present) remain unchanged.
 
+For instance, in program
+
+```
+write(1);
+goto :l;
+write(2);
+:l;
+write(3);
+```
+
+`write(2)` statement is no executed, because after executing `goto` statement
+further execution continues from `write(3)`.
+
 * If there is no specified label defined in current function, then function
 execution safely aborts as if it returned a value, and given __Goto__ statement is
-performed recursively immediatelly after function call ends.
+performed recursively immediately after function call ends.
+
+In program
+
+```
+fun f() begin
+    write(1);
+    goto :l;
+    write(2);
+end
+
+f();
+write(3);
+:l;
+write(4);
+```
+
+when execution reaches `goto` statement, function `f` call finishes, and further
+execution continues from `write(4)` statement, thus skipping `write(2)` and
+`write(3)`.
 
 * If there is no specified label defined in any function of the current call
 stack up to the _main_, then whole program execution finishes exceptionally.
 
+```
+fun f() begin
+    :l;
+end
+
+goto :l;
+f();
+```
+
+In this program, label `:l` doesn't occur to be in current function scope
+regardless of how many times we fall out of current function, so program
+terminates.
 
 ## Tests
 
