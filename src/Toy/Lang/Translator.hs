@@ -113,7 +113,7 @@ pushExp (BinE op a b) = do
     pushExp b
     tell [SM.Bin op]
 pushExp (FunE n args) = callFun n args
-pushExp (ArrayUninitE k) = tell [SM.ArrayMake k]
+pushExp (ArrayUninitE k) = pushExp k >> tell [SM.ArrayMake]
 pushExp (ArrayAccessE a i) = do
     pushExp a
     pushExp i

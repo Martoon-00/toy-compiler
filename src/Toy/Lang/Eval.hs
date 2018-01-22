@@ -32,7 +32,9 @@ eval executor = \case
     UnaryE op v    -> fmap ValueR $ arithspoon =<< (unaryOp op <$> evalRecV v)
     BinE op a b    -> fmap ValueR $ arithspoon =<< (binOp op <$> evalRecV a <*> evalRecV b)
     FunE n args    -> callFun executor n args
-    ArrayUninitE k -> arrayMakeU k
+    ArrayUninitE k -> do
+        kr <- evalRec k
+        arrayMakeU kr
     ArrayAccessE a i -> do
         ar <- evalRec a
         ir <- evalRec i

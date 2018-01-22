@@ -36,6 +36,7 @@ library
                        Toy.Lang.Data
                        Toy.Lang.Eval
                        Toy.Lang.Interpreter
+                       Toy.Lang.Lib
                        Toy.Lang.Parser
                        Toy.Lang.Translator
 
@@ -128,6 +129,7 @@ test-suite tests
                        Test.Examples.ExpSpec
                        Test.Examples.FunSpec
                        Test.Examples.IArraySpec
+                       Test.Examples.JStringSpec
                        Test.Examples.KParserSpec
                        Test.Examples.YComplexSpec
                        Test.Examples.ZControlSpec

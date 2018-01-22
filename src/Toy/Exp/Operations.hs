@@ -102,8 +102,10 @@ binOp op   = error $ "Unsopported operation: " <> show op
 
 arrayMakeU
     :: MonadArrays s m
-    => Int -> m ExpRes
-arrayMakeU k = initArray $ V.replicate k NotInitR
+    => ExpRes -> m ExpRes
+arrayMakeU k = do
+    k' <- pure k `valueOnly` "arrayMake: length should be numeric"
+    initArray $ V.replicate (fromIntegral k') NotInitR
 
 arrayMake
     :: MonadArrays s m

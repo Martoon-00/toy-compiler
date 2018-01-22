@@ -30,7 +30,7 @@ import qualified Prelude
 import           System.IO.Unsafe           (unsafeInterleaveIO, unsafePerformIO)
 import           Universum
 
-import           Toy.Execution.Data         (Meta, Meta (..))
+import           Toy.Execution.Data         (Meta (..))
 import           Toy.Execution.Exec         (BinaryFile (..), Executable (..))
 import qualified Toy.Lang                   as L
 import qualified Toy.SM                     as SM
@@ -74,7 +74,8 @@ printMetaSM = TranslateWay "Log" $ \insts -> do
 instance TranslateToSM L.Program where
     translateLang = TranslateWay "Lang to SM" $ \orig -> do
         tell [Meta "Lang" $ F.sformat F.shown orig]
-        prog <- hoist lift $ EitherT . return $ L.toIntermediate orig
+        let linkedOrig = L.linkLib L.stdLib orig
+        prog <- hoist lift $ EitherT . return $ L.toIntermediate linkedOrig
         translatingIn printMetaSM prog
 
 instance TranslateToSM L.Stmt where

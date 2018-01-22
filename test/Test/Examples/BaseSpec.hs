@@ -6,12 +6,11 @@ module Test.Examples.BaseSpec
     ) where
 
 import           Test.Hspec      (Spec, describe, it)
-import           Test.QuickCheck (Large (..), Property, conjoin, counterexample, property)
+import           Test.QuickCheck (Large (..), Property, conjoin, property)
 import           Universum
 
 import           Test.Arbitrary  ()
 import           Test.Execution  (TestRes (..), describeExecWays, (>-*->), (>-->), (~*~))
-import           Test.Walker     (FullTestData (..), describeDir)
 import           Toy.Base
 import           Toy.Execution   (ExecWay (..), defCompileX86, transShow, translateLang,
                                   (<~~>))
@@ -53,9 +52,6 @@ spec = do
 
             it "while simple" $
                 whileTest way
-
-      describeDir "./test/cases/exec"
-          fileTest
 
 
 noActions :: ExecWay Stmt -> Property
@@ -101,9 +97,3 @@ errorsTest = conjoin $
     , L.readS "x"
     , L.writeS "x"
     ] <&> [] >--> X
-
-fileTest :: Either Text FullTestData -> Property
-fileTest (Left err) =
-    counterexample ("Parse failed: " ++ toString err) False
-fileTest (Right FullTestData{..}) =
-    ftdProgram & ftdInput >--> TestRes ftdOutput

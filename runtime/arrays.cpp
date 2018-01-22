@@ -153,9 +153,15 @@ namespace Arrays {
         return to_31_num(len);
     }
 
-    int* arrmake(int _size, int def_val) {
+    int* arrmakeu(int _size) {
         int size = from_31_num(_size);
         int* res = allocate(size);
+        return res;
+    }
+
+    int* arrmake(int _size, int def_val) {
+        int size = from_31_num(_size);
+        int* res = arrmakeu(_size);
         std::for_each(res, res + size, [&](int &it){
             it = def_val;
             ref_counter_increment((int*) def_val);

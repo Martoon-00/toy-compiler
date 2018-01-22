@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Toy.Lang.Parser
@@ -6,21 +7,23 @@ module Toy.Lang.Parser
 
 import           Control.Applicative   (Alternative (..), (*>), (<*))
 import           Control.Monad         (join, void)
+import           Control.Monad.Writer  (MonadWriter, Writer, listen, runWriter, tell)
 import           Data.Char             (isAlphaNum)
 import           Data.Functor          (($>), (<$))
 import           Data.Maybe            (fromMaybe)
 import           Data.Text             (Text)
 import           Text.Megaparsec       (char, choice, eof, label, letterChar,
                                         notFollowedBy, satisfy, sepBy, space, try, (<?>))
+import           Text.Megaparsec.Char  (anyChar, noneOf)
 import           Text.Megaparsec.Expr  (Operator (..), makeExprParser)
 import           Text.Megaparsec.Lexer (symbol, symbol')
 import           Universum
 
 import           Toy.Base              (FunSign (..), Var (..))
-import           Toy.Exp               (Exp (..))
-import           Toy.Lang.Data         (FunDecl, Program, Program (..), Stmt (..), arrayS,
-                                        forS, funCallS, mkFunDecls, repeatS, whileS,
-                                        writeS)
+import           Toy.Exp               (Exp (..), charE)
+import           Toy.Lang.Data         (FunDecl, Program (..), Stmt (..), forS, funCallS,
+                                        mkFunDecls, repeatS, storeArrayS, storeStringS,
+                                        whileS, writeS)
 import           Toy.Util              (Parsable (..), Parser)
 
 
@@ -55,25 +58,70 @@ paren p = sp $ char '(' *> p <* char ')'
 brackets :: Parser a -> Parser a
 brackets p = sp $ char '[' *> p <* char ']'
 
+braces :: Parser a -> Parser a
+braces p = sp $ char '{' *> p <* char '}'
+
+newtype Assigns a = Assigns (Writer [Stmt] a)
+    deriving (Functor, Applicative, Monad, MonadWriter [Stmt])
+
+noAssigns :: a -> Assigns a
+noAssigns = pure
+
+-- | If making and expression is actually complex statement,
+-- this function be used to deal with it.
+addAssign
+    :: (Var -> Stmt)  -- ^ Accepting some unique variable, fill it with required value
+    -> Assigns Exp    -- ^ Reference to just filled variable
+addAssign f = do
+    ((), assigns) <- listen pass
+    let used = length assigns
+    let var = fromString $ "_" <> show used
+    tell [f var]
+    return (VarE var)
+
+rememberAssign :: Assigns Stmt -> Assigns ()
+rememberAssign = (>>= tell . one)
+
+buildAssigns_ :: Assigns () -> Stmt
+buildAssigns_ (Assigns asg) =
+    let ((), assigns) = runWriter asg
+    in  mconcat assigns
+
+buildAssigns :: Assigns Stmt -> Stmt
+buildAssigns (Assigns asg) =
+    let (a, assigns) = runWriter asg
+    in  mconcat assigns <> a
+
 -- | Expression atom
-elemP :: Parser Exp
+elemP :: Parser (Assigns Exp)
 elemP = sp $ label "Expression atom" $
-    arrayAccessP $
+    mArrayAccessP $
     choice
     [ paren expP
-    , ArrayUninitE 0 <$ (char '{' >> space >> char '}')
-    , ValueE <$> mkParser
+    , noAssigns . ValueE <$> choice
+        [ mkParser
+        , keywordP "True" $> 1
+        , keywordP "False" $> 0
+        ]
+    , noAssigns . charE <$> (char '\'' *> anyChar <* char '\'')
+    , do let args = enumerationP expP
+         values <- brackets args <|> braces args
+         return $ do
+             values' <- sequence values
+             addAssign (`storeArrayS` values')
+    , do chars <- char '"' *> many (noneOf ['"']) <* char '"'
+         return $ addAssign (`storeStringS` chars)
     , do var <- varP
-         FunE var <$> funCallArgsP ?> VarE var
+         FunE var <<$>> funCallArgsP ?> noAssigns (VarE var)
     ]
 
-binopLaP' :: Text -> Text -> Operator Parser Exp
-binopLaP' sym op = InfixL $ sp (string sym) $> BinE op
+binopLaP' :: Text -> Text -> Operator Parser (Assigns Exp)
+binopLaP' sym op = InfixL $ sp (string sym) $> liftM2 (BinE op)
 
-binopLaP :: Text -> Operator Parser Exp
+binopLaP :: Text -> Operator Parser (Assigns Exp)
 binopLaP = join binopLaP'
 
-expP :: Parser Exp
+expP :: Parser (Assigns Exp)
 expP = makeExprParser elemP $ reverse
     [ -- priority #2
      [binopLaP "||", binopLaP' "!!" "||"]
@@ -113,67 +161,100 @@ functionP = sp $ do
     keywordP "end"
     return (FunSign name args, body)
 
-funCallArgsP :: Parser [Exp]
+funCallArgsP :: Parser (Assigns [Exp])
 funCallArgsP =
     label "Function call arguments" $
-    sp $ paren (enumerationP expP)
+    sp $ sequence <$> paren (enumerationP expP)
 
-arrayAccessP :: Parser Exp -> Parser Exp
-arrayAccessP arrayP =
+mArrayAccessP :: Parser (Assigns Exp) -> Parser (Assigns Exp)
+mArrayAccessP arrayP =
     label "Array access operator" $
     sp $ do
     a <- arrayP
-    arrayAccessP (ArrayAccessE a <$> brackets expP) ?> a
+    mArrayAccessP ((ArrayAccessE <$> a <*>) <$> brackets expP) ?> a
 
 skipP :: Parser Stmt
 skipP = space $> Skip
 
 stmtP :: Parser Stmt
-stmtP = sp $
-        writeS  <$> (keywordP "Write"  *> expP  )
-    <|> If      <$> (keywordP "If"     *> expP  )
-                <*> (keywordP "then"   *> stmtsP)
-                <*> ifContP
-                <*  keywordP "fi"
-    <|> whileS  <$> (keywordP "While"  *> expP  )
-                <*> (keywordP "do"     *> stmtsP)
-                <*   keywordP "od"
-    <|> repeatS <$> (keywordP "Repeat" *> stmtsP)
-                <*> (keywordP "until"  *> expP  )
-    <|> forS    <$> (keywordP "for"    *> stmtP )
-                <*> (char ','          *> expP  )
-                <*> (char ','          *> stmtP )
-                <*> (keywordP "do"     *> stmtsP)
-                <*   keywordP "od"
-    <|> Return  <$> (keywordP "Return" *> expP)
-    <|> Skip    <$   keywordP "Skip"
-    <|> withName
+stmtP = sp $ choice
+    [ do keywordP "Write"
+         e <- expP
+         return $ buildAssigns (writeS <$> e)
+    , do keywordP "If"
+         cond <- expP
+         keywordP "then"
+         onTrue <- stmtsP
+         onFalse <- ifContP
+         keywordP "fi"
+         return $ buildAssigns $ cond <&>
+             \cond' -> If cond' onTrue onFalse
+    , do keywordP "While"
+         cond <- expP
+         keywordP "do"
+         body <- stmtsP
+         keywordP "od"
+         return $ buildAssigns $ cond <&>
+             \cond' -> whileS cond' body
+    , do keywordP "Repeat"
+         body <- stmtsP
+         keywordP "until"
+         cond <- expP
+         return $ buildAssigns $ cond <&>
+             \cond' -> repeatS body cond'
+    , do keywordP "For"
+         ini <- stmtP
+         _ <- char ','
+         cond <- expP
+         _ <- char ','
+         post <- stmtP
+         keywordP "do"
+         body <- stmtsP
+         keywordP "od"
+         return $ buildAssigns $ cond <&>
+             \cond' -> forS (ini, cond', post) body
+    , do keywordP "Return"
+         value <- expP
+         return $ buildAssigns (Return <$> value)
+    , do keywordP "Skip"
+         return Skip
+    , withName
+    ]
   where
-    ifContP = If <$> (keywordP "elif" *> expP  )
-                 <*> (keywordP "then" *> stmtsP)
-                 <*> ifContP
-          <|> keywordP "else" *> stmtsP
-          <|> skipP
+    ifContP = choice
+        [ do keywordP "elif"
+             cond <- expP
+             keywordP "then"
+             onTrue <- stmtsP
+             onFalse <- ifContP
+             return $ buildAssigns $ cond <&>
+                  \cond' -> If cond' onTrue onFalse
+        , do keywordP "else"
+             stmtsP
+        , skipP
+        ]
     withName = label "Assignment or function" $ do
         var <- varP
         choice
             [ rvalue var
-            , funCallS var <$> funCallArgsP
+            , do args <- funCallArgsP
+                 return $ buildAssigns (funCallS var <$> args)
             ]
     rvalue var = do
-        assign <- sp . choice $
-            [ (var := ) <$ string ":="
-            , do exprs <- unsnoc <$> some (brackets expP)
-                 let (es, e) = fromMaybe (error "'some' returned 0 elems") exprs
+        assign :: (Exp -> Assigns Stmt) <- sp . choice $
+            [ noAssigns . (var := ) <$ string ":="
+            , do exprs <- some (brackets expP)
                  string ":="
-                 return $ ArrayAssign (foldr ArrayAccessE (VarE var) es) e
+                 return $
+                   \new -> do
+                    exprs' <- sequence exprs
+                    let (es, e) = fromMaybe (error "'some' returned 0 elems") (unsnoc exprs')
+                    return $ ArrayAssign (foldr ArrayAccessE (VarE var) es) e new
             ]
-        choice
-            [ assign <$> expP
-            , arrayS assign <$> brackets (enumerationP expP)
-            ]
-
-
+        res :: Assigns () <-
+            do value <- expP
+               return $ rememberAssign $ value >>= assign
+        return $ buildAssigns_ res
 
 stmtsP :: Parser Stmt
 stmtsP = sp $

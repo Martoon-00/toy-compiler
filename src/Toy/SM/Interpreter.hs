@@ -64,7 +64,9 @@ execute insts =
             whenJustM (use $ esLocals . at n) $
                 changeRefCounter (-)
             pop >>= (esLocals . at n ?= )
-        ArrayMake k -> arrayMakeU k >>= push
+        ArrayMake -> do
+            k <- pop
+            arrayMakeU k >>= push
         ArrayAccess -> do
             i <- pop
             a <- pop

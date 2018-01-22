@@ -45,7 +45,7 @@ data Inst
     | LoadNoGc Var
     | Store Var
     | StoreInit Var  -- sets local to 0 without doing gc to old stored value
-    | ArrayMake Int
+    | ArrayMake
     | ArrayAccess
     | ArraySet
     | Label LabelId
