@@ -28,7 +28,8 @@ main = getArgs >>= launch
 
 launch :: [String] -> IO ()
 launch [mode, inputFile] = do
-    prog <- either parseError identity . parseData <$> T.readFile inputFile
+    progBare <- either parseError identity . parseData <$> T.readFile inputFile
+    let prog = L.linkLib L.stdLib progBare
     case mode of
         "-i" -> interact $ L.execute prog
         "-s" -> interact $ SM.execute $ either error identity (L.toIntermediate prog)

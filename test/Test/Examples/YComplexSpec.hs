@@ -41,7 +41,7 @@ spec = do
                 it "gcd" $
                     property $ gcdTest way
 
-      describeDir "./test/cases/exec"
+      describeDir "./test/cases/zexec"
           fileTest
 
 fibTest :: ExecWay Stmt -> Property

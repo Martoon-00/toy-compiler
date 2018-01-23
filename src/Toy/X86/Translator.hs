@@ -101,10 +101,8 @@ step = \case
         resOp <- allocSymStackOp
         tell $ binop op1 op2 op
         tell [Mov op2 eax, Mov eax resOp]
-    SM.ArrayMake k -> do
-        op <- allocSymStackOp
-        tell [Mov (Const $ fromIntegral k) op]
-        mkCall "allocate" 1 False
+    SM.ArrayMake -> do
+        mkCall "arrmakeu" 1 False
     SM.ArrayAccess -> censor ("array access" ?) $ do
         i   <- popSymStackOp
         a   <- popSymStackOp

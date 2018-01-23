@@ -50,7 +50,7 @@ resolveMemRefs Frame{..} = fmap $ traverseOperands %~ \case
     Stack i  -> Mem i
     Backup i -> Mem (stSymSize + varsNum + i)
     Local n  ->
-        let noVar = error $ sformat ("No such variable / argument: "%build) n
+        let noVar = error $ sformat ("No such variable / argument: '"%build%"'") n
             asVar i = Mem (stSymSize + i)
             asArg i = Mem (stSymSize + varsNum + backupSize + 1 + i)
         in  fromMaybe noVar $ asVar <$> M.lookup n fVars

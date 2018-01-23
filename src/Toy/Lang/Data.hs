@@ -11,13 +11,13 @@ import           Control.Monad.Trans       (MonadIO)
 import qualified Data.Map                  as M
 import           Data.Monoid               ((<>))
 import           Data.String               (IsString (..))
-import           Formatting                (sformat, sformat, shown, stext, (%))
+import           Formatting                (sformat, shown, stext, (%))
 import           GHC.Exts                  (IsList (..))
 import           Universum                 hiding (toList)
 
 import           Toy.Base                  (FunSign (..), Var (..))
 import           Toy.Exp                   (Exp (..), ExpRes, LocalVars, MonadRefEnv,
-                                            readE, (==:))
+                                            charE, readE, (==:))
 import           Toy.Util.Error            (mapError)
 
 -- | Statement of a program.
@@ -86,6 +86,9 @@ withStmt stmt =
 dropS :: Exp -> Stmt
 dropS e = "_" := e
 
+ifS :: Exp -> Stmt -> Stmt
+ifS cond onTrue = If cond onTrue Skip
+
 -- | @while@ loop in terms of `Stmt`.
 whileS :: Exp -> Stmt -> Stmt
 whileS cond stmt = If cond (DoWhile stmt cond) Skip
@@ -95,8 +98,12 @@ repeatS :: Stmt -> Exp -> Stmt
 repeatS stmt stop = DoWhile stmt (stop ==: 0)
 
 -- | @repeat@ loop in terms of `Stmt`.
-forS :: Stmt -> Exp -> Stmt -> Stmt -> Stmt
-forS s1 cond sr body = s1 <> whileS cond (body <> sr)
+forS :: (Stmt, Exp, Stmt) -> Stmt -> Stmt
+forS (s1, cond, sr) body = s1 <> whileS cond (body <> sr)
+
+-- | Similar to 'forS', sometimes is more convenient.
+forS' :: Stmt -> Exp -> Stmt -> Stmt -> Stmt
+forS' s1 cond sr body = s1 <> whileS cond (body <> sr)
 
 -- | @read@ to a given variable.
 readS :: Var -> Stmt
@@ -111,15 +118,23 @@ writeS :: Exp -> Stmt
 writeS = funCallS "write" . pure
 
 -- | Array initializer, which imideatelly writes to variable.
-arrayVarS :: Var -> [Exp] -> Stmt
-arrayVarS var exps = mconcat
-    [ var := ArrayUninitE (length exps)
+storeArrayS :: Var -> [Exp] -> Stmt
+storeArrayS var exps = mconcat
+    [ var := ArrayUninitE (fromIntegral $ length exps)
     , uncurry (ArrayAssign $ VarE var) `foldMap` (zip (map ValueE [0..]) exps)
     ]
 
 -- | Array initializer, which allows to get array as exression.
 arrayS :: (Exp -> Stmt) -> [Exp] -> Stmt
-arrayS f exps = mconcat
-    [ arrayVarS "_" exps
-    , f "_"
+arrayS initWith exps = mconcat
+    [ storeArrayS "_arr" exps
+    , initWith "_arr"
     ]
+
+-- | String initializer, similar to 'arrayS'.
+stringS :: (Exp -> Stmt) -> String -> Stmt
+stringS initWith = arrayS initWith . map charE
+
+-- | String initializer, similar to 'arrayVarS'.
+storeStringS :: Var -> String -> Stmt
+storeStringS var = storeArrayS var . map charE

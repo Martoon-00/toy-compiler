@@ -20,7 +20,7 @@ data Exp
     | UnaryE UnaryOp Exp
     | BinE BinOp Exp Exp
     | FunE Var [Exp]
-    | ArrayUninitE Int  -- ^ uninitialized array
+    | ArrayUninitE Exp  -- ^ uninitialized array
     | ArrayAccessE Exp Exp  -- array & index
     deriving (Show)
 
@@ -38,6 +38,10 @@ instance Num Exp where
 -- | @read@ expression.
 readE :: Exp
 readE = FunE "read" []
+
+-- | Create value corresponding to char. We store char as int.
+charE :: Num i => Char -> i
+charE = fromIntegral . fromEnum
 
 -- | Array with some meta info
 data ArrayInnards = ArrayInnards

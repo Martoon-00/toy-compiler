@@ -68,7 +68,10 @@ instance HasPathConstructor Extension where
     extractBase _ = view basename
 
 newtype WalkingError = WalkingError String
-    deriving (Show, Eq)
+    deriving (Eq)
+
+instance Show WalkingError where
+    show (WalkingError s) = s
 
 instance Exception WalkingError
 
